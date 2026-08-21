@@ -30,6 +30,18 @@ async function main() {
     '3: wlan0    inet 192.168.4.1/24 brd 192.168.4.255 scope global wlan0\\       valid_lft forever',
   ].join('\n'));
   ok('subnets parsed, loopback dropped', subnets.length === 2 && !subnets.some((n) => n.iface === 'lo'));
+  // Found by running it on a laptop: the VPN's own /32 was offered as a network to
+  // advertise. Routing the tailnet back into the tailnet is a loop, not a route.
+  const withVpn = D.parseSubnets([
+    '2: eth0    inet 192.168.178.42/24 scope global eth0\\       valid_lft forever',
+    '5: tailscale0    inet 100.114.166.118/32 scope global tailscale0\\       valid_lft forever',
+    '6: wg0    inet 10.9.0.2/32 scope global wg0\\       valid_lft forever',
+  ].join('\n'));
+  ok('the VPN interfaces are not networks of ours', withVpn.length === 1 && withVpn[0].iface === 'eth0');
+  ok('a single-address network is not offered as a route', D.routableSubnets([
+    { iface: 'x', address: '10.0.0.1', prefix: 32, cidr: '10.0.0.1/32' },
+    { iface: 'y', address: '192.168.4.1', prefix: 24, cidr: '192.168.4.0/24' },
+  ]).length === 1);
   ok('network address derived', subnets[0].cidr === '192.168.178.0/24' && subnets[1].cidr === '192.168.4.0/24');
   ok('gateway address kept', subnets[1].address === '192.168.4.1');
 

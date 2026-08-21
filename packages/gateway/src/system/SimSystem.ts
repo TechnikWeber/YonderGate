@@ -23,7 +23,7 @@ import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
-import { mergeDevices, parseIpNeigh, parseSubnets } from './discovery.js';
+import { mergeDevices, parseIpNeigh, parseSubnets, routableSubnets } from './discovery.js';
 
 /**
  * Mock system: pretends to have an LTE modem and Tailscale so the entire setup
@@ -340,7 +340,7 @@ export class SimSystem implements SystemManager {
 
   async subnetRoutes(): Promise<SubnetRouteState> {
     const { subnets } = await this.scanNetwork();
-    return { available: subnets, advertised: [...this.routes], approved: [...this.routes], forwarding: this.routes.length > 0 };
+    return { available: routableSubnets(subnets), advertised: [...this.routes], approved: [...this.routes], forwarding: this.routes.length > 0 };
   }
 
   async setSubnetRoutes(cidrs: string[]): Promise<ActionResult & { state: SubnetRouteState }> {

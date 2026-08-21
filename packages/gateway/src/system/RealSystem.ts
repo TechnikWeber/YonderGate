@@ -63,6 +63,7 @@ import {
   mergeDevices,
   parseIpNeigh,
   parseSubnets,
+  routableSubnets,
   sweepTargets,
   PROBE_PORTS,
   type Device,
@@ -930,7 +931,7 @@ export class RealSystem implements SystemManager {
       sh('sysctl -n net.ipv4.ip_forward'),
     ]);
     return {
-      available: parseSubnets(addrs.out),
+      available: routableSubnets(parseSubnets(addrs.out)),
       advertised: parseAdvertisedRoutes(prefs.out),
       approved: parseApprovedRoutes(status.out),
       forwarding: forward.out.trim() === '1',

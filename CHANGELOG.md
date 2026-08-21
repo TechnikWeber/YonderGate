@@ -2,6 +2,21 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.2.1
+**English**
+- **Fixed while running it for the first time: the VPN was offered as a network to
+  advertise.** A laptop's `tailscale0` carries a `/32`, and it turned up in the list of
+  subnets the gateway could route — advertising the tailnet's own address back into the
+  tailnet is a loop, not a route. `tailscale*`, `wg*` and `zt*` interfaces are skipped
+  now, and a `/32` is never offered as a network.
+
+**Deutsch**
+- **Beim ersten echten Lauf gefunden: das VPN wurde als ankündbares Netz angeboten.**
+  Das `tailscale0` eines Laptops trägt ein `/32`, und es tauchte in der Liste der
+  Subnetze auf, die das Gateway routen könnte — die eigene Tailnet-Adresse zurück ins
+  Tailnet anzukündigen ist eine Schleife, keine Route. `tailscale*`, `wg*` und
+  `zt*`-Interfaces werden jetzt übersprungen, und ein `/32` wird nie als Netz angeboten.
+
 ## v0.2.0
 **English**
 - **The gateway can now see the site.** *Scan* reads the kernel's neighbour table —

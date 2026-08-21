@@ -23,14 +23,21 @@ export interface Subnet {
   prefix: number;
 }
 
-/** `ip -o -f inet addr show` → the networks this box sits on (loopback excluded). */
+/**
+ * Interfaces that are never a network to advertise or sweep: the loopback, and the
+ * VPN itself — advertising the tailnet's own address back into the tailnet is a
+ * routing loop, not a subnet route.
+ */
+const SKIP_IFACES = [/^lo$/, /^tailscale\d*$/, /^wg\d*$/, /^zt/];
+
+/** `ip -o -f inet addr show` → the networks this box sits on. */
 export function parseSubnets(out: string): Subnet[] {
   const subnets: Subnet[] = [];
   for (const line of (out ?? '').split('\n')) {
     const m = line.match(/^\d+:\s+(\S+)\s+inet\s+(\d+\.\d+\.\d+\.\d+)\/(\d+)/);
     if (!m) continue;
     const [, iface, address, prefixRaw] = m;
-    if (iface === 'lo') continue;
+    if (SKIP_IFACES.some((re) => re.test(iface))) continue;
     const prefix = Number(prefixRaw);
     subnets.push({ iface, address, prefix, cidr: `${networkAddress(address, prefix)}/${prefix}` });
   }
@@ -48,6 +55,15 @@ function intToIp(n: number): string {
 export function networkAddress(ip: string, prefix: number): string {
   const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
   return intToIp(ipToInt(ip) & mask);
+}
+
+/**
+ * Networks worth offering as subnet routes. A /32 is a single address — usually a
+ * VPN or a point-to-point link — and advertising it as a route to "a network" is
+ * meaningless, so it is filtered rather than shown as a choice that cannot work.
+ */
+export function routableSubnets(subnets: Subnet[]): Subnet[] {
+  return subnets.filter((n) => n.prefix < 31);
 }
 
 /**
