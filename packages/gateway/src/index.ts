@@ -64,6 +64,14 @@ async function main() {
   // Captive portal for AP-mode onboarding (binds :80; skipped if not permitted).
   if (config.systemKind === 'real') startCaptivePortal(config.port);
 
+  // …and kept in step with the uplink. On a fresh site the box boots with no LTE,
+  // starts the portal, and the stick registers a minute later — without this, every
+  // device on the hotspot would keep landing on the setup page instead of the
+  // internet the gateway is by then perfectly able to share.
+  const captiveTimer = setInterval(() => {
+    void system.syncCaptivePortal().catch(() => undefined);
+  }, 60_000);
+
   if (config.lte.apn) {
     system.lteConnect(config.lte).then((r) => console.log(`[lte] ${r.message}`));
   }
@@ -76,6 +84,7 @@ async function main() {
 
   const shutdown = async () => {
     console.log('\n[gateway] shutting down…');
+    clearInterval(captiveTimer);
     watchdog.stop();
     alerts.stop();
     await history.stop();

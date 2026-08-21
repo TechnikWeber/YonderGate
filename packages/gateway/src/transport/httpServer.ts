@@ -77,6 +77,21 @@ export function startHttpServer(
       res.end();
     });
   });
+  // Without this, a busy port raises an unhandled 'error' event and the gateway dies
+  // with a stack trace — under systemd that is a restart loop with no explanation in
+  // it. The port is the one thing the operator can actually change.
+  server.on('error', (err) => {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === 'EADDRINUSE') {
+      console.error(`[gateway] port ${config.port} is already in use — another gateway is probably still running.`);
+      console.error('[gateway] stop it, or start this one with YGW_PORT=<other port>.');
+    } else if (e.code === 'EACCES') {
+      console.error(`[gateway] not allowed to bind port ${config.port} — ports below 1024 need root.`);
+    } else {
+      console.error(`[gateway] could not listen on ${config.host}:${config.port}: ${e.message}`);
+    }
+    process.exit(1);
+  });
   server.listen(config.port, config.host);
   return server;
 }

@@ -312,6 +312,12 @@ export interface SystemManager {
   /** (Re)start the onboarding hotspot with the given settings. */
   hotspotStart(cfg: HotspotConfig): Promise<HotspotResult>;
   /**
+   * Re-decide the captive portal against the uplink of the moment. Called on a
+   * timer, because the uplink usually arrives *after* the hotspot (see
+   * `captiveChange` in wifi.ts).
+   */
+  syncCaptivePortal(): Promise<{ changed: boolean; captive: boolean; message: string }>;
+  /**
    * Huawei HiLink stick (its own router, invisible to ModemManager). The interface is
    * resolved through the routing table, so a LAN can never be mistaken for the stick.
    */

@@ -167,3 +167,28 @@ export function defaultRules(): AlertRule[] {
     },
   ];
 }
+
+/**
+ * The topic URL is the credential.
+ *
+ * ntfy has no accounts on the public server: whoever knows the topic can read every
+ * alert this site sends *and* post fake ones — which is why the setup page tells the
+ * operator to pick something unguessable. Handing it out over an unauthenticated GET
+ * would have made that advice pointless, so the status endpoint shows only enough to
+ * recognise which topic is configured.
+ */
+export function maskNtfyUrl(url: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/^(https?:\/\/[^/]+\/)(.+)$/);
+  if (!m) return '(stored)';
+  const topic = m[2];
+  const head = topic.slice(0, 2);
+  const tail = topic.length > 6 ? topic.slice(-3) : '';
+  return `${m[1]}${head}…${tail}`;
+}
+
+/** The masked URL comes back unchanged when the operator did not retype it. */
+export function unmaskNtfyUrl(incoming: string | null, stored: string | null): string | null {
+  if (incoming !== null && incoming === maskNtfyUrl(stored)) return stored;
+  return incoming;
+}

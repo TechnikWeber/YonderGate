@@ -145,6 +145,10 @@ export class SimSystem implements SystemManager {
     };
   }
 
+  async syncCaptivePortal(): Promise<{ changed: boolean; captive: boolean; message: string }> {
+    return { changed: false, captive: false, message: 'unchanged' };
+  }
+
   async hotspotStop(): Promise<ActionResult> {
     this.wifi = { mode: 'unknown', ssid: null, ip: null };
     return { ok: true, message: 'Hotspot stopped (simulated).' };

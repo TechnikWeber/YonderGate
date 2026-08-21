@@ -447,6 +447,7 @@
         <label class="chk"><input type="checkbox" id="alertsEnabled" /> Send alerts</label>
         <div class="grid2">
           <label>ntfy topic URL<input id="ntfyUrl" placeholder="https://ntfy.sh/pick-something-unguessable" /></label>
+          <p class="msg">The topic <b>is</b> the password — anyone who knows it can read your alerts and send fake ones. Pick something unguessable, and note that this page only shows it shortened once it is stored.</p>
           <label>Token (only for a private server)<input id="ntfyToken" type="password" placeholder="usually empty" /></label>
         </div>
         <div class="btns">
@@ -1807,7 +1808,7 @@
         $('upd-log').style.display = 'none';
         $('upd-msg').textContent = 'Asking the update source…';
         try {
-          renderUpdate(await getJSON('/api/update'));
+          renderUpdate(await getJSON('/api/update?force=1'));
           $('upd-msg').textContent = '';
         } catch {
           $('upd-msg').textContent = 'Could not run the check.';

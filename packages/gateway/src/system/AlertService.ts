@@ -15,6 +15,9 @@ import {
 import { accumulate, emptyUsage, billingMonth, formatBytes, usageStatus, type UsageState } from './usage.js';
 import { shouldAutoCycle } from './power.js';
 
+/** How often the running total reaches the card. See updateUsage(). */
+export const USAGE_SAVE_INTERVAL_MS = 15 * 60_000;
+
 /**
  * Watches, decides, and speaks up. The deciding is in alerts.ts and tested there;
  * this part owns the clock, the counters and the one HTTP request.
@@ -151,12 +154,27 @@ export class AlertService {
     }
   }
 
+  /**
+   * The total is updated every minute but written to the card every quarter hour.
+   *
+   * Recording sensor history is opt-in precisely to spare the SD card, so a counter
+   * that rewrites a file 525 600 times a year would have quietly undone that. The
+   * in-memory total stays exact; what a power cut costs is not the month's total but
+   * the traffic since the last write — the next reading re-baselines against the
+   * stick's counter, so nothing is double-counted either way. A clean shutdown
+   * writes unconditionally.
+   */
   private async updateUsage(): Promise<void> {
     const counter = await this.system.dataCounter(this.config.data.source, this.config.data.iface);
     const before = this.usage.bytes;
     this.usage = accumulate(this.usage, counter, Date.now());
-    if (this.usage.bytes !== before) this.save();
+    if (this.usage.bytes === before) return;
+    const now = Date.now();
+    if (this.savedAt !== null && now - this.savedAt < USAGE_SAVE_INTERVAL_MS) return;
+    this.save();
   }
+
+  private savedAt: number | null = null;
 
   private async send(alert: Alert): Promise<{ ok: boolean; message: string }> {
     const url = this.config.alerts.ntfyUrl;
@@ -194,6 +212,7 @@ export class AlertService {
     try {
       mkdirSync(this.config.stateDir, { recursive: true });
       writeFileSync(this.statePath, JSON.stringify(this.usage, null, 2));
+      this.savedAt = Date.now();
     } catch {
       /* read-only or full: the total keeps running in memory */
     }

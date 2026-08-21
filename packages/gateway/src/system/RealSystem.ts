@@ -41,10 +41,12 @@ import {
   parseRfkill,
   parseWifiCountry,
   parseWifiDeviceState,
+  captiveChange,
   parseWifiMode,
   radioIsUsable,
   wifiCountryArgs,
   HOTSPOT_ADDRESS,
+  HOTSPOT_CON_NAME,
   type WifiRadioStatus,
 } from './wifi.js';
 import { parseModemId, parseModemInfo, parseSimId, lteStateLabel } from './lte.js';
@@ -126,6 +128,9 @@ import {
   type HilinkStatus,
 } from './hilink.js';
 import { HW_DEPS, errorExcerpt, explainNpmFailure, hwDepInfo, isHwDep, lastLines, npmInstallArgs, type HwDepName } from './hwDeps.js';
+
+/** A reverse lookup is worth 1.5 s of a scan, not the resolver's full retry budget. */
+const REVERSE_DNS_TIMEOUT_MS = 1500;
 
 const run = promisify(exec);
 const runFile = promisify(execFile);
@@ -560,6 +565,34 @@ export class RealSystem implements SystemManager {
       psk,
       radio,
     };
+  }
+
+  /**
+   * Keep the captive portal in step with reality.
+   *
+   * A hotspot started before the LTE stick registered would otherwise keep resolving
+   * every name to the setup page while happily NATing traffic — internet that looks
+   * broken to every device on the AP. Applying the change needs dnsmasq to re-read
+   * its config, which means bouncing the hotspot: a few seconds of reconnect, once,
+   * against DNS that would otherwise stay wrong until somebody drove out there.
+   */
+  async syncCaptivePortal(): Promise<{ changed: boolean; captive: boolean; message: string }> {
+    const status = await this.wifiStatus();
+    const present = existsSync(CAPTIVE_CONF_PATH);
+    const change = captiveChange(status.mode === 'ap', await this.hasUplink(), present);
+    if (change === 'none') return { changed: false, captive: present, message: 'unchanged' };
+    const captive = this.applyCaptiveConf(change === 'enable');
+    const down = await shArgs('nmcli', ['connection', 'down', HOTSPOT_CON_NAME]);
+    const up = await shArgs('nmcli', ['connection', 'up', HOTSPOT_CON_NAME]);
+    const message =
+      change === 'disable'
+        ? 'An uplink appeared — the captive portal is off and the hotspot now shares internet.'
+        : 'The uplink is gone — the captive portal is back, so joining opens the setup page.';
+    if (!down.ok || !up.ok) {
+      console.warn(`[wifi] captive portal changed but the hotspot did not bounce cleanly: ${up.out || down.out}`);
+    }
+    console.log(`[wifi] ${message}`);
+    return { changed: true, captive, message };
   }
 
   /** Is there any default route (i.e. internet this hotspot could share)? */
@@ -1187,10 +1220,14 @@ export class RealSystem implements SystemManager {
     const hostnames: Record<string, string | null> = {};
     const ports: Record<string, number[]> = {};
     await pooled(ips, 16, async (ip) => {
-      hostnames[ip] = await dns
-        .reverse(ip)
-        .then((names) => names[0] ?? null)
-        .catch(() => null);
+      // Raced against a timeout: a reverse lookup with no reachable DNS server sits
+      // out the resolver's own retries, and 128 addresses of that turns a ten-second
+      // scan into a minute of apparently-hung page. A name is a nicety; the address,
+      // the MAC and the open ports are the answer.
+      hostnames[ip] = await Promise.race([
+        dns.reverse(ip).then((names) => names[0] ?? null).catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), REVERSE_DNS_TIMEOUT_MS)),
+      ]);
       const open = await pooled(PROBE_PORTS, PROBE_PORTS.length, async (port) =>
         (await probePort(ip, port)) ? port : null,
       );

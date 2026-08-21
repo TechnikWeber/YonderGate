@@ -24,7 +24,8 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **AP onboarding**: the Pi opens its own hotspot (`YonderGate-setup`, open by
   default) with a captive portal, so a phone can configure it out of the box. It
   repairs the classic Raspberry Pi OS trap where WiFi stays rfkill-blocked until a
-  **WiFi country** is set.
+  **WiFi country** is set. **Devices on the hotspot also get internet** whenever the
+  gateway has an uplink — see below.
 - **LTE**: ModemManager modems (APN, SIM PIN, network mode, roaming, diagnostics)
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
@@ -62,6 +63,10 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **Update from the page**: check what is coming in, then pull and restart —
   designed for a site you reach only over LTE.
 - **Optional API secret** guarding every mutating call and the proxied device UIs.
+  Status endpoints stay readable without it (so the page always opens), which is worth
+  knowing for a site whose hotspot is open by default: the device list is visible to
+  anyone in Wi-Fi range. Credentials are not — the ntfy topic and token are shown
+  shortened. Set a secret and switch the hotspot off once the box is configured.
 
 ## Three ways to get the site online
 
@@ -81,6 +86,27 @@ the same way — but they differ in one thing worth knowing before you buy hardw
 > fine), add a **second, USB Wi-Fi adapter** for the hotspot, or keep the built-in
 > radio free by using LTE or Ethernet for the uplink. The gateway already refuses to
 > start the hotspot while it is a Wi-Fi client rather than cutting its own link.
+
+### Does the hotspot give devices internet?
+
+**Yes — whenever the gateway itself has one.** The hotspot is created as a *shared*
+connection, which means the Pi hands out addresses, answers DNS and NATs everything
+onward through whatever uplink it currently has: the LTE stick, the site's router, or
+Wi-Fi. So a phone or a laptop joined to `YonderGate-setup` browses normally, and a
+camera on the hotspot can reach the internet if it needs to.
+
+Two things worth knowing:
+
+- **It comes out of the SIM.** Traffic from hotspot clients is mobile traffic like any
+  other, and it is counted by the data page along with everything else. A guest who
+  syncs a phone's photo library over the site's SIM is a real way to burn an
+  allowance — which is why the allowance and the 80 % warning exist, and why the
+  hotspot can be switched off (Setup › Wi-Fi) once the box is configured.
+- **Without an uplink, it is a local network only.** The captive portal then answers
+  every name with the setup page, which is the point: a phone that joins and finds no
+  internet should land on the page that explains why, not on a browser error. The
+  moment an uplink comes back the gateway notices (within a minute) and drops the
+  redirect, so normal DNS resumes — the hotspot reconnects briefly while it does.
 
 With Wi-Fi or Ethernet, set the data counter to **an interface** (or leave the
 allowance empty — an unmetered uplink does not need one), and the LTE panels simply
@@ -217,9 +243,10 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [x] Time on the page: current time, timezone, the servers actually in use, and a
       **DS3231 hardware clock enabled with a checkbox** rather than an SSH session
 - [x] Interface picker for the data counter, and a "used / left / days to go" line
-- [ ] Let alert rules be added from the page (thresholds and devices are configurable
-      in the config file today, the defaults cover supply and data)
+- [x] Let alert rules be added, edited and deleted from the page
 - [ ] Export a range of history as CSV from the page
+- [ ] Alert state is in memory: after a restart, a breach that is still going sends
+      one more message than it should
 - [ ] Config backup / restore as one file
 - [x] Camera preview on the setup page (still frame + link to go2rtc's player)
 

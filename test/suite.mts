@@ -223,6 +223,36 @@ async function main() {
 
   // ---- speaking up, without becoming noise ----
   const A = await import('../packages/gateway/src/system/alerts');
+
+  // ---- the captive portal has to be re-decided ----
+  // Boot order at a real site: hotspot first, LTE a minute later. Deciding once
+  // meant hijacked DNS for every device on the AP until someone restarted it.
+  const WIFI2 = await import('../packages/gateway/src/system/wifi');
+  ok('no uplink, no conf yet → put the portal up', WIFI2.captiveChange(true, false, false) === 'enable');
+  ok('uplink arrives while the portal is up → take it down', WIFI2.captiveChange(true, true, true) === 'disable');
+  ok('uplink and no portal is already right', WIFI2.captiveChange(true, true, false) === 'none');
+  ok('no uplink and a portal is already right', WIFI2.captiveChange(true, false, true) === 'none');
+  // Without an AP there is no dnsmasq of ours to reconfigure, and bouncing a Wi-Fi
+  // client connection to change a file nobody reads would be worse than useless.
+  ok('a client-mode Pi is left alone', WIFI2.captiveChange(false, true, true) === 'none');
+
+  // ---- the ntfy topic is a credential ----
+  // No accounts on the public server: the topic URL alone lets anyone read this
+  // site's alerts and post fake ones. /api/health is readable by anyone on the LAN
+  // or the open hotspot, so the topic must not be in it.
+  const topic = 'https://ntfy.sh/yg-tegernsee-4f2a';
+  const masked = A.maskNtfyUrl(topic)!;
+  ok('the mask keeps the server visible', masked.startsWith('https://ntfy.sh/'));
+  ok('but not the topic', !masked.includes('tegernsee'));
+  ok('enough is left to recognise it', masked.includes('…'));
+  ok('nothing configured stays nothing', A.maskNtfyUrl(null) === null);
+  // A short topic gives nothing away at all rather than most of itself.
+  ok('a short topic is not half-published', A.maskNtfyUrl('https://ntfy.sh/abcd') === 'https://ntfy.sh/ab…');
+  // And saving the page back must not store the mask over the real topic.
+  ok('an untouched field keeps the stored topic', A.unmaskNtfyUrl(masked, topic) === topic);
+  ok('a retyped one replaces it', A.unmaskNtfyUrl('https://ntfy.sh/other', topic) === 'https://ntfy.sh/other');
+  ok('and clearing it still clears it', A.unmaskNtfyUrl(null, topic) === null);
+
   const rule = { id: 'v', kind: 'sensor' as const, target: 'v:Battery', label: 'Battery voltage', below: 11.8, forMs: 300_000 };
   const T0 = 1_000_000;
   // A threshold that flaps must not turn into a night of notifications.
@@ -340,6 +370,19 @@ async function main() {
   ok('one file per month', HIST.monthFile(Date.UTC(2026, 7, 21)) === '2026-08.csv');
   ok('a range spans its months', HIST.filesForRange(Date.UTC(2026, 6, 30), Date.UTC(2026, 8, 2)).join() === '2026-07.csv,2026-08.csv,2026-09.csv');
   // 13 months, so "same month last year" still works on the last day of a month.
+  // A channel plugged in mid-month cannot shift an existing file's columns, so the
+  // month continues in a part file — and both are read back as one series.
+  const names = ['2026-07.csv', '2026-08.csv', '2026-08.p2.csv', 'notes.txt'];
+  ok('a part file names its month', HIST.fileMonth('2026-08.p2.csv') === '2026-08' && HIST.fileMonth('notes.txt') === null);
+  ok('the first part is just the month', HIST.partFile(Date.UTC(2026, 7, 3), 1) === '2026-08.csv');
+  ok('later parts are suffixed', HIST.partFile(Date.UTC(2026, 7, 3), 2) === '2026-08.p2.csv');
+  ok(
+    'a range picks up the parts too',
+    HIST.filesForRange(Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 31), names).join() === '2026-08.csv,2026-08.p2.csv',
+  );
+  ok('and still guesses plain months without a listing', HIST.filesForRange(Date.UTC(2026, 7, 1), Date.UTC(2026, 7, 31)).join() === '2026-08.csv');
+  ok('parts expire with their month', HIST.expiredFiles(['2025-06.p2.csv'], Date.UTC(2026, 7, 21)).length === 1);
+
   const old = HIST.expiredFiles(['2025-06.csv', '2025-08.csv', '2026-08.csv', 'notes.txt'], Date.UTC(2026, 7, 21));
   ok('files past the retention window are named', old.includes('2025-06.csv') && !old.includes('2025-08.csv'));
   ok('and nothing else in the folder is touched', !old.includes('notes.txt') && !old.includes('2026-08.csv'));

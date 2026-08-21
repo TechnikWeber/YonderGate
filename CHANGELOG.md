@@ -2,6 +2,77 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.11.0
+A full review pass over the code and the concept, prompted by one question: *do devices
+on the hotspot actually get internet when the LTE stick has it?* They do — the hotspot
+is a NATed shared connection — but checking that turned up the reason they often would
+not, and four more things worth fixing.
+
+**English**
+- **Fixed: the captive portal was decided once and never revisited.** In AP mode the Pi
+  resolves every name to itself so a joining phone lands on the setup page. That choice
+  was made when the hotspot started — which at a fresh site is the worst moment: the box
+  boots with no LTE, the portal goes up, the stick registers a minute later, and from
+  then on every device on the hotspot is NATed to a working uplink while DNS still points
+  at the setup page. Internet that looks broken, until somebody drives out and restarts
+  the hotspot. It is now re-decided every minute against the uplink of the moment.
+- **Fixed: the ntfy topic was readable by anyone on the LAN or the open hotspot.** The
+  status endpoint needs no secret, and it returned the topic URL in full. ntfy has no
+  accounts on the public server, so the topic *is* the credential — the setup page even
+  says to pick something unguessable. It is now shortened to `https://ntfy.sh/yg…4f2`,
+  like the token, and typing over the shortened value is what changes it.
+- **Fixed: the data counter wrote to the SD card every minute.** Recording sensor history
+  is opt-in precisely to spare the card, and then the usage counter rewrote a file
+  525 600 times a year anyway. It now reaches the card every quarter hour and on a clean
+  shutdown; the total in memory stays exact.
+- **Fixed: a sensor plugged in mid-month was silently not recorded.** A CSV has one
+  header, so a channel with no column had nowhere to go and was dropped until the month
+  rolled over — exactly when somebody is watching the page to see whether the sensor they
+  just wired up works. The month now continues in a part file, and both are read back as
+  one series.
+- **A device scan can no longer hang on reverse DNS.** With no reachable DNS server each
+  lookup sat out the resolver's full retry budget; 128 addresses of that turned a
+  ten-second scan into a minute of apparently-frozen page. A name is now worth 1.5
+  seconds, not more.
+- **The update check is cached for ten minutes** (the Check button still forces a fresh
+  one). It runs `git fetch`, it needs no secret, and on a metered SIM a browser left open
+  on the page should not spend the allowance.
+- Documented what the hotspot does with an uplink, and that traffic from hotspot clients
+  comes out of the SIM like any other.
+
+**Deutsch**
+- **Behoben: das Captive-Portal wurde einmal entschieden und nie überprüft.** Im AP-Modus
+  löst der Pi jeden Namen auf sich selbst auf, damit ein Handy beim Verbinden auf der
+  Setup-Seite landet. Diese Entscheidung fiel beim Start des Hotspots — am neuen Standort
+  der denkbar schlechteste Moment: Die Kiste bootet ohne LTE, das Portal geht hoch, der
+  Stick bucht sich eine Minute später ein, und ab da hängt jedes Gerät am Hotspot per NAT
+  an einem funktionierenden Uplink, während DNS weiter auf die Setup-Seite zeigt.
+  Internet, das kaputt aussieht — bis jemand hinfährt und den Hotspot neu startet. Wird
+  jetzt jede Minute neu entschieden.
+- **Behoben: das ntfy-Topic war für jeden im LAN oder am offenen Hotspot lesbar.** Der
+  Status-Endpunkt braucht kein Secret und lieferte die Topic-URL vollständig aus. Auf dem
+  öffentlichen ntfy-Server gibt es keine Konten, das Topic **ist** also das Passwort — die
+  Setup-Seite rät sogar dazu, etwas Unerratbares zu wählen. Es wird jetzt gekürzt
+  angezeigt (`https://ntfy.sh/yg…4f2`), wie der Token; überschreiben ändert es.
+- **Behoben: der Datenzähler schrieb jede Minute auf die SD-Karte.** Die Sensor-Aufzeichnung
+  ist genau deshalb optional, um die Karte zu schonen — und dann hat der Verbrauchszähler
+  trotzdem 525 600-mal im Jahr eine Datei neu geschrieben. Jetzt alle 15 Minuten und beim
+  sauberen Herunterfahren; die Summe im Speicher bleibt exakt.
+- **Behoben: ein mitten im Monat angesteckter Sensor wurde still nicht aufgezeichnet.** Eine
+  CSV hat eine Kopfzeile; ein Kanal ohne Spalte hatte keinen Platz und fiel bis zum
+  Monatswechsel weg — also genau dann, wenn jemand auf die Seite schaut, ob der eben
+  verdrahtete Sensor funktioniert. Der Monat läuft jetzt in einer Teildatei weiter, gelesen
+  wird beides als eine Reihe.
+- **Ein Gerätescan kann nicht mehr am Reverse-DNS hängen.** Ohne erreichbaren DNS-Server
+  wartete jede Abfrage die volle Wiederholungszeit ab; bei 128 Adressen wurde aus einem
+  Zehn-Sekunden-Scan eine Minute scheinbar eingefrorener Seite. Ein Name ist jetzt 1,5
+  Sekunden wert, nicht mehr.
+- **Die Update-Prüfung wird zehn Minuten zwischengespeichert** (der Button erzwingt weiter
+  eine frische). Sie macht ein `git fetch`, braucht kein Secret, und auf einer getakteten
+  SIM soll ein offen gelassener Browser-Tab nicht das Volumen verbrauchen.
+- Dokumentiert, was der Hotspot mit einem Uplink macht — und dass der Verkehr der
+  Hotspot-Geräte genauso aus der SIM kommt wie jeder andere.
+
 ## v0.10.0
 **English**
 - **Fixed: the watchdog could have rebooted the box forever.** The failure counter lived

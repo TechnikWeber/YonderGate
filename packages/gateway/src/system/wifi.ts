@@ -310,3 +310,27 @@ export function explainWifiFailure(out: string, radio?: WifiRadioStatus | null):
     fixableHere: true,
   };
 }
+
+/**
+ * The captive portal has to be re-decided, not decided once.
+ *
+ * In AP mode the Pi resolves every name to itself so a phone that joins lands on the
+ * setup page. That is right while there is no uplink — and wrong the moment there is
+ * one, because the hotspot then *does* share internet (it is a NAT'd `shared`
+ * connection) and hijacked DNS is the one thing that would stop clients using it.
+ *
+ * The decision used to be taken only when the hotspot came up, which on a fresh site
+ * is the worst possible moment: the box boots with no LTE yet, starts the portal, the
+ * stick registers a minute later — and every device on the hotspot keeps landing on
+ * the setup page instead of the internet until somebody restarts the hotspot by hand.
+ */
+export type CaptiveChange = 'none' | 'enable' | 'disable';
+
+export function captiveChange(hotspotUp: boolean, hasUplink: boolean, confPresent: boolean): CaptiveChange {
+  // With no hotspot there is no dnsmasq of ours to configure; leaving the file in
+  // place is harmless and saves a needless bounce when the AP comes back.
+  if (!hotspotUp) return 'none';
+  const want = shouldHijackDns(hasUplink);
+  if (want === confPresent) return 'none';
+  return want ? 'enable' : 'disable';
+}

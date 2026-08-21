@@ -102,16 +102,53 @@ export function monthFile(ts: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}.csv`;
 }
 
-/** The month files a time range touches, oldest first. */
-export function filesForRange(from: number, to: number): string[] {
+/**
+ * A month can need more than one file.
+ *
+ * A CSV has one header, so the columns are fixed the moment the file is created.
+ * Plug in a second temperature sensor mid-month and the new channel has nowhere to
+ * go — it would be silently dropped until the month rolls over, which is precisely
+ * the moment somebody is standing at the site watching the page to see whether the
+ * sensor they just wired up works. So the recorder starts a *part* file instead.
+ */
+export function partFile(ts: number, part: number): string {
+  return part <= 1 ? monthFile(ts) : `${monthPrefix(ts)}.p${part}.csv`;
+}
+
+export function monthPrefix(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Month name of a history file, or null when it is not one of ours. */
+export function fileMonth(name: string): string | null {
+  const m = name.match(/^(\d{4}-\d{2})(?:\.p\d+)?\.csv$/);
+  return m ? m[1] : null;
+}
+
+/** The month prefixes a time range touches, oldest first. */
+export function monthsForRange(from: number, to: number): string[] {
   const out: string[] = [];
   const cursor = new Date(Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth(), 1));
   const end = new Date(to);
   while (cursor.getTime() <= end.getTime()) {
-    out.push(monthFile(cursor.getTime()));
+    out.push(monthPrefix(cursor.getTime()));
     cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
   return out;
+}
+
+/** Every file on disk that a range touches, parts included, oldest first. */
+export function filesForRange(from: number, to: number, names: string[] = []): string[] {
+  const months = new Set(monthsForRange(from, to));
+  const found = names.filter((n) => {
+    const month = fileMonth(n);
+    return month !== null && months.has(month);
+  });
+  // No listing given (or nothing recorded yet): the plain month names are still the
+  // right guess, and a missing file is skipped by the caller.
+  if (!names.length) return [...months].map((m) => `${m}.csv`);
+  return found.sort();
 }
 
 /**
@@ -121,8 +158,11 @@ export function filesForRange(from: number, to: number): string[] {
 export function expiredFiles(names: string[], now: number, keepMonths = 13): string[] {
   const cutoff = new Date(now);
   cutoff.setUTCMonth(cutoff.getUTCMonth() - keepMonths);
-  const cutoffName = monthFile(cutoff.getTime());
-  return names.filter((n) => /^\d{4}-\d{2}\.csv$/.test(n) && n < cutoffName);
+  const cutoffMonth = monthPrefix(cutoff.getTime());
+  return names.filter((n) => {
+    const month = fileMonth(n);
+    return month !== null && month < cutoffMonth;
+  });
 }
 
 export interface Bucket {

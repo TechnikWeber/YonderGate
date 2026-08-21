@@ -9,7 +9,7 @@ import {
   csvRow,
   expiredFiles,
   filesForRange,
-  monthFile,
+  partFile,
   parseHistoryCsv,
   type Bucket,
   type Sample,
@@ -77,9 +77,13 @@ export class HistoryService {
   }
 
   /**
-   * Append the buffered rows. Each month gets its own file, and a file that does
-   * not exist yet is given a header — so a channel added later shows up as a new
-   * file rather than shifting the columns of an old one.
+   * Append the buffered rows.
+   *
+   * Each month gets its own file, and a file that does not exist yet is given a
+   * header. The columns of an existing file are never shifted — a reader that
+   * trusted the header would silently mis-attribute every earlier row — so when a
+   * channel appears that the current file has no column for, the month continues in
+   * a part file. Both are read back as one series.
    */
   private flush(): void {
     if (!this.pending.length) return;
@@ -88,10 +92,8 @@ export class HistoryService {
     try {
       mkdirSync(this.dir, { recursive: true });
       for (const row of rows) {
-        const path = join(this.dir, monthFile(row.t));
-        if (!existsSync(path)) writeFileSync(path, csvHeader(this.keys));
-        const header = parseHistoryCsv(readFileSync(path, 'utf8').split('\n')[0] + '\n');
-        appendFileSync(path, csvRow(row.t, row.values, header.keys.length ? header.keys : this.keys));
+        const path = this.fileFor(row.t, Object.keys(row.values));
+        appendFileSync(path, csvRow(row.t, row.values, this.headerOf(path)));
       }
     } catch (err) {
       // Never let recording take the gateway down: a full card or a read-only
@@ -100,9 +102,50 @@ export class HistoryService {
     }
   }
 
+  /**
+   * The file this row belongs in: the month's file while its header still covers the
+   * row's channels, otherwise the next part. Walks the parts rather than remembering
+   * one, so a restart mid-month lands in the right place.
+   */
+  private fileFor(t: number, keys: string[]): string {
+    for (let part = 1; part <= 50; part++) {
+      const path = join(this.dir, partFile(t, part));
+      if (!existsSync(path)) {
+        writeFileSync(path, csvHeader(this.keys));
+        this.headers.delete(path);
+        return path;
+      }
+      const header = this.headerOf(path);
+      if (keys.every((k) => header.includes(k))) return path;
+    }
+    // Fifty part files in one month means something is generating channel names;
+    // keep recording into the last one rather than spawning files forever.
+    return join(this.dir, partFile(t, 50));
+  }
+
+  /** Header cache — re-reading the first line of a growing CSV per row adds up. */
+  private headers = new Map<string, string[]>();
+
+  private headerOf(path: string): string[] {
+    const hit = this.headers.get(path);
+    if (hit) return hit;
+    const keys = parseHistoryCsv(readFileSync(path, 'utf8').split('\n')[0] + '\n').keys;
+    const resolved = keys.length ? keys : this.keys;
+    this.headers.set(path, resolved);
+    return resolved;
+  }
+
+  private fileNames(): string[] {
+    try {
+      return readdirSync(this.dir);
+    } catch {
+      return [];
+    }
+  }
+
   private prune(): void {
     try {
-      const names = readdirSync(this.dir);
+      const names = this.fileNames();
       for (const name of expiredFiles(names, Date.now(), this.opts.keepMonths ?? 13)) {
         rmSync(join(this.dir, name));
         console.log(`[history] pruned ${name}`);
@@ -116,7 +159,7 @@ export class HistoryService {
   range(fromMs: number, toMs: number): { keys: string[]; points: Bucket[]; bucketMs: number } {
     const points: Sample[] = [];
     const keys = new Set<string>();
-    for (const name of filesForRange(fromMs, toMs)) {
+    for (const name of filesForRange(fromMs, toMs, this.fileNames())) {
       const path = join(this.dir, name);
       if (!existsSync(path)) continue;
       try {

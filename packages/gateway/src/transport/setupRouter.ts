@@ -10,7 +10,7 @@ import type { AlertService } from '../system/AlertService.js';
 import type { WatchdogService } from '../system/WatchdogService.js';
 import { isProbeTarget, dayName } from '../system/watchdog.js';
 import { switchId, validateSwitch, SWITCH_DEFAULT_CYCLE_S, type PowerSwitch } from '../system/power.js';
-import { isNtfyUrl } from '../system/alerts.js';
+import { isNtfyUrl, maskNtfyUrl, unmaskNtfyUrl } from '../system/alerts.js';
 import { isTimezone, parseNtpServers } from '../system/health.js';
 import { usageOverview } from '../system/usage.js';
 import { RANGES } from '../sensors/history.js';
@@ -92,6 +92,9 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
  * Returns true if it handled the request. Mounted by the HTTP server before its
  * own routes. Covers GET /setup (page) and the /api/* setup endpoints.
  */
+const UPDATE_CACHE_MS = 10 * 60_000;
+let updateCache: { at: number; data: Awaited<ReturnType<SystemManager['updateCheck']>> } | null = null;
+
 export async function handleSetup(
   req: IncomingMessage,
   res: ServerResponse,
@@ -176,7 +179,18 @@ export async function handleSetup(
 
   // ---- self-update (git pull + rebuild + restart, from the site) ----
   if (url === '/api/update' && method === 'GET') {
-    json(res, 200, { ...(await ctx.system.updateCheck(ctx.config.update)), source: ctx.config.update });
+    // Cached, because a check is a `git fetch` and this endpoint needs no secret:
+    // every page load would otherwise spend mobile data, and a browser left open on
+    // the site would spend it all day. The Check button passes force=1.
+    const force = (req.url ?? '').includes('force=1');
+    const now = Date.now();
+    if (!force && updateCache && now - updateCache.at < UPDATE_CACHE_MS) {
+      json(res, 200, { ...updateCache.data, source: ctx.config.update, checkedAt: new Date(updateCache.at).toISOString(), cached: true });
+      return true;
+    }
+    const data = await ctx.system.updateCheck(ctx.config.update);
+    updateCache = { at: now, data };
+    json(res, 200, { ...data, source: ctx.config.update, checkedAt: new Date(now).toISOString(), cached: false });
     return true;
   }
 
@@ -345,7 +359,13 @@ export async function handleSetup(
       data: ctx.config.data,
       ntpServers: ctx.config.ntpServers,
       history: ctx.config.history,
-      alerts: { ...ctx.config.alerts, ntfyToken: ctx.config.alerts.ntfyToken ? '(stored)' : null },
+      // Neither the topic nor the token leaves the box: this endpoint is readable
+      // by anyone on the LAN or the hotspot, and the topic URL is a credential.
+      alerts: {
+        ...ctx.config.alerts,
+        ntfyUrl: maskNtfyUrl(ctx.config.alerts.ntfyUrl),
+        ntfyToken: ctx.config.alerts.ntfyToken ? '(stored)' : null,
+      },
       watchdog: { ...ctx.config.watchdog, ...ctx.watchdog.snapshot() },
       reboot: ctx.config.reboot,
       switches: ctx.config.switches,
@@ -418,7 +438,9 @@ export async function handleSetup(
 
   if (url === '/api/alerts' && method === 'POST') {
     const body = (await readBody(req)) as { enabled?: unknown; ntfyUrl?: unknown; ntfyToken?: unknown; rules?: unknown };
-    const ntfyUrl = body.ntfyUrl === '' || body.ntfyUrl === null ? null : String(body.ntfyUrl ?? '');
+    const posted = body.ntfyUrl === '' || body.ntfyUrl === null ? null : String(body.ntfyUrl ?? '');
+    // An unchanged topic arrives masked; never store the mask over the real one.
+    const ntfyUrl = unmaskNtfyUrl(posted, ctx.config.alerts.ntfyUrl);
     if (ntfyUrl !== null && !isNtfyUrl(ntfyUrl)) {
       json(res, 400, { ok: false, message: 'That is not an ntfy topic URL — it looks like https://ntfy.sh/your-topic.' });
       return true;
@@ -433,7 +455,7 @@ export async function handleSetup(
     };
     savePersisted(ctx.config.configPath, { alerts });
     ctx.config.alerts = alerts;
-    json(res, 200, { ok: true, message: alerts.enabled ? 'Alerts are on.' : 'Alerts are off.', alerts: { ...alerts, ntfyToken: alerts.ntfyToken ? '(stored)' : null } });
+    json(res, 200, { ok: true, message: alerts.enabled ? 'Alerts are on.' : 'Alerts are off.', alerts: { ...alerts, ntfyUrl: maskNtfyUrl(alerts.ntfyUrl), ntfyToken: alerts.ntfyToken ? '(stored)' : null } });
     return true;
   }
 
