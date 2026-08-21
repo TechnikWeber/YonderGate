@@ -1,5 +1,5 @@
 import { createServer, request, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { secretOk } from './auth.js';
+import { secretOk, originAllowed, requestOrigin } from './auth.js';
 
 /**
  * Passes a device's own web UI through the gateway.
@@ -63,6 +63,19 @@ export function startDeviceProxy(opts: {
   const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', `http://${opts.host}`);
     const auth = proxyAuth(opts.secret, url.searchParams.get('secret'), req.headers.cookie);
+
+    // A device behind this proxy is switched by a plain URL, so a foreign page does
+    // not even need to read the answer — making the browser fetch it is the whole
+    // attack. Refuse anything a page elsewhere caused, secret or no secret.
+    // A presented secret is proof of intent; with none configured, `auth === 'ok'`
+    // only means "the gate is open", which proves nothing about who is knocking.
+    const secretProven = !!opts.secret && auth !== 'denied';
+    if (!originAllowed(requestOrigin(req, secretProven))) {
+      log(`[device] refused a request caused by a foreign page (origin ${req.headers.origin ?? 'none'})`);
+      res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end('Refused: this request came from a page outside this network.\n');
+      return;
+    }
 
     if (auth === 'denied') {
       res.writeHead(401, { 'content-type': 'text/plain; charset=utf-8' });

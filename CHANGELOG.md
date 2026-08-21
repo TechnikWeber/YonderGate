@@ -2,6 +2,46 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.0
+The security fix from YonderRC's review, which applies here with sharper teeth: this box
+switches relays.
+
+**English**
+- **A page from the internet can no longer act on the gateway.** The API secret is off by
+  default, so any site the operator happened to open — on a phone joined to the gateway's
+  own hotspot, which is open by default — could POST to the setup API (reboot, WiFi,
+  factory reset) or push a request through the **device proxy** to whatever the devices
+  behind it accept. A relay is switched by a plain URL, which is the sharp end: the page
+  never needs to read the answer, making the browser fetch it *is* the attack, and an
+  `<img>` tag does that without sending an `Origin` header at all.
+- So the gateway judges a request by **what caused it**: `Sec-Fetch-Site: cross-site` —
+  sent by current browsers on every request, including `<img>`, `<script>` and forms — is
+  refused outright. Otherwise the `Origin` decides: none at all (curl, scripts, the
+  tests), `file://`, a private, loopback, `.local` or Tailscale address, or the gateway's
+  own address are accepted; the public internet is refused with **HTTP 403** unless it
+  presents the API secret. Reads are untouched, so the setup page always opens.
+- This also defeats DNS rebinding: the attacking page keeps its own origin even once its
+  name resolves to 192.168.4.1.
+
+**Deutsch**
+- **Eine Seite aus dem Internet kann nicht mehr auf das Gateway wirken.** Das API-Secret
+  ist standardmäßig aus — jede Seite, die der Bediener zufällig öffnet, während sein
+  Handy am Hotspot des Gateways hängt (der standardmäßig offen ist), konnte an die
+  Setup-API POSTen (Neustart, WLAN, Werksreset) oder über den **Geräte-Proxy** eine
+  Anfrage an das durchreichen, was die Geräte dahinter akzeptieren. Ein Relais wird per
+  simpler URL geschaltet — genau das ist die scharfe Kante: Die Seite muss die Antwort
+  nie lesen, den Browser zum Abrufen zu bringen **ist** der Angriff, und ein `<img>`-Tag
+  macht das ganz ohne `Origin`-Header.
+- Das Gateway beurteilt eine Anfrage deshalb danach, **wodurch sie ausgelöst wurde**:
+  `Sec-Fetch-Site: cross-site` — von aktuellen Browsern bei jeder Anfrage mitgeschickt,
+  auch bei `<img>`, `<script>` und Formularen — wird direkt abgewiesen. Sonst entscheidet
+  der `Origin`: gar keiner (curl, Skripte, die Tests), `file://`, eine private,
+  Loopback-, `.local`- oder Tailscale-Adresse oder die eigene Adresse des Gateways werden
+  angenommen; das öffentliche Internet wird mit **HTTP 403** abgewiesen, sofern kein
+  API-Secret vorliegt. Lesende Zugriffe bleiben offen, die Setup-Seite geht also immer auf.
+- Das entschärft auch DNS-Rebinding: Die angreifende Seite behält ihren eigenen Origin,
+  auch wenn ihr Name plötzlich auf 192.168.4.1 zeigt.
+
 ## v0.11.0
 A full review pass over the code and the concept, prompted by one question: *do devices
 on the hotspot actually get internet when the LTE stick has it?* They do — the hotspot

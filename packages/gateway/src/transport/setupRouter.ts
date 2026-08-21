@@ -16,7 +16,7 @@ import { usageOverview } from '../system/usage.js';
 import { RANGES } from '../sensors/history.js';
 import type { CameraCfg, TelemetryConfig } from '@yondergate/protocol';
 import { safeStreamName } from '../video/cameraManager.js';
-import { secretOk, readSecretFromReq } from './auth.js';
+import { secretOk, readSecretFromReq, originAllowed, requestOrigin } from './auth.js';
 import {
   HOTSPOT_DEFAULTS,
   redactRemoteConfig,
@@ -129,6 +129,21 @@ export async function handleSetup(
   // configured. GET status stays open (read-only) and the /setup page above is open
   // so the operator can always reach the UI to enter the secret. When no secret is
   // set this is a no-op — first-time connect/setup needs nothing.
+  // Where the request came FROM. A secret that was configured AND presented — not
+  // `secretOk`, which is deliberately true when the feature is off and would wave
+  // every origin through.
+  const secretProven = !!ctx.config.apiSecret && secretOk(ctx.config.apiSecret, readSecretFromReq(req));
+  if (method === 'POST' && url.startsWith('/api/') && !originAllowed(requestOrigin(req, secretProven))) {
+    console.warn(`[setup] refused ${url} from a foreign page (origin ${req.headers.origin ?? 'none'})`);
+    json(res, 403, {
+      ok: false,
+      message:
+        'Refused: this request came from a page outside this network. ' +
+        'If that was you — a page hosted on the internet — set an API secret and send it with the request.',
+    });
+    return true;
+  }
+
   if (method === 'POST' && url.startsWith('/api/') && !secretOk(ctx.config.apiSecret, readSecretFromReq(req))) {
     json(res, 401, { ok: false, message: 'Unauthorized — provide the API secret.' });
     return true;

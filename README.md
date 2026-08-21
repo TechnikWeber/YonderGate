@@ -67,6 +67,13 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   knowing for a site whose hotspot is open by default: the device list is visible to
   anyone in Wi-Fi range. Credentials are not — the ntfy topic and token are shown
   shortened. Set a secret and switch the hotspot off once the box is configured.
+- **A page from the internet cannot act on the site**, even with no secret set. The
+  browser is the one attacker already inside the network: a site the operator opens
+  while their phone is on the gateway's hotspot could otherwise reboot the box or, via
+  the device proxy, switch a relay — a relay is switched by a plain URL, so an `<img>`
+  tag is enough. The gateway refuses anything a page elsewhere caused (`Sec-Fetch-Site:
+  cross-site`, or an `Origin` from the public internet) unless it carries the secret.
+  Requests without a browser behind them — curl, scripts — are unaffected.
 
 ## Three ways to get the site online
 

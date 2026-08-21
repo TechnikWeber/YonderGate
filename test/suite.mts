@@ -224,6 +224,32 @@ async function main() {
   // ---- speaking up, without becoming noise ----
   const A = await import('../packages/gateway/src/system/alerts');
 
+  // ---- where a request came FROM ----
+  // The secret is off by default, and a relay is switched by a plain URL: a page
+  // that only manages to make the browser fetch something has already switched the
+  // power. So the gateway judges requests by where the page itself came from.
+  const AUTH = await import('../packages/gateway/src/transport/auth');
+  ok('the gateway\'s own page is local', AUTH.isLocalOrigin('http://192.168.4.1:8080') === true);
+  ok('a laptop at the site is local', AUTH.isLocalOrigin('http://192.168.1.50:5173') === true);
+  ok('a tailnet address is local', AUTH.isLocalOrigin('http://100.101.102.103:8080') === true);
+  ok('a .local name is local', AUTH.isLocalOrigin('http://yondergate.local') === true);
+  ok('localhost and ::1 are local', AUTH.isLocalOrigin('http://localhost:5173') === true && AUTH.isLocalOrigin('http://[::1]:8080') === true);
+  ok('a page from the internet is not', AUTH.isLocalOrigin('https://evil.example') === false);
+  ok('nor a sandboxed frame', AUTH.isLocalOrigin('null') === false);
+  ok('no Origin at all → not a browser → allowed', AUTH.originAllowed({}) === true);
+  ok('a foreign origin is refused', AUTH.originAllowed({ origin: 'https://evil.example' }) === false);
+  ok('unless it proves intent with the secret', AUTH.originAllowed({ origin: 'https://evil.example', secretMatched: true }) === true);
+  // The page the gateway served itself is allowed whatever its address — otherwise a
+  // box reached over a public hostname would refuse its own setup page.
+  ok('same host is allowed', AUTH.originAllowed({ origin: 'https://my-site.example', host: 'my-site.example' }) === true);
+  ok('and across ports on that host', AUTH.originAllowed({ origin: 'http://192.168.1.50:5173', host: '192.168.1.50:8080' }) === true);
+  // The one that actually protects the relays: an <img> or a <script> carries no
+  // Origin at all, so Origin alone would wave it through. Sec-Fetch-Site does not.
+  ok('a cross-site <img> is refused even with no Origin', AUTH.originAllowed({ secFetchSite: 'cross-site' }) === false);
+  ok('a same-origin fetch is fine', AUTH.originAllowed({ secFetchSite: 'same-origin' }) === true);
+  ok('typing the address in is fine', AUTH.originAllowed({ secFetchSite: 'none' }) === true);
+  ok('another port of this box is fine', AUTH.originAllowed({ secFetchSite: 'same-site' }) === true);
+
   // ---- the captive portal has to be re-decided ----
   // Boot order at a real site: hotspot first, LTE a minute later. Deciding once
   // meant hijacked DNS for every device on the AP until someone restarted it.
