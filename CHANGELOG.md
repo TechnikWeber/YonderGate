@@ -2,6 +2,31 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.1
+**English**
+- **The API secret was in the setup page but nobody could find it.** It sits ten panels
+  down, and nothing anywhere else mentioned whether the box had one. The **System status**
+  block at the top now says so in one line — "API secret set", or a warning that links
+  straight to the panel — because a lock nobody can see is a lock nobody sets, and this
+  box sits unattended at a site for a year with relays behind it.
+- The Security panel explains what it is actually for now (an open hotspot, a marina or
+  campsite WiFi, a shared LAN — not a Tailscale-only box) and, just as importantly, what
+  protects you *without* it: a page from the internet is refused whatever you do. Its old
+  text still described the RC project's ground app, which does not exist here.
+
+**Deutsch**
+- **Das API-Secret war zwar in der Setup-Seite, aber niemand hat es gefunden.** Es sitzt
+  zehn Blöcke weiter unten, und nirgends sonst stand, ob die Kiste überhaupt eins hat. Der
+  Block **System status** ganz oben sagt es jetzt in einer Zeile — „API secret set" oder
+  eine Warnung, die direkt zum Panel springt. Ein Schloss, das man nicht sieht, ist ein
+  Schloss, das niemand zumacht — und dieses Gerät steht ein Jahr unbeaufsichtigt an einem
+  Standort, mit Relais dahinter.
+- Das Security-Panel erklärt jetzt, wofür es wirklich gedacht ist (offener Hotspot,
+  Marina- oder Campingplatz-WLAN, geteiltes LAN — nicht für eine reine Tailscale-Kiste)
+  und, genauso wichtig, was auch **ohne** Secret schützt: Eine Seite aus dem Internet wird
+  in jedem Fall abgewiesen. Der alte Text beschrieb noch die Boden-App des RC-Projekts,
+  die es hier gar nicht gibt.
+
 ## v0.12.0
 The security fix from YonderRC's review, which applies here with sharper teeth: this box
 switches relays.

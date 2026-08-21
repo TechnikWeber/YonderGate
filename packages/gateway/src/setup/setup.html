@@ -396,9 +396,10 @@
         <div id="detect-out"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="sec-panel">
         <div class="eyebrow">Security (optional)</div>
-        <p class="msg">Optional shared secret. When set, saving settings here and the control link both require it — in the setup page, enter it in the “secret” site next to the address; here you'll be prompted. <b>Off by default</b>, so first-time connect and setup need nothing.</p>
+        <p class="msg">One shared secret for this gateway. With it set, <b>changing anything</b> — here, and through the device proxy — needs it; this page prompts you once and remembers it for the tab. Reading stays open, so the page always loads and you can never lock yourself out of it. <b>Off by default</b>, because first-time setup should need nothing.</p>
+        <p class="msg">Worth setting when the site's network isn't only yours: an <b>open hotspot</b>, a marina or campsite WiFi, a shared LAN. Not needed when the box is reachable only over Tailscale or your own network — a page from the internet is refused either way (see below).</p>
         <label>API secret<input id="apiSecret" type="password" placeholder="leave empty = off" autocomplete="new-password" /></label>
         <div class="btns">
           <button class="btn" onclick="run(this, () => generateSecret())">Generate</button>
@@ -407,6 +408,7 @@
         </div>
         <p class="msg" id="sec-gen"></p>
         <div class="msg" id="sec-msg"></div>
+        <p class="msg"><b>What protects you without a secret:</b> the gateway refuses any request a page somewhere else caused. A website you happen to open — while your phone is on this hotspot — cannot reboot the box or switch a relay through the device proxy, even though it can reach the address. Accepted are requests with no browser behind them (curl, scripts) and pages served from this network, from Tailscale, or by the gateway itself. That is not a substitute for a secret on a network full of strangers: anyone who can <i>open this page</i> can still change things.</p>
       </section>
 
       <section class="panel">
@@ -683,7 +685,19 @@
           row('WiFi', `${wifi.mode}${wifi.ssid ? ' · ' + wifi.ssid : ''}`) +
           // Every address in one place: LTE (WAN), the tailnet, and now the WiFi one —
           // which is the one you actually type when the gateway is on your LAN.
-          (wifi.ip ? row('· IP', wifi.ip) : '');
+          (wifi.ip ? row('· IP', wifi.ip) : '') +
+          sep +
+          // The one line that says whether this box has a lock on it. It sits here
+          // rather than only in its own panel because an unattended site is exactly
+          // where "I never found that setting" turns into "anyone on the hotspot can
+          // switch the relays".
+          row(
+            'Security',
+            s.authRequired
+              ? 'API secret set'
+              : '<a href="#sec-panel">no secret — anyone on this network can change settings</a>',
+            s.authRequired ? 'go' : 'warn',
+          );
         // Keep this line honest: it used to hold whatever the last button press wrote,
         // so a stale "Starting…" could sit under a status row that already said Running.
         if (ts.loginUrl) {

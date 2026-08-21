@@ -150,7 +150,9 @@ export async function handleSetup(
   }
 
   if (url === '/api/system' && method === 'GET') {
-    json(res, 200, { ...(await ctx.system.status()), version: ctx.config.version });
+    // authRequired rides along so the status block can say whether this box has a
+    // lock on it — a setting nobody can see is a setting nobody sets.
+    json(res, 200, { ...(await ctx.system.status()), version: ctx.config.version, authRequired: !!ctx.config.apiSecret });
     return true;
   }
 
