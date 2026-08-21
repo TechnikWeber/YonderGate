@@ -1,0 +1,196 @@
+import { primaryIndex, type TelemetryConfig, type TelemetryMessage } from '@yondergate/protocol';
+import {
+  accumulateMah,
+  accumulateWh,
+  computeBatteryPercent,
+  hasHardwareCounter,
+  resolveChargeSource,
+} from './convert.js';
+import { createReader, type TelemetryReader } from './TelemetryReader.js';
+
+/**
+ * Owns the telemetry loop: sample the sensors at a fixed rate, integrate the
+ * primary current into consumed mAh (precise coulomb counting using each
+ * sample's real dt), derive battery percentage from the configured capacity, and
+ * expose the latest TelemetryMessage for the link to stream to the ground.
+ *
+ * If real sensors fail to initialise, it falls back to the sim source and reports
+ * that in the message, so the OSD can make clear the numbers aren't real.
+ */
+export class TelemetryService {
+  private cfg: TelemetryConfig;
+  private reader: TelemetryReader;
+  private actualSource: 'sim' | 'real' = 'sim';
+  private degraded = false;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private mah = 0;
+  private wh = 0;
+  private lastAt = 0;
+  private latest: TelemetryMessage | null = null;
+  /** 'sensor' = the chip's own accumulator (INA228), 'pi' = integrate here. */
+  private chargeFrom: 'sensor' | 'pi' = 'pi';
+
+  constructor(cfg: TelemetryConfig) {
+    this.cfg = cfg;
+    this.reader = createReader(cfg);
+  }
+
+  async start(): Promise<void> {
+    if (!this.cfg.enabled) return;
+    this.actualSource = this.cfg.source;
+    try {
+      await this.reader.init();
+    } catch (err) {
+      // Do NOT silently fall back to sim — that could be mistaken for real data
+      // mid-flight. Mark degraded so the OSD shows "no data" instead.
+      console.error(
+        `[telemetry] ${this.cfg.source} sensors failed to init: ${(err as Error).message}\n` +
+          '[telemetry] reporting NO DATA (no sim substitution while source=real).',
+      );
+      this.degraded = true;
+    }
+    // A sensor that counts charge itself (INA228) only counts if the reader
+    // actually offers the accumulator — otherwise this stays on Pi integration.
+    this.chargeFrom = resolveChargeSource(
+      this.cfg.chargeSource,
+      hasHardwareCounter(this.cfg.currents[primaryIndex(this.cfg.currents)]?.kind) &&
+        typeof this.reader.accumulated === 'function',
+    );
+    const periodMs = 1000 / Math.max(1, this.cfg.sampleHz);
+    this.lastAt = Date.now();
+    this.timer = setInterval(() => void this.tick(), periodMs);
+    console.log(
+      `[telemetry] ${this.actualSource} source${this.degraded ? ' (DEGRADED — no sensor)' : ''}, ` +
+        `${this.cfg.sampleHz} Hz, capacity ${this.cfg.batteryCapacityMah ?? '—'} mAh, counting=${this.cfg.countCapacity}` +
+        `, charge=${this.chargeFrom === 'sensor' ? 'sensor counter (INA228)' : 'integrated on the Pi'}`,
+    );
+  }
+
+  private async tick(): Promise<void> {
+    try {
+      const now = Date.now();
+      const dt = (now - this.lastAt) / 1000;
+      this.lastAt = now;
+
+      // Real source but sensor unavailable: report NO DATA, never fake values.
+      if (this.degraded) {
+        this.latest = {
+          type: 'telemetry',
+          source: this.actualSource,
+          ok: false,
+          voltages: this.cfg.voltages.map((c) => ({ label: c.label, value: 0 })),
+          currents: this.cfg.currents.map((c) => ({ label: c.label, value: 0 })),
+          temperatures: (this.cfg.temperatures ?? []).map((c) => ({ label: c.label, value: 0 })),
+          primaryVoltage: primaryIndex(this.cfg.voltages),
+          primaryCurrent: primaryIndex(this.cfg.currents),
+          mah: 0,
+          wh: 0,
+          capacityMah: this.cfg.batteryCapacityMah,
+          batteryPercent: null,
+          displayMode: this.cfg.displayMode,
+        };
+        return;
+      }
+
+      const s = await this.reader.sample();
+      // Which channels drive the battery maths (config's `primary` flag, else 0).
+      const iVoltage = primaryIndex(this.cfg.voltages);
+      const iCurrent = primaryIndex(this.cfg.currents);
+
+      // Coulomb counting on the primary current channel. With an
+      // INA228 the chip has already integrated it in hardware at ADC rate — we
+      // just read CHARGE/ENERGY, so a slow or skipped poll costs nothing. If the
+      // read fails we keep the last values rather than inventing an integration.
+      if (this.cfg.countCapacity && this.chargeFrom === 'sensor') {
+        const acc = await this.reader.accumulated?.();
+        if (acc) {
+          this.mah = acc.mah;
+          this.wh = acc.wh;
+        }
+      } else if (this.cfg.countCapacity && s.currents.length > 0) {
+        const amps = s.currents[iCurrent] ?? 0;
+        const volts = s.voltages[iVoltage] ?? 0;
+        this.mah = accumulateMah(this.mah, amps, dt);
+        this.wh = accumulateWh(this.wh, volts, amps, dt);
+      }
+
+      const cap = this.cfg.batteryCapacityMah;
+      const coulombPct =
+        cap && cap > 0 ? Math.max(0, Math.min(100, ((cap - this.mah) / cap) * 100)) : null;
+      // The user picks which method drives the % (coulomb / voltage / clamp).
+      const { pct: batteryPercent, source: batteryPercentSource } = computeBatteryPercent(
+        this.cfg.percentSource ?? 'clamp',
+        coulombPct,
+        s.voltages[iVoltage],
+        this.cfg.voltageFullV ?? null,
+        this.cfg.voltageEmptyV ?? null,
+      );
+
+      this.latest = {
+        type: 'telemetry',
+        source: this.actualSource,
+        ok: true,
+        voltages: this.cfg.voltages.map((c, i) => ({ label: c.label, value: round(s.voltages[i] ?? 0, 2) })),
+        currents: this.cfg.currents.map((c, i) => ({ label: c.label, value: round(s.currents[i] ?? 0, 2) })),
+        // A sensor that couldn't be read is dropped rather than shown as 0 °C —
+        // a plausible-looking wrong temperature is worse than a missing one.
+        temperatures: (this.cfg.temperatures ?? []).flatMap((c, i) =>
+          s.temperatures[i] == null ? [] : [{ label: c.label, value: round(s.temperatures[i] as number, 1) }],
+        ),
+        primaryVoltage: iVoltage,
+        primaryCurrent: iCurrent,
+        mah: round(this.mah, 1),
+        wh: round(this.wh, 2),
+        capacityMah: cap,
+        batteryPercent: batteryPercent == null ? null : round(batteryPercent, 1),
+        batteryPercentSource,
+        chargeFrom: this.chargeFrom,
+        displayMode: this.cfg.displayMode,
+      };
+    } catch (err) {
+      console.error('[telemetry] sample failed:', (err as Error).message);
+    }
+  }
+
+  /**
+   * Reset the coulomb counter (e.g. on a fresh battery). With a hardware counter
+   * the chip's own CHARGE/ENERGY registers are cleared too — otherwise the next
+   * read would immediately restore the old total.
+   */
+  async resetCapacity(): Promise<void> {
+    this.mah = 0;
+    this.wh = 0;
+    try {
+      await this.reader.resetAccumulator?.();
+    } catch (err) {
+      console.error('[telemetry] sensor accumulator reset failed:', (err as Error).message);
+    }
+  }
+
+  get message(): TelemetryMessage | null {
+    return this.latest;
+  }
+
+  async stop(): Promise<void> {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    await this.reader.close();
+  }
+
+  /** Apply a new config live: stop, swap the reader, reset counters, restart. */
+  async reconfigure(cfg: TelemetryConfig): Promise<void> {
+    await this.stop();
+    this.cfg = cfg;
+    this.reader = createReader(cfg);
+    this.degraded = false;
+    this.mah = 0;
+    this.wh = 0;
+    this.latest = null;
+    await this.start();
+  }
+}
+
+function round(v: number, dp: number): number {
+  const f = 10 ** dp;
+  return Math.round(v * f) / f;
+}

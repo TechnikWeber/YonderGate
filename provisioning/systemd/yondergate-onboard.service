@@ -1,0 +1,14 @@
+[Unit]
+Description=YonderGate onboarding — WiFi hotspot fallback when isolated
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+# Run through bash explicitly: a source zip (or a checkout with an odd umask) can lose
+# the exec bit, and systemd would then fail the unit with status=203/EXEC.
+ExecStart=/bin/bash /opt/yondergate/provisioning/onboard.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

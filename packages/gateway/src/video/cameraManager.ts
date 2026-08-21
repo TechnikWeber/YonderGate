@@ -1,0 +1,161 @@
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { exec } from 'node:child_process';
+import type { CameraCfg } from '@yondergate/protocol';
+
+/**
+ * Turns the graphical camera list into a go2rtc.yaml and reloads go2rtc — so the
+ * user configures cameras (type, resolution, fps, bitrate) in the setup UI, not
+ * by hand-editing a config file. Each camera becomes one selectable stream.
+ *
+ * The H.264 encoder is auto-detected so it works everywhere: libx264 (full
+ * ffmpeg), libopenh264 (Fedora's patent-free ffmpeg-free), or a hardware encoder
+ * on the Pi (h264_v4l2m2m) — no RPM Fusion required.
+ */
+
+/** Detect the best available H.264 encoder from the local ffmpeg. */
+export function detectH264Encoder(): Promise<string> {
+  return new Promise((resolve) => {
+    exec('ffmpeg -hide_banner -encoders', { timeout: 8000 }, (_err, stdout) => {
+      const out = stdout || '';
+      // Prefer quality/latency: x264, then Cisco openh264, then Pi hardware.
+      const prefer = ['libx264', 'libopenh264', 'h264_v4l2m2m', 'h264_omx', 'h264_nvenc'];
+      for (const e of prefer) if (out.includes(e)) return resolve(e);
+      resolve('libx264'); // last resort; preflight will have warned
+    });
+  });
+}
+
+/** Encoder-specific ffmpeg output args (libx264 presets don't apply elsewhere). */
+function encoderArgs(encoder: string, fps: number, bitrateKbps?: number): string {
+  const br = bitrateKbps && bitrateKbps > 0 ? bitrateKbps : null;
+  if (encoder === 'libx264') {
+    return (
+      `-c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g ${fps}` +
+      (br ? ` -b:v ${br}k -maxrate ${br}k -bufsize ${br * 2}k` : '')
+    );
+  }
+  if (encoder === 'libopenh264') {
+    // openh264 has no presets; needs an explicit bitrate.
+    return `-c:v libopenh264 -profile:v constrained_baseline -pix_fmt yuv420p -g ${fps} -b:v ${br ?? 2000}k`;
+  }
+  if (encoder === 'h264_v4l2m2m' || encoder === 'h264_omx') {
+    return `-c:v ${encoder} -pix_fmt yuv420p -g ${fps} -b:v ${br ?? 2000}k`;
+  }
+  return `-c:v ${encoder} -g ${fps}` + (br ? ` -b:v ${br}k` : '');
+}
+
+/** Round to an even number ≥ 2 (H.264 needs even dimensions). */
+function even(n: number): number {
+  return Math.max(2, Math.round(n / 2) * 2);
+}
+
+/**
+ * A camera name becomes a go2rtc stream key (YAML) AND the stream id the ground
+ * requests — restrict it to a safe charset so a crafted name can't break the YAML
+ * or inject a second stream. Empty/garbage falls back to "cam".
+ */
+export function safeStreamName(name: string): string {
+  const cleaned = (name ?? '').replace(/[^A-Za-z0-9_-]/g, '_').replace(/^_+|_+$/g, '');
+  return cleaned || 'cam';
+}
+
+/** A V4L2 device path lands inside an `exec:` command line — allow only /dev/<safe>. */
+function safeDevice(dev: string | undefined): string {
+  const d = dev ?? '/dev/video0';
+  return /^\/dev\/[A-Za-z0-9_-]+$/.test(d) ? d : '/dev/video0';
+}
+
+/** Positive integer with a floor (dimensions/fps go into shell command lines). */
+function posInt(n: number, min: number, fallback: number): number {
+  const v = Math.round(Number(n));
+  return Number.isFinite(v) && v >= min ? v : fallback;
+}
+
+/**
+ * Scale a camera's resolution/bitrate for a live quality level requested from the
+ * ground. 'high' keeps the configured values; lower levels shrink dimensions and
+ * cap bitrate so the picture stays fluid on a poor link.
+ */
+export function scaleCamera(cam: CameraCfg, quality: 'high' | 'medium' | 'low'): CameraCfg {
+  if (quality === 'high') return cam;
+  const factor = quality === 'medium' ? 0.66 : 0.5;
+  const cap = quality === 'medium' ? 1200 : 600;
+  return {
+    ...cam,
+    width: even(cam.width * factor),
+    height: even(cam.height * factor),
+    bitrateKbps: Math.min(cam.bitrateKbps ?? cap, cap),
+  };
+}
+export function cameraSource(cam: CameraCfg, encoder = 'libx264'): string {
+  // Coerce everything that lands in a shell command line to safe numeric/string
+  // values — these come from the setup UI and must never inject.
+  const w = even(posInt(cam.width, 2, 1280));
+  const h = even(posInt(cam.height, 2, 720));
+  const fps = posInt(cam.fps, 1, 25);
+  const br = cam.bitrateKbps != null ? posInt(cam.bitrateKbps, 1, 0) : undefined;
+  const enc = encoderArgs(encoder, fps, br);
+  if (cam.type === 'sim') {
+    return `exec:ffmpeg -re -f lavfi -i testsrc=size=${w}x${h}:rate=${fps} ${enc} -f rtsp {output}`;
+  }
+  if (cam.type === 'rpicam') {
+    const brArg = br ? ` --bitrate ${br * 1000}` : '';
+    return (
+      `exec:libcamera-vid -t 0 --inline --nopreview --codec h264 ` +
+      `--width ${w} --height ${h} --framerate ${fps} --intra ${fps}${brArg} -o - | ` +
+      `ffmpeg -fflags nobuffer -i - -c copy -f rtsp {output}`
+    );
+  }
+  // usb (V4L2): transcode to H.264 with the detected encoder.
+  const dev = safeDevice(cam.device);
+  return `exec:ffmpeg -f v4l2 -framerate ${fps} -video_size ${w}x${h} -i ${dev} ${enc} -f rtsp {output}`;
+}
+
+export function generateGo2rtcYaml(cameras: CameraCfg[], encoder = 'libx264'): string {
+  const lines: string[] = [
+    '# Generated by YonderGate from the graphical camera settings — do not edit by hand.',
+    `# H.264 encoder: ${encoder}`,
+    'api:',
+    '  listen: ":1984"',
+    '  origin: "*"',
+    'rtsp:',
+    '  listen: ":8554"',
+    'webrtc:',
+    '  listen: ":8555"',
+    '  candidates:',
+    '    - stun:8555',
+    'streams:',
+  ];
+  if (cameras.length === 0) {
+    lines.push('  {}');
+  } else {
+    for (const cam of cameras) {
+      lines.push(`  ${safeStreamName(cam.name)}: ${JSON.stringify(cameraSource(cam, encoder))}`);
+    }
+  }
+  return lines.join('\n') + '\n';
+}
+
+/** Write the config file and ask a running go2rtc to reload it. */
+export async function applyCameras(
+  cameras: CameraCfg[],
+  configPath: string,
+  videoBaseUrl: string | null,
+  encoder = 'libx264',
+): Promise<void> {
+  try {
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, generateGo2rtcYaml(cameras, encoder));
+  } catch (err) {
+    console.error(`[video] could not write ${configPath}: ${(err as Error).message}`);
+    return;
+  }
+  if (!videoBaseUrl) return;
+  try {
+    await fetch(`${videoBaseUrl}/api/restart`, { method: 'POST' });
+    console.log(`[video] go2rtc reloaded with ${cameras.length} camera(s), encoder ${encoder}`);
+  } catch {
+    console.log('[video] wrote go2rtc.yaml; start/restart go2rtc to apply');
+  }
+}

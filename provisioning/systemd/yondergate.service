@@ -1,0 +1,22 @@
+[Unit]
+Description=YonderGate site gateway
+After=network.target go2rtc.service
+Wants=go2rtc.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/yondergate
+# Real networking on the Pi (nmcli/mmcli/rfkill); 'sim' is for a dev machine.
+Environment=YGW_SYSTEM=real
+Environment=YGW_PORT=8080
+Environment=YGW_CONFIG=/opt/yondergate/yondergate-config.json
+# Generated video config — same path as go2rtc.service reads.
+Environment=YGW_GO2RTC_CONFIG=/var/lib/yondergate/go2rtc.yaml
+ExecStart=/usr/bin/npm run start -w @yondergate/gateway
+Restart=always
+RestartSec=2
+# Root: NetworkManager, rfkill, systemd and the I²C bus are all privileged.
+User=root
+
+[Install]
+WantedBy=multi-user.target

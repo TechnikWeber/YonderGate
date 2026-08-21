@@ -1,0 +1,57 @@
+import { createServer, type Server } from 'node:http';
+import type { GatewayConfig } from '../config.js';
+import type { SystemManager } from '../system/index.js';
+import type { TelemetryService } from '../sensors/TelemetryService.js';
+import { handleSetup, type SetupContext } from './setupRouter.js';
+import { startHilinkProxy, type HilinkProxyHandle } from './hilinkProxy.js';
+import { applyCameras } from '../video/cameraManager.js';
+
+/**
+ * The gateway's only listener: the setup/management UI and its API.
+ *
+ * There is deliberately no control socket here. This box does not steer anything —
+ * it provisions itself, watches a few sensors and hands you a way through to the
+ * devices behind it. Everything a browser needs is HTTP.
+ */
+export function startHttpServer(
+  config: GatewayConfig,
+  system: SystemManager,
+  telemetry: TelemetryService,
+): Server {
+  // The HiLink stick's own web UI, proxied so it is reachable from the AP/LAN/VPN.
+  let hilinkProxy: HilinkProxyHandle | null = null;
+  const applyHilink = () => {
+    hilinkProxy?.close();
+    hilinkProxy = null;
+    system.setHilinkHost(config.hilink.host);
+    if (config.hilink.proxyPort) {
+      hilinkProxy = startHilinkProxy({
+        port: config.hilink.proxyPort,
+        host: config.hilink.host,
+        secret: config.apiSecret,
+        log: (m) => console.log(m),
+      });
+    }
+  };
+  applyHilink();
+
+  const ctx: SetupContext = {
+    config,
+    system,
+    telemetry,
+    applyCameras: (cams) => applyCameras(cams, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder),
+    applyHilink,
+    onConfigSaved: (patch) => console.log('[setup] config saved:', Object.keys(patch).join(', ')),
+  };
+
+  const server = createServer((req, res) => {
+    void handleSetup(req, res, ctx).then((handled) => {
+      if (handled) return;
+      // Everything else is the setup page: this box has exactly one UI.
+      res.writeHead(302, { location: '/setup' });
+      res.end();
+    });
+  });
+  server.listen(config.port, config.host);
+  return server;
+}

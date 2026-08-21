@@ -1,0 +1,24 @@
+{
+  "name": "@yondergate/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YonderGate service: provisioning, remote access, device discovery and the web UI on the Pi.",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@yondergate/protocol": "*"
+  },
+  "optionalDependencies": {
+    "i2c-bus": "^5.2.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Philipp Weber"
+}

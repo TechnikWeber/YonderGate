@@ -1,0 +1,66 @@
+YonderGate — License
+Copyright (c) 2026 Philipp Weber.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivatives 4.0 International License
+(CC BY-NC-ND 4.0), together with one Additional Restriction imposed
+separately by the licensor (see below).
+
+  Human-readable summary : https://creativecommons.org/licenses/by-nc-nd/4.0/
+  Full legal text        : https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+
+================================================================================
+Kurzfassung (unverbindlich — es gilt der volle Lizenztext oben)
+================================================================================
+Du darfst YonderGate kostenlos herunterladen, benutzen und unveränderte Kopien mit
+Quellenangabe weitergeben. Du darfst es NICHT verändern oder veränderte Fassungen
+verbreiten (NoDerivatives), NICHT kommerziell nutzen (NonCommercial) und — durch
+den Zusatz unten — NICHT für militärische oder kriegerische Zwecke einsetzen.
+Das normale Benutzen und Konfigurieren über die vorgesehenen Einstellungen gilt
+nicht als „Veränderung".
+
+Under CC BY-NC-ND 4.0 you are free to share (copy and redistribute) the material
+in any medium or format, under these terms:
+  • Attribution   — give appropriate credit and indicate the license.
+  • NonCommercial — you may not use the material for commercial purposes.
+  • NoDerivatives — if you remix, transform, or build upon the material, you may
+                    not distribute the modified material.
+
+================================================================================
+Additional Restriction (No Military Use)
+================================================================================
+Notwithstanding anything in the license above, the material may NOT be used, in
+whole or in part, for any military, defense, warfare, weapons, or armed-conflict
+purpose. This includes the design, development, testing, production, operation,
+guidance, or deployment of weapons or military systems, and any use by or on
+behalf of armed forces, intelligence services, or paramilitary organizations.
+
+This is an additional restriction imposed separately by the licensor. Because of
+it, the work as a whole is offered as "CC BY-NC-ND 4.0 with an additional
+restriction" and must not be described as being under an unmodified Creative
+Commons license.
+
+================================================================================
+Notes
+================================================================================
+• Permitted use: running the software and configuring it through its intended
+  settings, configuration files, environment variables, and user interfaces is
+  normal use, not a "modification" or "derivative" under this license.
+• Commercial licensing, or permission to create and distribute modified versions,
+  requires the prior separate written permission of the copyright holder.
+• Third-party components: YonderGate incorporates third-party software (for example
+  go2rtc and various npm packages) licensed under their own separate terms. This
+  license applies only to the original YonderGate material created by the copyright
+  holder and does not modify or supersede those third-party licenses.
+• No warranty: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+  YonderGate controls physical vehicles and can cause property damage, injury, or
+  death. You use it entirely at your own risk and are responsible for safe and
+  lawful operation. To the maximum extent permitted by law, the copyright holder
+  is not liable for any claim, damages, or other liability arising from the
+  software or its use.
+• Legal / regulatory: FPV flying and operating RC vehicles BEYOND VISUAL LINE OF
+  SIGHT (BVLOS) is restricted or outright prohibited in many countries, and may
+  require registration, a licence, a spotter, or special authorisation. It is YOUR
+  responsibility to check and comply with all applicable laws and regulations
+  (aviation/drone, radio/spectrum, privacy) BEFORE use. The copyright holder
+  accepts NO liability and gives NO warranty; use YonderGate responsibly and legally.
