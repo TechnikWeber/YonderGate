@@ -61,12 +61,14 @@ import {
 } from './tailscale.js';
 import {
   mergeDevices,
+  mergeKnown,
   parseIpNeigh,
   parseSubnets,
   routableSubnets,
   sweepTargets,
   PROBE_PORTS,
   type Device,
+  type KnownDevice,
 } from './discovery.js';
 import {
   classifyChanges,
@@ -878,7 +880,7 @@ export class RealSystem implements SystemManager {
    * packet per address. Hostnames and ports are looked up only for what was found,
    * and every step degrades to "unknown" rather than failing the scan.
    */
-  async scanNetwork(opts: { active?: boolean } = {}): Promise<ScanResult> {
+  async scanNetwork(opts: { active?: boolean; known?: KnownDevice[] } = {}): Promise<ScanResult> {
     const notes: string[] = [];
     const started = Date.now();
     const subnets = parseSubnets((await sh('ip -o -f inet addr show')).out);
@@ -919,7 +921,12 @@ export class RealSystem implements SystemManager {
       ports[ip] = open.filter((p): p is number => p !== null);
     });
 
-    const devices: Device[] = mergeDevices(withSelf, { selfAddresses, hostnames, ports });
+    const found: Device[] = mergeDevices(withSelf, { selfAddresses, hostnames, ports });
+    // Fold in what the operator named, and keep saved devices that did not answer —
+    // "the camera I named is silent" is the most useful thing this page can say.
+    const devices = mergeKnown(found, opts.known ?? []);
+    const missing = devices.filter((d) => !d.seen).length;
+    if (missing) notes.push(`${missing} saved device${missing === 1 ? '' : 's'} did not answer.`);
     return { subnets, devices, active: !!opts.active, notes };
   }
 

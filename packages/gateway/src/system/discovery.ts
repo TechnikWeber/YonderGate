@@ -185,6 +185,88 @@ export function describeDevice(d: Device): string {
   return bits.join(' · ');
 }
 
+/**
+ * A device the operator has named or published. Keyed by **MAC where there is one**:
+ * addresses come from DHCP and move, while the hardware behind them does not — a
+ * camera that comes back on a different address is still the camera you named.
+ */
+export interface KnownDevice {
+  id: string;
+  label: string;
+  mac: string | null;
+  /** Last address it was seen at, so it can be found again before a scan. */
+  ip: string;
+  /** Which port its web UI is on — not everything is 80. */
+  port: number;
+  /** ISO timestamp of the last scan that saw it. */
+  lastSeen: string | null;
+}
+
+/** MAC if we have one, address otherwise. See KnownDevice. */
+export function deviceKey(d: { mac: string | null; ip: string }): string {
+  return d.mac ? `mac:${d.mac.toLowerCase()}` : `ip:${d.ip}`;
+}
+
+/**
+ * Fold what the operator saved into what the scan found, and keep the ones that did
+ * NOT answer. On a site you cannot walk to, "the camera I named is not answering"
+ * is the single most useful thing this page can tell you — dropping it from the
+ * list would hide exactly that.
+ */
+export interface ScannedDevice extends Device {
+  /** The name the operator gave it, when they gave one. */
+  label: string | null;
+  /** Web port to use for links and publishing. */
+  port: number;
+  known: boolean;
+  /** Did it answer in THIS scan? */
+  seen: boolean;
+  lastSeen: string | null;
+}
+
+export function mergeKnown(found: Device[], known: KnownDevice[], now = new Date().toISOString()): ScannedDevice[] {
+  const byKey = new Map(known.map((k) => [k.id, k]));
+  const out: ScannedDevice[] = found.map((d) => {
+    const k = byKey.get(deviceKey(d));
+    if (k) byKey.delete(k.id);
+    return {
+      ...d,
+      label: k?.label ?? null,
+      port: k?.port ?? 80,
+      known: !!k,
+      seen: true,
+      lastSeen: now,
+    };
+  });
+  // Whatever is left was saved but did not answer this time.
+  for (const k of byKey.values()) {
+    out.push({
+      ip: k.ip,
+      mac: k.mac,
+      iface: '',
+      vendor: macVendor(k.mac),
+      hostname: null,
+      openPorts: [],
+      self: false,
+      label: k.label,
+      port: k.port,
+      known: true,
+      seen: false,
+      lastSeen: k.lastSeen,
+    });
+  }
+  return out;
+}
+
+/** Fold a scan back into the saved list: addresses and last-seen move on. */
+export function updateKnown(known: KnownDevice[], found: Device[], now = new Date().toISOString()): KnownDevice[] {
+  const seen = new Map(found.map((d) => [deviceKey(d), d]));
+  return known.map((k) => {
+    const d = seen.get(k.id);
+    return d ? { ...k, ip: d.ip, mac: d.mac ?? k.mac, lastSeen: now } : k;
+  });
+}
+
 /** Merge neighbour entries into devices, newest information winning. */
 export function mergeDevices(
   neighbours: Neighbour[],

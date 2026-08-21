@@ -746,26 +746,67 @@
 
       function renderScan() {
         if (!scanned) return;
-        const rows = (scanned.devices || []).map((d) => {
-          const id = `${d.ip}:80`;
-          const via = publishedPorts[id];
-          const name = d.hostname || d.vendor || (d.self ? 'this gateway' : 'unknown device');
-          const direct = deviceUrl(d);
+        const rows = (scanned.devices || []).map((d, i) => {
+          const port = d.port || 80;
+          const via = publishedPorts[`${d.ip}:${port}`];
+          const auto = d.hostname || d.vendor || (d.self ? 'this gateway' : 'unknown device');
+          const direct = d.seen ? deviceUrl(d) : null;
+          const publishable = !d.self && (direct || d.known);
           const buttons = [
             direct ? `<a class="btn tiny" href="${esc(direct)}" target="_blank" rel="noopener">Open ↗</a>` : '',
-            d.self || !direct ? '' :
+            !publishable ? '' :
               via
                 ? `<a class="btn tiny primary" href="http://${esc(location.hostname)}:${via}/" target="_blank" rel="noopener">Open via gateway ↗</a>
-                   <button class="btn tiny" onclick="run(this, () => publish('${esc(d.ip)}', true))">Unpublish</button>`
-                : `<button class="btn tiny" onclick="run(this, () => publish('${esc(d.ip)}', false))">Publish</button>`,
+                   <button class="btn tiny" onclick="run(this, () => publish(${i}, true))">Unpublish</button>`
+                : `<button class="btn tiny" onclick="run(this, () => publish(${i}, false))">Publish</button>`,
           ].join(' ');
-          return `<div class="hw-row">
-            <span><b class="mono">${esc(d.ip)}</b> ${d.self ? '<span class="v go">self</span>' : ''}<br>
-              <span style="color:var(--muted)">${esc(name)}${d.mac ? ' · ' + esc(d.mac) : ''}<br>${esc(describe(d))}</span></span>
-            <span class="hw-right">${buttons}</span>
+          // A saved device that did not answer is the point of saving it, so it stays
+          // in the list and says when it was last seen.
+          const status = d.self
+            ? '<span class="v go">self</span>'
+            : !d.seen
+              ? `<span class="v bad">not answering</span>`
+              : d.known ? '<span class="v go">saved</span>' : '';
+          const seenAt = !d.seen && d.lastSeen ? `<br><span style="color:var(--idle)">last seen ${esc(new Date(d.lastSeen).toLocaleString())}</span>` : '';
+          const namer = d.self ? '' : `
+            <div class="grid3" style="margin-top:6px">
+              <input id="dev-name-${i}" placeholder="name it (e.g. shed camera)" value="${esc(d.label || '')}" />
+              <input id="dev-port-${i}" type="number" placeholder="80" value="${port}" />
+              <div class="btns">
+                <button class="btn tiny" onclick="run(this, () => saveDevice(${i}))">Save</button>
+                ${d.known ? `<button class="btn tiny" onclick="run(this, () => forgetDevice(${i}))">Forget</button>` : ''}
+              </div>
+            </div>`;
+          return `<div class="item">
+            <div class="hw-row">
+              <span><b class="mono">${esc(d.ip)}</b> ${status}<br>
+                <span style="color:var(--muted)">${esc(d.label || auto)}${d.label ? ' · ' + esc(auto) : ''}${d.mac ? ' · ' + esc(d.mac) : ''}<br>${esc(describe(d))}${seenAt}</span></span>
+              <span class="hw-right">${buttons}</span>
+            </div>
+            ${namer}
           </div>`;
         }).join('');
         $('scan-out').innerHTML = rows || '<div class="msg">Nothing answered.</div>';
+      }
+
+      async function saveDevice(i) {
+        const d = scanned.devices[i];
+        const r = await post('/api/devices', {
+          ip: d.ip,
+          mac: d.mac,
+          label: $(`dev-name-${i}`).value.trim(),
+          port: Number($(`dev-port-${i}`).value) || 80,
+        });
+        $('scan-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message)}</b>`;
+        if (r.ok) { d.label = r.device.label; d.port = r.device.port; d.known = true; renderScan(); }
+      }
+
+      async function forgetDevice(i) {
+        const d = scanned.devices[i];
+        const r = await post('/api/devices', { ip: d.ip, mac: d.mac, remove: true });
+        $('scan-msg').textContent = r.message || '';
+        d.known = false; d.label = null;
+        renderScan();
       }
 
       // Mirrors deviceUrl()/describeDevice() in system/discovery.ts — the page only
@@ -797,8 +838,9 @@
         } catch {}
       }
 
-      async function publish(ip, remove) {
-        const r = await post('/api/proxies', { host: ip, port: 80, remove });
+      async function publish(i, remove) {
+        const d = scanned.devices[i];
+        const r = await post('/api/proxies', { host: d.ip, port: d.port || 80, label: d.label || d.ip, remove });
         $('scan-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message || 'Failed.')}</b>`;
         await loadProxies();
         renderScan();

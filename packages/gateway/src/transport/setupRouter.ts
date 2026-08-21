@@ -24,6 +24,7 @@ import { isIpv4 } from '../system/hilink.js';
 import { isGitBranch, isGitSource, UPDATE_SOURCE_DEFAULT } from '../system/update.js';
 import { isCidr } from '../system/tailscale.js';
 import { nextListenPort, proxyId, validateProxy, type ProxyCfg } from './deviceProxy.js';
+import { deviceKey, updateKnown, type KnownDevice } from '../system/discovery.js';
 
 const SETUP_HTML = fileURLToPath(new URL('../setup/setup.html', import.meta.url));
 
@@ -304,7 +305,57 @@ export async function handleSetup(
   // ---- the site's network: what is out there, and how to reach it ----
   if (url === '/api/scan' && method === 'POST') {
     const body = (await readBody(req)) as { active?: unknown };
-    json(res, 200, await ctx.system.scanNetwork({ active: body.active === true }));
+    const result = await ctx.system.scanNetwork({ active: body.active === true, known: ctx.config.devices });
+    // A scan is also the moment to learn where a saved device moved to: DHCP hands
+    // out new addresses, and a name is worth nothing if it points at the old one.
+    const devices = updateKnown(ctx.config.devices, result.devices.filter((d) => d.seen));
+    if (JSON.stringify(devices) !== JSON.stringify(ctx.config.devices)) {
+      savePersisted(ctx.config.configPath, { devices });
+      ctx.config.devices = devices;
+    }
+    json(res, 200, result);
+    return true;
+  }
+
+  // Naming a device (and saying which port its web UI is on) is what turns a list of
+  // addresses into an inventory of the site.
+  if (url === '/api/devices' && method === 'GET') {
+    json(res, 200, { devices: ctx.config.devices });
+    return true;
+  }
+
+  if (url === '/api/devices' && method === 'POST') {
+    const body = (await readBody(req)) as { ip?: unknown; mac?: unknown; label?: unknown; port?: unknown; remove?: unknown };
+    const ip = String(body.ip ?? '');
+    const mac = typeof body.mac === 'string' && body.mac ? body.mac.toLowerCase() : null;
+    if (!isIpv4(ip)) {
+      json(res, 400, { ok: false, message: 'A device needs an IPv4 address.' });
+      return true;
+    }
+    const id = deviceKey({ mac, ip });
+    if (body.remove === true) {
+      const devices = ctx.config.devices.filter((d) => d.id !== id);
+      savePersisted(ctx.config.configPath, { devices });
+      ctx.config.devices = devices;
+      json(res, 200, { ok: true, message: 'Device forgotten.', devices });
+      return true;
+    }
+    const port = body.port === undefined ? 80 : Number(body.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      json(res, 400, { ok: false, message: `Port ${String(body.port)} is out of range.` });
+      return true;
+    }
+    const label = String(body.label ?? '').trim();
+    if (!label) {
+      json(res, 400, { ok: false, message: 'Give the device a name — that is the point of saving it.' });
+      return true;
+    }
+    const existing = ctx.config.devices.find((d) => d.id === id);
+    const entry: KnownDevice = { id, label, mac, ip, port, lastSeen: existing?.lastSeen ?? new Date().toISOString() };
+    const devices = [...ctx.config.devices.filter((d) => d.id !== id), entry];
+    savePersisted(ctx.config.configPath, { devices });
+    ctx.config.devices = devices;
+    json(res, 200, { ok: true, message: `Saved as "${label}".`, device: entry, devices });
     return true;
   }
 

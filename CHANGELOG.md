@@ -2,6 +2,46 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.4.0
+**English**
+- **A scan is no longer anonymous.** Devices can be given a name and the port their web
+  UI actually listens on, and both survive the next scan. Saved devices are keyed by
+  **MAC**, not address: DHCP moves addresses around, and a camera that comes back on a
+  different one is still the camera you named.
+- **A saved device that stops answering stays in the list**, marked *not answering*,
+  with the time it was last seen. That is the whole reason to save one: on a site you
+  cannot walk to, "the camera I named is silent" is the most useful thing this page can
+  tell you — dropping it from the list would hide exactly that.
+- Publishing now uses the device's **configured port**, so a UI on 8080 or 8443 works
+  like one on 80, and the published entry carries the name you gave it.
+- **README explains the whole idea from scratch**: why a `192.168.x.x` address at a
+  remote site is unreachable, why port forwarding does not help behind CGNAT, what
+  Tailscale does about it — and then both ways through, step by step: subnet routes
+  (reaches everything, needs one approval in the admin console, `--accept-routes` on
+  Linux clients) and publishing a single device (no routing changes, survives an address
+  collision with your home network). Including when to pick which.
+
+**Deutsch**
+- **Ein Scan ist nicht mehr anonym.** Geräte lassen sich benennen, samt dem Port, auf dem
+  ihre Weboberfläche wirklich liegt — beides übersteht den nächsten Scan. Gespeichert wird
+  nach **MAC**, nicht nach Adresse: DHCP schiebt Adressen herum, und eine Kamera, die
+  unter einer anderen zurückkommt, ist immer noch die Kamera, die du benannt hast.
+- **Ein gespeichertes Gerät, das nicht mehr antwortet, bleibt in der Liste**, markiert als
+  *not answering*, mit dem Zeitpunkt der letzten Sichtung. Genau dafür speichert man es:
+  An einem Ort, zu dem du nicht hinlaufen kannst, ist „die Kamera, die ich benannt habe,
+  schweigt" die nützlichste Auskunft dieser Seite — sie aus der Liste zu werfen würde
+  ausgerechnet das verbergen.
+- Beim Veröffentlichen wird jetzt der **konfigurierte Port** benutzt, eine Oberfläche auf
+  8080 oder 8443 funktioniert also wie eine auf 80, und der Eintrag trägt den Namen, den
+  du vergeben hast.
+- **Die README erklärt das Konzept von Grund auf**: warum eine `192.168.x.x`-Adresse an
+  einem entfernten Ort unerreichbar ist, warum Portfreigaben hinter CGNAT nicht helfen,
+  was Tailscale daran ändert — und dann beide Wege hindurch, Schritt für Schritt:
+  Subnet-Routes (erreicht alles, braucht eine Freigabe in der Konsole,
+  `--accept-routes` auf Linux-Clients) und das Veröffentlichen eines einzelnen Geräts
+  (keine Routing-Änderung, übersteht eine Adresskollision mit dem Heimnetz). Inklusive der
+  Frage, wann man welchen nimmt.
+
 ## v0.3.0
 **English**
 - **The RC wording is gone.** This box sits on a yacht, an allotment or a remote plot —

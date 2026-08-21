@@ -4,7 +4,7 @@ import type { HwDepName } from './hwDeps.js';
 import type { WifiRadioStatus } from './wifi.js';
 import type { HilinkStatus } from './hilink.js';
 import type { UpdateCheck, UpdateSource } from './update.js';
-import type { Device, Subnet } from './discovery.js';
+import type { KnownDevice, ScannedDevice, Subnet } from './discovery.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -266,7 +266,7 @@ export interface RemoteAccessStatus {
 /** What a network scan found, plus why it might be incomplete. */
 export interface ScanResult {
   subnets: Subnet[];
-  devices: Device[];
+  devices: ScannedDevice[];
   /** Whether an active sweep ran, or only the passive neighbour table was read. */
   active: boolean;
   /** Anything the operator should know: skipped subnets, missing tools, timings. */
@@ -335,7 +335,7 @@ export interface SystemManager {
   /** Restart the gateway service itself, so a freshly installed driver is picked up. */
   restartService(): Promise<ActionResult>;
   /** Everything reachable on the site's networks. `active` adds a ping sweep. */
-  scanNetwork(opts?: { active?: boolean }): Promise<ScanResult>;
+  scanNetwork(opts?: { active?: boolean; known?: KnownDevice[] }): Promise<ScanResult>;
   /** Current subnet-routing state (advertised / approved / forwarding). */
   subnetRoutes(): Promise<SubnetRouteState>;
   /** Advertise exactly these CIDRs over Tailscale (empty list = stop routing). */

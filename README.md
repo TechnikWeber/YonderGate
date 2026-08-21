@@ -38,6 +38,88 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   designed for a site you reach only over LTE.
 - **Optional API secret** guarding every mutating call and the proxied device UIs.
 
+## How you reach your devices
+
+The whole point of this box, explained from scratch.
+
+### The problem
+
+The things at your site — a camera, the router, an inverter — have addresses like
+`192.168.4.23`. Those addresses exist **only at that site**. Millions of networks use
+the same numbers, so the internet cannot deliver anything to them: there is no way to
+say *which* `192.168.4.23` you mean.
+
+The classic answer is "forward a port on the router". That does not work here either:
+an LTE connection almost never gives you a public address of your own — you share one
+with hundreds of other customers (carrier-grade NAT). There is no door to open.
+
+### The idea: your own private network
+
+**Tailscale** builds a private network across your devices, wherever they are. Install
+it on the gateway and on your laptop and phone, log all of them into the same account,
+and each gets a permanent address like `100.126.76.112`. They can talk to each other
+directly, encrypted, with **nothing opened on any router**. It works from behind CGNAT,
+behind a company firewall, from a hotel — because both ends dial out.
+
+That already gets you to **the gateway itself**: `http://yondergate:8080/setup` from
+your sofa. Getting to everything *behind* it is the part this project is about, and
+there are two ways.
+
+### Way 1 — Subnet routes: reach everything, at its real address
+
+You tell your private network: *"this gateway can also reach 192.168.4.0/24."* From
+then on your laptop talks to `192.168.4.23` directly, exactly as if you were standing
+at the site. One setting, every device, including things that are not web pages at all
+— RTSP cameras, SSH, an inverter's app.
+
+**How to set it up**
+
+1. On the gateway: **Setup › Site network › Reach these networks over Tailscale**.
+   Tick the networks you want (usually the one your devices are on) and press
+   **Apply routes**. The gateway turns on IP forwarding for you.
+2. In the Tailscale admin console: **Machines → your gateway → ⋯ → Edit route
+   settings → approve** the route. *This step is not optional and it is the one
+   everybody forgets* — until it is approved, the route exists and carries nothing.
+   The page tells you when it is waiting.
+3. On a **Linux** client, accept routes once: `sudo tailscale up --accept-routes`.
+   (macOS, iOS, Windows and Android accept them by default.)
+4. Test it: open `http://192.168.4.23/` on your laptop, from anywhere.
+
+**When this is not the right way:** if the site uses the same address range as the
+network you are sitting in — both `192.168.178.x`, say — your laptop cannot tell the
+two apart, and the route collides with your own LAN. Then use way 2.
+
+### Way 2 — Publish one device: the fallback that always works
+
+The gateway offers **one device's web page on one of its own ports**. You only ever
+talk to the gateway, which Tailscale already gets you to.
+
+**How to set it up**
+
+1. **Setup › Site network → Scan**, find the device in the list.
+2. Give it a name and, if its web UI is not on port 80, its port. **Save**.
+3. Press **Publish**. The page tells you the port it picked, e.g. `8100`.
+4. Open `http://yondergate:8100/` from anywhere on your tailnet.
+
+No routing changes, no approval, no address collisions — and if an API secret is set,
+that port asks for it too (open it once as `…:8100/?secret=YOUR_SECRET`).
+
+Its limits are worth knowing: it only forwards **HTTP(S)**, one device per port, and
+the device sees the gateway as its visitor rather than you.
+
+### Which one to use
+
+| | Subnet routes | Publish a device |
+|---|---|---|
+| Reaches | **every device, every protocol** | one device's web page |
+| Setup | once, per network | once, per device |
+| Needs approval in the admin console | **yes** | no |
+| Survives an address collision with your home network | no | **yes** |
+| Good for | the normal case | one camera, or when routing is not an option |
+
+Use subnet routes if you can, publishing if you must — and note that you can do both
+at the same time.
+
 ## Quick start (Raspberry Pi OS Lite, Bookworm)
 
 ```bash
@@ -68,8 +150,8 @@ The living list of what is open. Ticked items are done and covered by tests.
       console" step spelled out
 - [x] Publish a single device on a gateway port (the routing-free fallback)
 - [ ] Verify all of the above **on the real Pi** — sweeps, `tailscale set`, forwarding
-- [ ] Remember discovered devices between scans (names you gave them, what you published)
-- [ ] Let the operator name a device and pick its port (not just 80)
+- [x] Remember discovered devices between scans: names, ports, and a saved device that
+      stops answering stays in the list with the time it was last seen
 - [ ] HTTPS devices: the proxy currently talks plain HTTP to the target
 - [ ] mDNS/avahi names in the device list, not just reverse DNS
 

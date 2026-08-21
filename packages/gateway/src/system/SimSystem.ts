@@ -23,7 +23,7 @@ import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
-import { mergeDevices, parseIpNeigh, parseSubnets, routableSubnets } from './discovery.js';
+import { mergeDevices, mergeKnown, parseIpNeigh, parseSubnets, routableSubnets, type KnownDevice } from './discovery.js';
 
 /**
  * Mock system: pretends to have an LTE modem and Tailscale so the entire setup
@@ -306,7 +306,7 @@ export class SimSystem implements SystemManager {
    * laptop that answers nothing. Enough to exercise the list, the links and the
    * proxy buttons without a network.
    */
-  async scanNetwork(opts: { active?: boolean } = {}): Promise<ScanResult> {
+  async scanNetwork(opts: { active?: boolean; known?: KnownDevice[] } = {}): Promise<ScanResult> {
     const subnets = parseSubnets(
       [
         '2: eth0    inet 192.168.178.42/24 brd 192.168.178.255 scope global eth0\\       valid_lft forever',
@@ -333,7 +333,12 @@ export class SimSystem implements SystemManager {
         '192.168.178.42': [80],
       },
     });
-    return { subnets, devices, active: !!opts.active, notes: ['Simulated network — the real scan runs on the Pi.'] };
+    return {
+      subnets,
+      devices: mergeKnown(devices, opts.known ?? []),
+      active: !!opts.active,
+      notes: ['Simulated network — the real scan runs on the Pi.'],
+    };
   }
 
   private routes: string[] = [];

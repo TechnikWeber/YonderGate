@@ -80,6 +80,34 @@ async function main() {
   ok('RTSP reads as a camera, phrased as a guess', D.describeDevice(devs[0]).includes('looks like a camera'));
   ok('a silent device says so honestly', D.describeDevice(devs[1]).includes('no open ports'));
 
+  // ---- named devices survive a scan (and a DHCP lease) ----
+  // Keyed by MAC, because addresses move: a camera that comes back on a different
+  // address is still the camera you named.
+  ok('mac wins as the key', D.deviceKey({ mac: 'AA:BB:CC:11:22:33', ip: '192.168.4.9' }) === 'mac:aa:bb:cc:11:22:33');
+  ok('no mac falls back to the address', D.deviceKey({ mac: null, ip: '192.168.4.9' }) === 'ip:192.168.4.9');
+
+  const knownList = [
+    { id: 'mac:ec:71:db:aa:bb:cc', label: 'shed camera', mac: 'ec:71:db:aa:bb:cc', ip: '192.168.4.23', port: 8080, lastSeen: '2026-08-01T10:00:00.000Z' },
+    { id: 'mac:98:da:c4:de:ad:be', label: 'pv meter', mac: '98:da:c4:de:ad:be', ip: '192.168.4.45', port: 80, lastSeen: '2026-08-01T10:00:00.000Z' },
+  ];
+  const foundNow = D.mergeDevices(
+    D.parseIpNeigh('192.168.4.99 dev wlan0 lladdr ec:71:db:aa:bb:cc REACHABLE'),
+    { selfAddresses: [], ports: { '192.168.4.99': [8080] } },
+  );
+  const merged = D.mergeKnown(foundNow, knownList, '2026-08-21T18:00:00.000Z');
+  const knownCam = merged.find((d) => d.mac === 'ec:71:db:aa:bb:cc');
+  ok('a saved device keeps its name across a new address', knownCam?.label === 'shed camera' && knownCam?.ip === '192.168.4.99');
+  ok('and its configured port, not just 80', knownCam?.port === 8080);
+  // The whole reason to save a device: being told when it stops answering.
+  const gone = merged.find((d) => d.label === 'pv meter');
+  ok('a saved device that did not answer is still listed', !!gone && gone.seen === false);
+  ok('with the time it was last seen', gone?.lastSeen === '2026-08-01T10:00:00.000Z');
+  ok('while the one that answered is marked seen', knownCam?.seen === true && knownCam?.known === true);
+
+  const rolled = D.updateKnown(knownList, foundNow, '2026-08-21T18:00:00.000Z');
+  ok('a scan moves the saved address along', rolled[0].ip === '192.168.4.99' && rolled[0].lastSeen === '2026-08-21T18:00:00.000Z');
+  ok('and leaves the silent one untouched', rolled[1].ip === '192.168.4.45' && rolled[1].lastSeen === '2026-08-01T10:00:00.000Z');
+
   // ---- subnet routes: the native way through to those devices ----
   const TS = await import('../packages/gateway/src/system/tailscale');
   ok('routes are advertised as one list', TS.advertiseRoutesArgs(['192.168.4.0/24', '192.168.178.0/24']).join(' ') === 'set --advertise-routes=192.168.4.0/24,192.168.178.0/24');
