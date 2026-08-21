@@ -505,8 +505,10 @@ export async function handleSetup(
       label: String(body.label ?? '').trim(),
       kind: (String(body.kind ?? 'shelly') as PowerSwitch['kind']),
       host: body.host ? String(body.host).trim() : null,
-      channel: body.channel === undefined ? 0 : clampInt(body.channel, 0, 0, 7),
-      pin: body.pin === undefined ? undefined : clampInt(body.pin, 0, 0, 27),
+      // NOT clamped: a pin of 99 must be refused, not quietly turned into 27 — the
+      // "helpful" correction is how a relay ends up switching the wrong line.
+      channel: body.channel === undefined || body.channel === '' ? 0 : Number(body.channel),
+      pin: body.pin === undefined || body.pin === '' ? undefined : Number(body.pin),
       inverted: body.inverted === true,
       onUrl: body.onUrl ? String(body.onUrl).trim() : null,
       offUrl: body.offUrl ? String(body.offUrl).trim() : null,

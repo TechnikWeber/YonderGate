@@ -2,6 +2,22 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.9.1
+**English**
+- **Fixed within minutes of shipping it: an impossible GPIO pin was accepted.** The
+  router clamped the number into range before validating it, so pin 99 became pin 27 and
+  the switch was saved — a relay quietly wired to a line nobody chose. Pin, channel and
+  off-time are now checked, not corrected. "Helpfully" fixing a value the operator typed
+  is how a switch ends up controlling the wrong thing.
+
+**Deutsch**
+- **Minuten nach der Veröffentlichung gefunden: ein unmöglicher GPIO-Pin wurde
+  angenommen.** Der Router hat die Zahl vor der Prüfung in den gültigen Bereich gebogen —
+  aus Pin 99 wurde Pin 27, und der Schalter war gespeichert: ein Relais, still auf eine
+  Leitung gelegt, die niemand gewählt hat. Pin, Kanal und Ausschaltdauer werden jetzt
+  geprüft, nicht korrigiert. Einen eingegebenen Wert „hilfsbereit" zurechtzurücken ist
+  genau der Weg, auf dem ein Schalter am Ende das Falsche schaltet.
+
 ## v0.9.0
 **English**
 - **Power switches.** A Shelly, a Tasmota plug, any pair of URLs, or a relay on the Pi's

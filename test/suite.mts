@@ -176,6 +176,11 @@ async function main() {
   ok('a gpio switch needs a valid pin', PW.validateSwitch({ label: 'a', kind: 'gpio', pin: 99 })?.includes('BCM pin'));
   ok('a custom switch needs both urls', PW.validateSwitch({ label: 'a', kind: 'url', onUrl: 'http://x' })?.includes('on and an off'));
   ok('a good one passes', PW.validateSwitch({ label: 'Cam', kind: 'shelly', host: '192.168.4.60' }) === null);
+  // Found by trying it: an out-of-range pin was silently clamped to a valid one, so
+  // the switch would have driven a line nobody chose.
+  ok('an out-of-range pin is refused, not clamped', PW.validateSwitch({ label: 'a', kind: 'gpio', pin: 99 }) !== null);
+  ok('so is an impossible channel', PW.validateSwitch({ label: 'a', kind: 'shelly', host: 'x', channel: 99 })?.includes('channel'));
+  ok('and an absurd off-time', PW.validateSwitch({ label: 'a', kind: 'shelly', host: 'x', cycleSeconds: 9999 })?.includes('off-time'));
 
   // Cycling once and then waiting is the difference between a rescue and a relay
   // that clacks all night on a flapping link.

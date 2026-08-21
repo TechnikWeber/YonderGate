@@ -80,6 +80,12 @@ export function gpioArgs(sw: PowerSwitch, on: boolean, holdSeconds = 0): string[
 /** A switch we are willing to act on. */
 export function validateSwitch(sw: Partial<PowerSwitch>): string | null {
   if (!sw.label || !String(sw.label).trim()) return 'Give the switch a name.';
+  if (sw.channel !== undefined && (!Number.isInteger(sw.channel) || sw.channel < 0 || sw.channel > 7)) {
+    return 'The channel is 0–7 (most plugs have exactly one, which is 0).';
+  }
+  if (sw.cycleSeconds !== undefined && (!Number.isFinite(sw.cycleSeconds) || sw.cycleSeconds < 1 || sw.cycleSeconds > 300)) {
+    return 'The off-time is between 1 and 300 seconds.';
+  }
   if (sw.kind === 'gpio') {
     const pin = Number(sw.pin);
     if (!Number.isInteger(pin) || pin < 0 || pin > 27) return 'A GPIO relay needs a BCM pin between 0 and 27.';
