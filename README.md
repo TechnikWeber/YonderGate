@@ -29,8 +29,11 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
 - **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot.
-- **Sensors**: voltage, current and temperature over I²C (INA2xx, ADS1115, and the
-  usual temperature parts), or simulated when no hardware is attached.
+- **Sensors with history**: voltage, current and temperature over I²C (INA2xx,
+  ADS1115, and the usual temperature parts), or simulated when no hardware is
+  attached — recorded once a minute and kept for 13 months, so the page can answer
+  "and yesterday?" as well as "and now?". Charts for hour, day, week, month and year,
+  drawn in the page itself so they work with no internet at the site.
 - **Cameras** via go2rtc, configured graphically, with a still-frame preview and a
   link to the live player right in the page. `npm run dev:video` runs the whole
   thing locally against a simulated camera.
@@ -156,9 +159,16 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [ ] mDNS/avahi names in the device list, not just reverse DNS
 
 **Site monitoring**
-- [ ] A sensible page for a solar site: battery voltage, charge/discharge, temperature
-      history rather than just current values
-- [ ] Alert when the battery goes below a threshold (push? e-mail? Tailscale-only?)
+- [x] Sensor history: one averaged value per minute, kept 13 months (~21 MB a year),
+      with min/max per step and hour…year views
+- [ ] **Alerts** — a box nobody watches has to speak up: battery below a threshold, a
+      saved device gone quiet, no uplink, undervoltage. Needs a channel (ntfy, e-mail,
+      webhook) that works from a site with a flaky link
+- [ ] **System health**: disk space, CPU temperature, undervoltage, uptime, and whether
+      the clock is actually synced (timestamps in the history depend on it)
+- [ ] **LTE data usage** with a warning before the SIM's cap — the stick already knows
+- [ ] Export a range of history as CSV from the page
+- [ ] Config backup / restore as one file
 - [x] Camera preview on the setup page (still frame + link to go2rtc's player)
 
 **Operations**

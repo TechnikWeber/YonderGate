@@ -320,7 +320,19 @@
       </section>
 
       <section class="panel">
-        <div class="eyebrow">Telemetry (voltage / current / battery)</div>
+        <div class="eyebrow">Sensors</div>
+        <div id="sensor-now"><div class="msg">…</div></div>
+        <div class="btns" style="margin-top:8px">
+          <button class="btn tiny" onclick="run(this, () => loadHistory('hour'))">Hour</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('day'))">Day</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('week'))">Week</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('month'))">Month</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('year'))">Year</button>
+        </div>
+        <div id="sensor-history"><div class="msg">Recording starts with the gateway — a fresh box has nothing to show yet.</div></div>
+        <p class="msg">One averaged value per minute is recorded, kept for 13 months (about 21 MB a year) in <span class="mono">/var/lib/yondergate/history</span>. Longer views are averaged when you ask for them, and the band behind the line is the <b>minimum and maximum</b> inside each step — on a battery the dip under load is the part an average hides.</p>
+
+        <div class="eyebrow2" style="margin-top:14px">Configuration</div>
         <div class="grid2">
           <label>Source
             <select id="telSource">
@@ -706,6 +718,72 @@
         $('ltePin').value = ''; $('ltePass').value = '';
         refresh();
       }
+      // ---- sensors: now, and what happened while nobody looked ----
+      const SENSOR_UNIT = { v: 'V', c: 'A', t: '°C', pct: '%' };
+      function unitFor(key) { return SENSOR_UNIT[String(key).split(':')[0]] || ''; }
+      function keyLabel(key) {
+        const [kind, ...rest] = String(key).split(':');
+        const name = rest.join(':');
+        return ({ v: 'Voltage', c: 'Current', t: 'Temperature', pct: 'Battery' }[kind] || kind) + ' · ' + name;
+      }
+
+      async function loadSensorsNow() {
+        try {
+          const t = await getJSON('/api/telemetry/live');
+          if (t.ok === false) { $('sensor-now').innerHTML = '<div class="msg">No sensor data yet.</div>'; return; }
+          const row = (label, value, unit) => `<div class="row"><span class="k">${esc(label)}</span><span class="v">${esc(value)} ${esc(unit)}</span></div>`;
+          $('sensor-now').innerHTML =
+            (t.voltages || []).map((x) => row(x.label, x.value, 'V')).join('') +
+            (t.currents || []).map((x) => row(x.label, x.value, 'A')).join('') +
+            (t.temperatures || []).map((x) => row(x.label, x.value, '°C')).join('') +
+            (t.batteryPercent != null ? row('Battery', Math.round(t.batteryPercent), '%') : '') +
+            (t.source === 'sim' ? '<div class="msg" style="color:var(--idle)">Simulated values — no sensor configured.</div>' : '');
+        } catch {}
+      }
+
+      // Drawn as inline SVG on purpose: the page has to work with no internet at the
+      // site, which rules out a charting library from a CDN.
+      function sparkline(points, key) {
+        const vals = points.map((p) => p.values[key]).filter((v) => v !== null && v !== undefined);
+        if (vals.length < 2) return '<div class="msg">not enough data yet</div>';
+        const lo = Math.min(...vals, ...points.map((p) => p.min?.[key]).filter((v) => v != null));
+        const hi = Math.max(...vals, ...points.map((p) => p.max?.[key]).filter((v) => v != null));
+        const pad = (hi - lo) * 0.08 || 0.5;
+        const y0 = lo - pad, y1 = hi + pad;
+        const W = 640, H = 120;
+        const x = (i) => (i / (points.length - 1)) * W;
+        const y = (v) => H - ((v - y0) / (y1 - y0)) * H;
+        const line = points.map((p, i) => (p.values[key] == null ? null : `${x(i).toFixed(1)},${y(p.values[key]).toFixed(1)}`))
+          .filter(Boolean).join(' ');
+        // min/max band: the extremes inside each averaged step
+        const top = points.map((p, i) => (p.max?.[key] == null ? null : `${x(i).toFixed(1)},${y(p.max[key]).toFixed(1)}`)).filter(Boolean);
+        const bottom = points.map((p, i) => (p.min?.[key] == null ? null : `${x(i).toFixed(1)},${y(p.min[key]).toFixed(1)}`)).filter(Boolean).reverse();
+        const band = top.length && bottom.length ? `<polygon points="${top.join(' ')} ${bottom.join(' ')}" fill="var(--accent)" opacity="0.15" />` : '';
+        const zero = y0 < 0 && y1 > 0 ? `<line x1="0" y1="${y(0).toFixed(1)}" x2="${W}" y2="${y(0).toFixed(1)}" stroke="var(--line-b)" stroke-dasharray="4 4" />` : '';
+        const last = vals[vals.length - 1];
+        return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:110px;display:block">
+            ${band}${zero}<polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
+          </svg>
+          <div class="row"><span class="k">${esc(y1.toFixed(2))} … ${esc(y0.toFixed(2))} ${esc(unitFor(key))}</span><span class="v">now ${esc(String(last))} ${esc(unitFor(key))}</span></div>`;
+      }
+
+      async function loadHistory(range) {
+        $('sensor-history').innerHTML = '<div class="msg">Reading…</div>';
+        try {
+          const h = await getJSON(`/api/history?range=${encodeURIComponent(range || 'day')}`);
+          if (!h.points || h.points.length < 2) {
+            $('sensor-history').innerHTML = `<div class="msg">Nothing recorded for the last ${esc(range || 'day')} yet.</div>`;
+            return;
+          }
+          const step = Math.round(h.bucketMs / 60000);
+          $('sensor-history').innerHTML =
+            `<div class="msg">${h.points.length} points · ${step < 60 ? step + ' min' : Math.round(step / 60) + ' h'} per step</div>` +
+            h.keys.map((k) => `<div class="item"><div class="eyebrow2">${esc(keyLabel(k))}</div>${sparkline(h.points, k)}</div>`).join('');
+        } catch {
+          $('sensor-history').innerHTML = '<div class="msg">Could not read the history.</div>';
+        }
+      }
+
       // ---- camera preview ----
       // The gateway generates go2rtc's config but does not serve video itself, so the
       // preview points straight at go2rtc: a still frame to prove the camera works,
@@ -1406,6 +1484,9 @@
       }
 
       loadConfig();
+      loadSensorsNow();
+      setInterval(loadSensorsNow, 5000);
+      loadHistory('day');
       loadRoutes();
       loadProxies();
       loadHwDeps();

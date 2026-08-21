@@ -133,6 +133,35 @@ async function main() {
   ok('a privileged publish port is refused', (DP.validateProxy({ ...okCfg, listen: 80 }, []) || {}).message?.includes('between 1024'));
   ok('the id is one entry per host:port', DP.proxyId('192.168.4.23', 80) === '192.168.4.23:80');
 
+  // ---- sensor history: recording what happened while nobody looked ----
+  const HIST = await import('../packages/gateway/src/sensors/history');
+  const mk = (t: number, v: number, c: number) => ({ t, values: { 'v:Battery': v, 'c:Battery': c } });
+  ok('averages ignore the moments a channel was silent',
+    HIST.averageSamples([mk(0, 12.8, -2), { t: 1, values: { 'v:Battery': 12.6, 'c:Battery': null } }])['c:Battery'] === -2);
+  ok('an all-null channel averages to null', HIST.averageSamples([{ t: 0, values: { x: null } }]).x === null);
+
+  const row = HIST.csvRow(1_700_000_000_000, { a: 12.3456, b: null }, ['a', 'b']);
+  ok('csv rounds and leaves gaps empty', row === '1700000000,12.346,\n');
+  const parsed = HIST.parseHistoryCsv('t,a,b\n1700000000,12.3,\n1700000060,12.4,3.2\n');
+  ok('csv round-trips', parsed.keys.join() === 'a,b' && parsed.points.length === 2 && parsed.points[0].values.b === null);
+  // A power cut mid-write leaves a half line; a year of measurements must not die of it.
+  const damaged = HIST.parseHistoryCsv('t,a,b\n1700000000,12.3,1.0\ngarbage\n17000000');
+  ok('a damaged line costs one minute, not the file', damaged.points.length === 1);
+
+  ok('one file per month', HIST.monthFile(Date.UTC(2026, 7, 21)) === '2026-08.csv');
+  ok('a range spans its months', HIST.filesForRange(Date.UTC(2026, 6, 30), Date.UTC(2026, 8, 2)).join() === '2026-07.csv,2026-08.csv,2026-09.csv');
+  // 13 months, so "same month last year" still works on the last day of a month.
+  const old = HIST.expiredFiles(['2025-06.csv', '2025-08.csv', '2026-08.csv', 'notes.txt'], Date.UTC(2026, 7, 21));
+  ok('files past the retention window are named', old.includes('2025-06.csv') && !old.includes('2025-08.csv'));
+  ok('and nothing else in the folder is touched', !old.includes('notes.txt') && !old.includes('2026-08.csv'));
+
+  const series = [mk(0, 12.9, 1), mk(30_000, 12.5, -3), mk(61_000, 12.7, 0)];
+  const buckets = HIST.bucketize(series, 60_000);
+  ok('points are averaged into buckets', buckets.length === 2 && buckets[0].values['v:Battery'] === 12.7);
+  // The dip under load is exactly what an average hides, so min/max travel with it.
+  ok('extremes survive the averaging', buckets[0].min['c:Battery'] === -3 && buckets[0].max['c:Battery'] === 1);
+  ok('a bucket width keeps a year readable', HIST.bucketFor(HIST.RANGES.year) >= 3_600_000 && HIST.bucketFor(HIST.RANGES.hour) === 60_000);
+
   // ---- sensor conversion math ----
   ok('ina219 bus 12V', near(C.ina219BusVolts(3000 << 3), 12));
   ok('ina219 amps', near(C.ina219Amps(2000, 0.01), 2));

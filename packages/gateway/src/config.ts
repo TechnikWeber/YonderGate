@@ -49,6 +49,8 @@ export interface GatewayConfig {
   telemetry: TelemetryConfig;
   /** Cameras (graphical); generates go2rtc.yaml. */
   cameras: CameraCfg[];
+  /** Where the sensor history is recorded (one CSV per month). */
+  historyDir: string;
   /** Path of the generated go2rtc config. */
   go2rtcConfigPath: string;
   /** Detected H.264 encoder for generated camera sources (set at startup). */
@@ -181,6 +183,8 @@ export function loadConfig(): GatewayConfig {
       chargeSource: 'auto',
     },
     cameras: p.cameras ?? [{ name: 'test', type: 'sim', width: 1280, height: 720, fps: 25 }],
+    historyDir:
+      process.env.YGW_HISTORY_DIR ?? fileURLToPath(new URL('../../../.runtime/history', import.meta.url)),
     // Generated from the camera list, so it never belongs in the checkout: a file
     // the service rewrites at every start leaves the repo permanently modified and
     // blocks `git pull --ff-only`. systemd points this at /var/lib on a real box.

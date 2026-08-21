@@ -5,6 +5,8 @@ import type { GatewayConfig, PersistentConfig } from '../config.js';
 import { loadPersisted, savePersisted, resetPersisted } from '../config.js';
 import type { SystemManager } from '../system/index.js';
 import type { TelemetryService } from '../sensors/TelemetryService.js';
+import type { HistoryService } from '../sensors/HistoryService.js';
+import { RANGES } from '../sensors/history.js';
 import type { CameraCfg, TelemetryConfig } from '@yondergate/protocol';
 import { safeStreamName } from '../video/cameraManager.js';
 import { secretOk, readSecretFromReq } from './auth.js';
@@ -32,6 +34,7 @@ export interface SetupContext {
   config: GatewayConfig;
   system: SystemManager;
   telemetry: TelemetryService;
+  history: HistoryService;
   applyCameras: (cams: CameraCfg[]) => Promise<void>;
   /** Re-read config.hilink: point the reader at the stick and (re)start its proxy. */
   applyHilink?: () => void;
@@ -597,6 +600,15 @@ export async function handleSetup(
   if (url === '/api/telemetry/reset' && method === 'POST') {
     await ctx.telemetry.resetCapacity();
     json(res, 200, { ok: true, message: 'Coulomb counter reset.' });
+    return true;
+  }
+
+  // The past, which is the question a live reading cannot answer.
+  if (url.startsWith('/api/history') && method === 'GET') {
+    const q = new URL(req.url ?? '/', 'http://gateway').searchParams;
+    const span = RANGES[q.get('range') ?? 'day'] ?? RANGES.day;
+    const to = Date.now();
+    json(res, 200, { range: q.get('range') ?? 'day', from: to - span, to, ...ctx.history.range(to - span, to) });
     return true;
   }
 

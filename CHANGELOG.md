@@ -2,6 +2,53 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.5.0
+**English**
+- **The sensors have a memory.** One averaged value per minute is recorded and kept for
+  13 months, with hour / day / week / month / year views drawn in the page itself — no
+  charting library, because a site with a flaky uplink cannot fetch one. The band behind
+  each line is the **minimum and maximum** inside every averaged step: on a battery the
+  dip under load is precisely what a mean hides.
+- **The sizing decided the design.** A minute row with a handful of channels is ~40
+  bytes, so a year is about **21 MB — 0.13 % of a 16 GB card**. That removes the usual
+  reason for tiers of ever-coarser data: full minute resolution is kept for the whole
+  window and longer views are averaged **when you ask**, so nothing is lost to a
+  downsampling pass that already ran.
+- Written as plain CSV, one file per month. A half-written line after a power cut costs
+  one minute, not the file, and a year of measurements can still be read with `tail` over
+  SSH. Recording never takes the gateway down: a full card costs history, not the page
+  that would tell you about it.
+- Samples are buffered and flushed every five minutes — a few hundred SD-card writes a
+  day instead of tens of thousands. The trade is stated plainly: a power cut loses up to
+  five minutes.
+- Found while running it: for the first few minutes of a fresh box the API returned data
+  points with **no channel names**, because names were only read from files that did not
+  exist yet — the page had numbers and nothing to draw them under.
+
+**Deutsch**
+- **Die Sensorik hat ein Gedächtnis.** Ein gemittelter Wert pro Minute wird
+  aufgezeichnet und 13 Monate aufbewahrt, mit Ansichten für Stunde / Tag / Woche / Monat
+  / Jahr, gezeichnet in der Seite selbst — ohne Diagramm-Bibliothek, denn ein Standort
+  mit wackligem Uplink kann keine nachladen. Das Band hinter jeder Linie ist das
+  **Minimum und Maximum** innerhalb jedes gemittelten Schritts: Bei einer Batterie ist
+  der Einbruch unter Last genau das, was ein Mittelwert verschluckt.
+- **Die Größenrechnung hat das Design bestimmt.** Eine Minutenzeile mit einer Handvoll
+  Kanäle sind ~40 Byte, ein Jahr also etwa **21 MB — 0,13 % einer 16-GB-Karte**. Damit
+  entfällt der übliche Grund für Stufen immer gröberer Daten: volle Minutenauflösung
+  bleibt über den ganzen Zeitraum erhalten, längere Ansichten werden **beim Abruf**
+  gemittelt. Nichts geht durch einen Verdichtungslauf verloren, der schon gelaufen ist.
+- Gespeichert als schlichtes CSV, eine Datei pro Monat. Eine halb geschriebene Zeile nach
+  einem Stromausfall kostet eine Minute, nicht die Datei, und ein Jahr Messwerte lässt
+  sich per SSH mit `tail` lesen. Das Aufzeichnen legt das Gateway nie lahm: eine volle
+  Karte kostet Verlauf, nicht die Seite, die davon berichten würde.
+- Messwerte werden gepuffert und alle fünf Minuten geschrieben — ein paar hundert
+  SD-Karten-Schreibvorgänge am Tag statt Zehntausender. Der Preis steht klar dabei: ein
+  Stromausfall kostet bis zu fünf Minuten.
+- Beim Laufenlassen gefunden: In den ersten Minuten einer frischen Kiste lieferte die API
+  Messpunkte **ohne Kanalnamen**, weil die Namen nur aus Dateien gelesen wurden, die es
+  noch gar nicht gab — die Seite hatte Zahlen und nichts, worunter sie sie zeichnen
+  konnte.
+
 ## v0.4.0
 **English**
 - **A scan is no longer anonymous.** Devices can be given a name and the port their web
