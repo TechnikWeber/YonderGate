@@ -13,6 +13,7 @@ import {
   type AlertState,
 } from './alerts.js';
 import { accumulate, emptyUsage, billingMonth, formatBytes, usageStatus, type UsageState } from './usage.js';
+import { shouldAutoCycle } from './power.js';
 
 /**
  * Watches, decides, and speaks up. The deciding is in alerts.ts and tested there;
@@ -124,6 +125,29 @@ export class AlertService {
       const { next, alert } = evaluateRule(rule, breached, detail, prev, now);
       this.states.set(rule.id, next);
       if (alert) await this.send(alert);
+    }
+
+    await this.autoCycle(reachable, now);
+  }
+
+  private cycledAt = new Map<string, number>();
+
+  /**
+   * A device that stopped answering and has a switch behind it gets power-cycled —
+   * once, then an hour of quiet. This is the one place where the box does something
+   * about a fault instead of describing it, so it is also the place that must not
+   * turn a flapping link into a switch clacking all night.
+   */
+  private async autoCycle(reachable: Record<string, boolean>, now: number): Promise<void> {
+    for (const sw of this.config.switches) {
+      const unreachable = sw.deviceId ? reachable[sw.deviceId] === false : false;
+      if (!shouldAutoCycle(sw, unreachable, this.cycledAt.get(sw.id) ?? null, now)) continue;
+      this.cycledAt.set(sw.id, now);
+      const device = this.config.devices.find((d) => d.id === sw.deviceId);
+      const what = `${device?.label ?? sw.deviceId} stopped answering — power-cycling it via ${sw.label}.`;
+      console.warn(`[power] ${what}`);
+      void this.notify({ id: `autocycle:${sw.id}`, title: 'Power cycle', message: what, priority: 'default', tags: ['electric_plug'] });
+      await this.system.setSwitch(sw, 'cycle');
     }
   }
 

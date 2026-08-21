@@ -11,6 +11,7 @@ import type { ProxyCfg } from './transport/deviceProxy.js';
 import type { KnownDevice } from './system/discovery.js';
 import type { AlertRule } from './system/alerts.js';
 import { REBOOT_DEFAULTS, WATCHDOG_DEFAULTS, type RebootSchedule, type WatchdogConfig } from './system/watchdog.js';
+import type { PowerSwitch } from './system/power.js';
 import { defaultRules } from './system/alerts.js';
 import { HOTSPOT_DEFAULTS } from './system/SystemManager.js';
 
@@ -73,6 +74,8 @@ export interface GatewayConfig {
   watchdog: WatchdogConfig;
   /** The weekly reboot — a crutch, but a cheap one on an unattended box. */
   reboot: RebootSchedule;
+  /** Things this gateway can switch off and on again. */
+  switches: PowerSwitch[];
   /** Path of the generated go2rtc config. */
   go2rtcConfigPath: string;
   /** Detected H.264 encoder for generated camera sources (set at startup). */
@@ -154,6 +157,7 @@ export interface PersistentConfig {
   ntpServers?: string[];
   watchdog?: Partial<WatchdogConfig>;
   reboot?: Partial<RebootSchedule>;
+  switches?: PowerSwitch[];
   telemetry?: TelemetryConfig;
   cameras?: CameraCfg[];
   /**
@@ -256,6 +260,7 @@ export function loadConfig(): GatewayConfig {
     ntpServers: p.ntpServers ?? [],
     watchdog: { ...WATCHDOG_DEFAULTS, ...(p.watchdog ?? {}) },
     reboot: { ...REBOOT_DEFAULTS, ...(p.reboot ?? {}) },
+    switches: p.switches ?? [],
     // Generated from the camera list, so it never belongs in the checkout: a file
     // the service rewrites at every start leaves the repo permanently modified and
     // blocks `git pull --ff-only`. systemd points this at /var/lib on a real box.

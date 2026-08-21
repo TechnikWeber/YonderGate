@@ -24,6 +24,7 @@ import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } f
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
 import type { WatchdogAction } from './watchdog.js';
+import { switchUrl, type PowerSwitch } from './power.js';
 import { HEALTH_UNKNOWN, isTimezone, parseInterfaces, type Health, type NetInterface } from './health.js';
 import { mergeDevices, mergeKnown, parseIpNeigh, parseSubnets, routableSubnets, type KnownDevice } from './discovery.js';
 
@@ -327,6 +328,21 @@ export class SimSystem implements SystemManager {
 
   private rtcOverlay = false;
   private ntpServers: string[] = [];
+
+  async setSwitch(sw: PowerSwitch, action: 'on' | 'off' | 'cycle'): Promise<ActionResult> {
+    const where = sw.kind === 'gpio' ? `GPIO ${sw.pin}` : switchUrl(sw, action !== 'off') ?? 'nowhere';
+    return { ok: true, message: `${sw.label}: ${action} via ${where} (simulated).` };
+  }
+
+  private hwWatchdog = 0;
+  async setHardwareWatchdog(enabled: boolean): Promise<ActionResult> {
+    this.hwWatchdog = enabled ? 15 : 0;
+    return { ok: true, message: enabled ? 'Hardware watchdog on (simulated).' : 'Hardware watchdog off (simulated).' };
+  }
+
+  async hardwareWatchdogSeconds(): Promise<number | null> {
+    return this.hwWatchdog;
+  }
 
   /** The simulated site is always reachable, so the watchdog stays quiet. */
   async reachable(): Promise<boolean> {

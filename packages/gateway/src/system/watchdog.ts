@@ -109,3 +109,39 @@ export function dayName(weekday: number): string {
 export function isProbeTarget(v: unknown): v is string {
   return typeof v === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(v.trim());
 }
+
+/**
+ * The kernel's own watchdog — the one this service cannot replace.
+ *
+ * Everything above assumes the gateway is still running. If the kernel itself
+ * wedges, nothing in user space gets a turn, and the box is simply gone until
+ * somebody drives there. The Pi has a hardware timer for exactly that: systemd
+ * pets it, and if systemd stops petting it the chip resets the board.
+ *
+ * It is off by default because it is a system-wide change with teeth — a machine
+ * that resets itself is not what everyone wants on a bench.
+ */
+export const SYSTEMD_WATCHDOG_PATH = '/etc/systemd/system.conf.d/99-yondergate-watchdog.conf';
+
+export function systemdWatchdogConf(runtimeSeconds = 15): string {
+  return (
+    '[Manager]\n' +
+    `RuntimeWatchdogSec=${runtimeSeconds}\n` +
+    // If a reboot itself hangs, the chip finishes the job after two minutes.
+    'RebootWatchdogSec=2min\n'
+  );
+}
+
+/** `systemctl show -p RuntimeWatchdogUSec` → seconds, or 0 when it is off. */
+export function parseRuntimeWatchdog(out: string): number | null {
+  const m = (out ?? '').match(/RuntimeWatchdogUSec=(\S+)/);
+  if (!m) return null;
+  const v = m[1].trim();
+  if (v === '0' || v === 'off' || v === 'infinity') return 0;
+  const num = Number(v.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(num)) return null;
+  if (/us$/.test(v)) return Math.round(num / 1e6);
+  if (/ms$/.test(v)) return Math.round(num / 1000);
+  if (/min$/.test(v)) return Math.round(num * 60);
+  return Math.round(num);
+}

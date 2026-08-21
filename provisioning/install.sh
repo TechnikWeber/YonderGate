@@ -13,8 +13,8 @@ apt-get update
 # usb-modeswitch = flips "Zero-CD" LTE dongles from storage mode into modem mode so
 # ModemManager can see them (many Huawei/ZTE sticks need this).
 # i2c-tools = i2cdetect for the setup page's "Detect hardware" probe.
-# gpsd = optional GPS daemon (easiest path for USB GPS dongles).
-apt-get install -y curl git ffmpeg network-manager modemmanager wireguard-tools usb-modeswitch i2c-tools gpsd
+# gpiod = gpioset, for a relay on the GPIO header (Setup > power switches).
+apt-get install -y curl git ffmpeg network-manager modemmanager wireguard-tools usb-modeswitch i2c-tools gpiod
 
 echo "-- Node.js 22"
 if ! command -v node >/dev/null || [ "$(node -v | cut -c2-3)" -lt 20 ]; then

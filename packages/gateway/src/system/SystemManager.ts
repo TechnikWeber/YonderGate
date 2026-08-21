@@ -7,6 +7,7 @@ import type { UpdateCheck, UpdateSource } from './update.js';
 import type { KnownDevice, ScannedDevice, Subnet } from './discovery.js';
 import type { Health, NetInterface } from './health.js';
 import type { WatchdogAction } from './watchdog.js';
+import type { PowerSwitch } from './power.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -338,6 +339,12 @@ export interface SystemManager {
   restartService(): Promise<ActionResult>;
   /** Where runtime state lives; used for the disk reading. Optional on purpose. */
   setStateDir?(dir: string): void;
+  /** Turn a switch on or off; `cycle` powers it down and back up by itself. */
+  setSwitch(sw: PowerSwitch, action: 'on' | 'off' | 'cycle'): Promise<ActionResult>;
+  /** Enable or disable the kernel's own watchdog (systemd pets it). */
+  setHardwareWatchdog(enabled: boolean): Promise<ActionResult>;
+  /** Seconds the hardware watchdog is set to, 0 = off, null = unknown. */
+  hardwareWatchdogSeconds(): Promise<number | null>;
   /** Does traffic still reach the outside? The only honest uplink test. */
   reachable(target: string): Promise<boolean>;
   /** Escalation step from the watchdog: bring Tailscale up, redial, or reboot. */

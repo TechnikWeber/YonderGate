@@ -60,7 +60,13 @@ import {
   parseTailscaleStatus,
   FORWARDING_SYSCTL_PATH,
 } from './tailscale.js';
-import type { WatchdogAction } from './watchdog.js';
+import {
+  parseRuntimeWatchdog,
+  systemdWatchdogConf,
+  SYSTEMD_WATCHDOG_PATH,
+  type WatchdogAction,
+} from './watchdog.js';
+import { gpioArgs, switchUrl, type PowerSwitch } from './power.js';
 import {
   parseCpuTemp,
   parseDf,
@@ -959,6 +965,73 @@ export class RealSystem implements SystemManager {
   }
 
 
+
+
+  /**
+   * Switch something off, on, or off-and-on-again. A cycle is scheduled rather
+   * than awaited: the answer has to reach the browser before the thing the browser
+   * is talking through possibly loses power.
+   */
+  async setSwitch(sw: PowerSwitch, action: 'on' | 'off' | 'cycle'): Promise<ActionResult> {
+    if (action === 'cycle') {
+      const off = await this.applySwitch(sw, false);
+      if (!off.ok) return off;
+      const seconds = Math.max(1, sw.cycleSeconds || 8);
+      setTimeout(() => {
+        void this.applySwitch(sw, true).then((r) => console.log(`[power] ${sw.label} back on: ${r.message}`));
+      }, seconds * 1000).unref();
+      return { ok: true, message: `${sw.label} is off — back on in ${seconds}s.` };
+    }
+    return this.applySwitch(sw, action === 'on');
+  }
+
+  private async applySwitch(sw: PowerSwitch, on: boolean): Promise<ActionResult> {
+    if (sw.kind === 'gpio') {
+      // `gpioset` needs the line held, otherwise the pin falls back the moment the
+      // process exits and the relay never actually moves.
+      const r = await shArgs('gpioset', gpioArgs(sw, on));
+      return r.ok
+        ? { ok: true, message: `${sw.label} switched ${on ? 'on' : 'off'} (GPIO ${sw.pin}).` }
+        : { ok: false, message: `Could not switch ${sw.label}: ${r.out || 'is gpiod installed?'}` };
+    }
+    const url = switchUrl(sw, on);
+    if (!url) return { ok: false, message: `${sw.label} has no address configured.` };
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      return res.ok
+        ? { ok: true, message: `${sw.label} switched ${on ? 'on' : 'off'}.` }
+        : { ok: false, message: `${sw.label} answered ${res.status}.` };
+    } catch (err) {
+      return { ok: false, message: `Could not reach ${sw.label}: ${(err as Error).message}` };
+    }
+  }
+
+  async setHardwareWatchdog(enabled: boolean): Promise<ActionResult> {
+    try {
+      mkdirSync(dirname(SYSTEMD_WATCHDOG_PATH), { recursive: true });
+      if (enabled) writeFileSync(SYSTEMD_WATCHDOG_PATH, systemdWatchdogConf());
+      else if (existsSync(SYSTEMD_WATCHDOG_PATH)) rmSync(SYSTEMD_WATCHDOG_PATH);
+    } catch (err) {
+      return { ok: false, message: `Could not write the watchdog configuration: ${(err as Error).message}` };
+    }
+    // daemon-reexec is what makes systemd pick up a changed system.conf — a plain
+    // daemon-reload does not, which would leave the setting looking applied.
+    const r = await shArgs('sudo', ['systemctl', 'daemon-reexec']);
+    const seconds = await this.hardwareWatchdogSeconds();
+    return {
+      ok: true,
+      message: enabled
+        ? seconds
+          ? `Hardware watchdog on: the chip resets the board if systemd stops petting it for ${seconds}s.`
+          : `Configured, but systemd reports it as off${r.ok ? '' : ' (daemon-reexec failed)'} — a device without /dev/watchdog cannot do this.`
+        : 'Hardware watchdog off.',
+    };
+  }
+
+  async hardwareWatchdogSeconds(): Promise<number | null> {
+    const r = await sh('systemctl show -p RuntimeWatchdogUSec');
+    return r.ok ? parseRuntimeWatchdog(r.out) : null;
+  }
 
   /**
    * Can we still reach the outside? Two pings, because a single lost packet on a

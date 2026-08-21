@@ -29,6 +29,9 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
 - **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot.
+- **It can switch things off and on**: a Shelly, a Tasmota plug, any URL, or a relay
+  on the GPIO — manually, or automatically when the device behind that switch stops
+  answering. It is the only thing here that can *act* on a fault rather than report it.
 - **It gets itself back online.** A watchdog probes whether traffic still reaches the
   outside — the only honest test, since an LTE session can be "up" and carry nothing —
   and escalates cheapest-first: bring Tailscale up, restart the network stack (which
@@ -57,6 +60,29 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **Update from the page**: check what is coming in, then pull and restart —
   designed for a site you reach only over LTE.
 - **Optional API secret** guarding every mutating call and the proxied device UIs.
+
+## Three ways to get the site online
+
+The gateway does not care which one you pick — everything else on this page works
+the same way — but they differ in one thing worth knowing before you buy hardware.
+
+| Uplink | What it is | The catch |
+|---|---|---|
+| **LTE stick** | The classic off-grid case: a SIM in a USB stick. | Metered, so set the allowance. |
+| **Wi-Fi client** | The site already has Wi-Fi (a cabin, a neighbour, a marina). | **One radio, one job** — see below. |
+| **Ethernet** | The site has a router of its own. | Nothing much; this is the easy one. |
+
+> **The one-radio rule.** A Pi's built-in Wi-Fi can either *join* a network or *serve*
+> its own hotspot — never both. So if you use Wi-Fi as the uplink, the onboarding
+> hotspot cannot run at the same time, and devices at the site have to join the same
+> Wi-Fi as the gateway. Three ways around it: put the devices on that Wi-Fi (usually
+> fine), add a **second, USB Wi-Fi adapter** for the hotspot, or keep the built-in
+> radio free by using LTE or Ethernet for the uplink. The gateway already refuses to
+> start the hotspot while it is a Wi-Fi client rather than cutting its own link.
+
+With Wi-Fi or Ethernet, set the data counter to **an interface** (or leave the
+allowance empty — an unmetered uplink does not need one), and the LTE panels simply
+stay empty.
 
 ## How you reach your devices
 

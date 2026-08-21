@@ -9,6 +9,7 @@ import type { HistoryService } from '../sensors/HistoryService.js';
 import type { AlertService } from '../system/AlertService.js';
 import type { WatchdogService } from '../system/WatchdogService.js';
 import { isProbeTarget, dayName } from '../system/watchdog.js';
+import { switchId, validateSwitch, SWITCH_DEFAULT_CYCLE_S, type PowerSwitch } from '../system/power.js';
 import { isNtfyUrl } from '../system/alerts.js';
 import { isTimezone, parseNtpServers } from '../system/health.js';
 import { usageOverview } from '../system/usage.js';
@@ -347,6 +348,8 @@ export async function handleSetup(
       alerts: { ...ctx.config.alerts, ntfyToken: ctx.config.alerts.ntfyToken ? '(stored)' : null },
       watchdog: { ...ctx.config.watchdog, ...ctx.watchdog.snapshot() },
       reboot: ctx.config.reboot,
+      switches: ctx.config.switches,
+      hardwareWatchdogSeconds: await ctx.system.hardwareWatchdogSeconds(),
       devices: ctx.config.devices,
       sensorKeys: sensorKeysOf(ctx.telemetry.message),
     });
@@ -484,6 +487,61 @@ export async function handleSetup(
     savePersisted(ctx.config.configPath, { alerts });
     ctx.config.alerts = alerts;
     json(res, 200, { ok: true, message: `Watching ${rule.label}.`, rules });
+    return true;
+  }
+
+  // Switching things off and on: the one thing this box can do about a device that
+  // has stopped answering, rather than only reporting it.
+  if (url === '/api/switches' && method === 'POST') {
+    const body = (await readBody(req)) as Record<string, unknown>;
+    if (body.remove === true) {
+      const switches = ctx.config.switches.filter((x) => x.id !== String(body.id ?? ''));
+      savePersisted(ctx.config.configPath, { switches });
+      ctx.config.switches = switches;
+      json(res, 200, { ok: true, message: 'Switch removed.', switches });
+      return true;
+    }
+    const draft: Partial<PowerSwitch> = {
+      label: String(body.label ?? '').trim(),
+      kind: (String(body.kind ?? 'shelly') as PowerSwitch['kind']),
+      host: body.host ? String(body.host).trim() : null,
+      channel: body.channel === undefined ? 0 : clampInt(body.channel, 0, 0, 7),
+      pin: body.pin === undefined ? undefined : clampInt(body.pin, 0, 0, 27),
+      inverted: body.inverted === true,
+      onUrl: body.onUrl ? String(body.onUrl).trim() : null,
+      offUrl: body.offUrl ? String(body.offUrl).trim() : null,
+      cycleSeconds: clampInt(body.cycleSeconds, SWITCH_DEFAULT_CYCLE_S, 1, 300),
+      deviceId: body.deviceId ? String(body.deviceId) : null,
+      autoCycle: body.autoCycle === true,
+    };
+    const problem = validateSwitch(draft);
+    if (problem) {
+      json(res, 400, { ok: false, message: problem });
+      return true;
+    }
+    const sw = { ...draft, id: switchId(draft.label as string) } as PowerSwitch;
+    const switches = [...ctx.config.switches.filter((x) => x.id !== sw.id), sw];
+    savePersisted(ctx.config.configPath, { switches });
+    ctx.config.switches = switches;
+    json(res, 200, { ok: true, message: `Saved "${sw.label}".`, switches });
+    return true;
+  }
+
+  if (url === '/api/switches/act' && method === 'POST') {
+    const body = (await readBody(req)) as { id?: unknown; action?: unknown };
+    const sw = ctx.config.switches.find((x) => x.id === String(body.id ?? ''));
+    if (!sw) {
+      json(res, 404, { ok: false, message: 'No such switch.' });
+      return true;
+    }
+    const action = body.action === 'on' || body.action === 'off' ? body.action : 'cycle';
+    json(res, 200, await ctx.system.setSwitch(sw, action));
+    return true;
+  }
+
+  if (url === '/api/hardware-watchdog' && method === 'POST') {
+    const body = (await readBody(req)) as { enabled?: unknown };
+    json(res, 200, await ctx.system.setHardwareWatchdog(body.enabled === true));
     return true;
   }
 

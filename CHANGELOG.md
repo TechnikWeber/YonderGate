@@ -2,6 +2,64 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.9.0
+**English**
+- **Power switches.** A Shelly, a Tasmota plug, any pair of URLs, or a relay on the Pi's
+  GPIO — on, off, or a proper power cycle from the page. This is the only thing in the
+  box that can *act* on a fault instead of describing it: the camera that has stopped
+  answering and would come back after a power cut is otherwise a two-hundred-kilometre
+  drive.
+- **And it can do it by itself.** Link a switch to a saved device and the gateway
+  power-cycles that device when it stops answering — **once**, then an hour of quiet. A
+  relay that clacks all night on a flapping link is worse than a device that is simply
+  down, because it is also unrecoverable by hand.
+- A cycle is *scheduled*, not awaited: the answer has to reach the browser before the
+  thing the browser is talking through possibly loses power. And GPIO relays that switch
+  on a LOW level are a checkbox, because getting that backwards is discovered from far
+  away.
+- **Hardware watchdog.** Everything else assumes this service is still running; if the
+  kernel wedges, nothing in user space gets a turn and the box is gone until someone
+  drives there. The Pi has a timer chip for exactly that — systemd pets it, and if it
+  stops, the board resets. Off by default, because a machine that resets itself is not
+  what everyone wants on a bench, and switched on from the page (`daemon-reexec`, not
+  `daemon-reload` — the latter would leave the setting looking applied while doing
+  nothing).
+- `gpiod` is installed by the provisioner, so a relay works out of the box.
+- **The Wi-Fi uplink case is documented.** Not every site is an LTE site: the README now
+  spells out the three shapes (LTE stick, Wi-Fi client, Ethernet) and the one rule that
+  actually bites — a Pi's built-in radio can *join* a network or *serve* a hotspot, never
+  both, so a Wi-Fi uplink means the devices join that same Wi-Fi, or you add a second USB
+  adapter for the hotspot.
+
+**Deutsch**
+- **Schaltbare Steckdosen und Relais.** Ein Shelly, eine Tasmota-Steckdose, ein beliebiges
+  URL-Paar oder ein Relais am GPIO des Pi — ein, aus oder ein richtiger Stromstoß-Zyklus
+  von der Seite aus. Das ist das Einzige in dieser Kiste, das auf eine Störung
+  **handeln** statt sie zu beschreiben: die Kamera, die nicht mehr antwortet und nach
+  einem Stromausfall wiederkäme, ist sonst eine Fahrt von 200 Kilometern.
+- **Und sie kann es allein.** Verknüpfe einen Schalter mit einem gespeicherten Gerät, und
+  das Gateway macht dieses Gerät stromlos, wenn es verstummt — **einmal**, dann eine
+  Stunde Ruhe. Ein Relais, das bei einer flackernden Verbindung die ganze Nacht klackert,
+  ist schlimmer als ein Gerät, das schlicht aus ist — es ist dann nämlich auch von Hand
+  nicht mehr zu retten.
+- Der Zyklus wird *geplant*, nicht abgewartet: Die Antwort muss den Browser erreichen,
+  bevor das, worüber der Browser spricht, womöglich stromlos wird. Und Relais, die auf
+  LOW schalten, sind ein Haken — das falsch herum zu haben, merkt man aus der Ferne.
+- **Hardware-Watchdog.** Alles andere setzt voraus, dass dieser Dienst noch läuft; hängt
+  der Kernel, kommt kein Userspace mehr dran, und die Kiste ist weg, bis jemand hinfährt.
+  Der Pi hat genau dafür einen Timer-Chip — systemd füttert ihn, hört das auf, setzt der
+  Chip die Platine zurück. Standardmäßig aus, denn eine Maschine, die sich selbst
+  zurücksetzt, will nicht jeder auf der Werkbank, und über die Seite einschaltbar
+  (`daemon-reexec`, nicht `daemon-reload` — Letzteres ließe die Einstellung angewendet
+  aussehen, ohne etwas zu tun).
+- `gpiod` installiert der Provisionierer mit, damit ein Relais ohne Nacharbeit
+  funktioniert.
+- **Der WLAN-Uplink ist dokumentiert.** Nicht jeder Standort ist ein LTE-Standort: Die
+  README nennt jetzt die drei Formen (LTE-Stick, WLAN-Client, Ethernet) und die eine
+  Regel, die wirklich weh tut — das eingebaute Funkmodul des Pi kann einem Netz
+  *beitreten* oder einen Hotspot *bereitstellen*, nie beides. Ein WLAN-Uplink heißt also:
+  die Geräte hängen im selben WLAN, oder ein zweiter USB-Adapter übernimmt den Hotspot.
+
 ## v0.8.0
 **English**
 - **Alert rules are made on the page now.** Pick a sensor reading (the list comes from

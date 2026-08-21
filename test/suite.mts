@@ -159,6 +159,39 @@ async function main() {
   ok('a box that just booted does not reboot again', loop.due === false && loop.reason.includes('just booted'));
   ok('and it can be switched off', WD.dueForReboot(sunday4, { ...WD.REBOOT_DEFAULTS, enabled: false }, 86_400).due === false);
 
+  // ---- switching things off and on from far away ----
+  const PW = await import('../packages/gateway/src/system/power');
+  const shelly = { id: 'sw:cam', label: 'Cam plug', kind: 'shelly' as const, host: '192.168.4.60', channel: 0, cycleSeconds: 8 };
+  ok('shelly on/off differ in exactly the state', PW.switchUrl(shelly, true) === 'http://192.168.4.60/relay/0?turn=on' && PW.switchUrl(shelly, false)!.endsWith('turn=off'));
+  ok('tasmota uses its own numbering', PW.switchUrl({ ...shelly, kind: 'tasmota' }, true) === 'http://192.168.4.60/cm?cmnd=Power1%20On');
+  ok('a custom switch fills in {state}', PW.switchUrl({ ...shelly, kind: 'url', onUrl: 'http://x/set?p={state}', offUrl: 'http://x/set?p={state}' }, false) === 'http://x/set?p=off');
+  ok('a gpio switch has no url', PW.switchUrl({ ...shelly, kind: 'gpio', pin: 17 }, true) === null);
+  // Many relay boards switch on a LOW level; getting that backwards is discovered
+  // from 200 km away.
+  ok('a normal relay drives the pin high for on', PW.gpioArgs({ ...shelly, kind: 'gpio', pin: 17 }, true).join(' ').includes('17=1'));
+  ok('an inverted one drives it low', PW.gpioArgs({ ...shelly, kind: 'gpio', pin: 17, inverted: true }, true).join(' ').includes('17=0'));
+
+  ok('a switch needs a name', PW.validateSwitch({ kind: 'shelly', host: 'x' })?.includes('name'));
+  ok('an http switch needs an address', PW.validateSwitch({ label: 'a', kind: 'shelly' })?.includes('address'));
+  ok('a gpio switch needs a valid pin', PW.validateSwitch({ label: 'a', kind: 'gpio', pin: 99 })?.includes('BCM pin'));
+  ok('a custom switch needs both urls', PW.validateSwitch({ label: 'a', kind: 'url', onUrl: 'http://x' })?.includes('on and an off'));
+  ok('a good one passes', PW.validateSwitch({ label: 'Cam', kind: 'shelly', host: '192.168.4.60' }) === null);
+
+  // Cycling once and then waiting is the difference between a rescue and a relay
+  // that clacks all night on a flapping link.
+  const autoSw = { ...shelly, deviceId: 'mac:aa', autoCycle: true };
+  ok('an unreachable device is cycled', PW.shouldAutoCycle(autoSw, true, null, 1000) === true);
+  ok('but not again inside the cooldown', PW.shouldAutoCycle(autoSw, true, 1000, 1000 + PW.AUTO_CYCLE_COOLDOWN_MS - 1) === false);
+  ok('and again after it', PW.shouldAutoCycle(autoSw, true, 1000, 1000 + PW.AUTO_CYCLE_COOLDOWN_MS) === true);
+  ok('a reachable device is never cycled', PW.shouldAutoCycle(autoSw, false, null, 1000) === false);
+  ok('nor is one without the option', PW.shouldAutoCycle({ ...autoSw, autoCycle: false }, true, null, 1000) === false);
+
+  // The kernel's own watchdog: the one the software cannot replace.
+  ok('the systemd drop-in sets both timers', WD.systemdWatchdogConf(15).includes('RuntimeWatchdogSec=15') && WD.systemdWatchdogConf().includes('RebootWatchdogSec'));
+  ok('its state is read back in seconds', WD.parseRuntimeWatchdog('RuntimeWatchdogUSec=15s') === 15 && WD.parseRuntimeWatchdog('RuntimeWatchdogUSec=0') === 0);
+  ok('microseconds are converted too', WD.parseRuntimeWatchdog('RuntimeWatchdogUSec=15000000us') === 15);
+  ok('and an unknown answer stays unknown', WD.parseRuntimeWatchdog('') === null);
+
   // ---- speaking up, without becoming noise ----
   const A = await import('../packages/gateway/src/system/alerts');
   const rule = { id: 'v', kind: 'sensor' as const, target: 'v:Battery', label: 'Battery voltage', below: 11.8, forMs: 300_000 };
