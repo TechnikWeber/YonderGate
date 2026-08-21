@@ -6,6 +6,7 @@ import type { RemoteAccessConfig, LteConfig, HotspotConfig } from './system/Syst
 import type { HwDepName } from './system/hwDeps.js';
 import { HILINK_DEFAULT_HOST } from './system/hilink.js';
 import { UPDATE_SOURCE_DEFAULT, type UpdateSource } from './system/update.js';
+import type { ProxyCfg } from './transport/deviceProxy.js';
 import { HOTSPOT_DEFAULTS } from './system/SystemManager.js';
 
 /**
@@ -33,6 +34,8 @@ export interface GatewayConfig {
   hilink: HilinkSettings;
   /** Where "Software update" pulls from (remote name or URL + branch). */
   update: UpdateSource;
+  /** Devices published on a local port, so they can be opened from anywhere. */
+  proxies: ProxyCfg[];
   /**
    * Optional shared secret. When set (non-empty), mutating setup-API calls and the
    * control WebSocket must present it (header `x-yondergate-secret` / `?secret=`).
@@ -86,6 +89,7 @@ export interface PersistentConfig {
   hotspot?: HotspotConfig;
   hilink?: HilinkSettings;
   update?: UpdateSource;
+  proxies?: ProxyCfg[];
   telemetry?: TelemetryConfig;
   cameras?: CameraCfg[];
   /**
@@ -158,6 +162,7 @@ export function loadConfig(): GatewayConfig {
     hotspot: p.hotspot ?? { ...HOTSPOT_DEFAULTS },
     hilink: { ...HILINK_SETTINGS_DEFAULT, ...(p.hilink ?? {}) },
     update: { ...UPDATE_SOURCE_DEFAULT, ...(p.update ?? {}) },
+    proxies: p.proxies ?? [],
     telemetry: p.telemetry ?? {
       enabled: true,
       source: 'sim',

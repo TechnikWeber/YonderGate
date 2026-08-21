@@ -22,6 +22,8 @@ import { HW_DEPS, isHwDep } from '../system/hwDeps.js';
 import { isCountryCode } from '../system/wifi.js';
 import { isIpv4 } from '../system/hilink.js';
 import { isGitBranch, isGitSource, UPDATE_SOURCE_DEFAULT } from '../system/update.js';
+import { isCidr } from '../system/tailscale.js';
+import { nextListenPort, proxyId, validateProxy, type ProxyCfg } from './deviceProxy.js';
 
 const SETUP_HTML = fileURLToPath(new URL('../setup/setup.html', import.meta.url));
 
@@ -32,6 +34,8 @@ export interface SetupContext {
   applyCameras: (cams: CameraCfg[]) => Promise<void>;
   /** Re-read config.hilink: point the reader at the stick and (re)start its proxy. */
   applyHilink?: () => void;
+  /** Restart every published device proxy from config.proxies. */
+  applyProxies?: () => void;
   /** Called after config is persisted so the caller can note "restart needed". */
   onConfigSaved?: (patch: PersistentConfig) => void;
 }
@@ -297,6 +301,86 @@ export async function handleSetup(
   }
 
   // --- WiFi: join a network from the onboarding hotspot, and the hotspot itself ---
+  // ---- the site's network: what is out there, and how to reach it ----
+  if (url === '/api/scan' && method === 'POST') {
+    const body = (await readBody(req)) as { active?: unknown };
+    json(res, 200, await ctx.system.scanNetwork({ active: body.active === true }));
+    return true;
+  }
+
+  if (url === '/api/routes' && method === 'GET') {
+    json(res, 200, await ctx.system.subnetRoutes());
+    return true;
+  }
+
+  if (url === '/api/routes' && method === 'POST') {
+    const body = (await readBody(req)) as { cidrs?: unknown };
+    const cidrs = Array.isArray(body.cidrs) ? body.cidrs : [];
+    const bad = cidrs.find((c) => !isCidr(c));
+    if (bad !== undefined) {
+      json(res, 400, { ok: false, message: `"${String(bad)}" is not an IPv4 network (e.g. 192.168.4.0/24).` });
+      return true;
+    }
+    const r = await ctx.system.setSubnetRoutes(cidrs as string[]);
+    json(res, r.ok ? 200 : 500, r);
+    return true;
+  }
+
+  // Publishing a device on a port of its own — the fallback for when subnet routes
+  // are not an option (or not approved yet).
+  if (url === '/api/proxies' && method === 'GET') {
+    json(res, 200, { proxies: ctx.config.proxies, hilink: ctx.config.hilink });
+    return true;
+  }
+
+  if (url === '/api/proxies' && method === 'POST') {
+    const body = (await readBody(req)) as { host?: unknown; port?: unknown; label?: unknown; remove?: unknown };
+    const host = String(body.host ?? '');
+    const port = Number(body.port ?? 80);
+    const id = proxyId(host, port);
+
+    if (body.remove === true) {
+      const proxies = ctx.config.proxies.filter((p) => p.id !== id);
+      savePersisted(ctx.config.configPath, { proxies });
+      ctx.config.proxies = proxies;
+      ctx.applyProxies?.();
+      json(res, 200, { ok: true, message: `Stopped publishing ${id}.`, proxies });
+      return true;
+    }
+
+    // Ports already spoken for: the control port, the stick's proxy, and every
+    // device already published. Handing out a port twice would take one of them down.
+    const taken = [
+      ctx.config.port,
+      ...(ctx.config.hilink.proxyPort ? [ctx.config.hilink.proxyPort] : []),
+      ...ctx.config.proxies.map((p) => p.listen),
+    ];
+    const existing = ctx.config.proxies.find((p) => p.id === id);
+    const cfg: ProxyCfg = {
+      id,
+      label: String(body.label ?? '').trim() || host,
+      host,
+      port,
+      listen: existing?.listen ?? nextListenPort(taken),
+    };
+    const problem = validateProxy(cfg, existing ? taken.filter((t) => t !== existing.listen) : taken);
+    if (problem) {
+      json(res, 400, { ok: false, message: problem.message });
+      return true;
+    }
+    const proxies = [...ctx.config.proxies.filter((p) => p.id !== id), cfg];
+    savePersisted(ctx.config.configPath, { proxies });
+    ctx.config.proxies = proxies;
+    ctx.applyProxies?.();
+    json(res, 200, {
+      ok: true,
+      message: `${cfg.label} is now reachable on port ${cfg.listen} of this gateway.`,
+      proxy: cfg,
+      proxies,
+    });
+    return true;
+  }
+
   // ---- HiLink LTE stick (Huawei E3372h-320 & friends) ----
   if (url === '/api/hilink' && method === 'GET') {
     // The panel's Refresh button means "ask the stick now", not "show me the cache".

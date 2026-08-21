@@ -4,6 +4,7 @@ import type { HwDepName } from './hwDeps.js';
 import type { WifiRadioStatus } from './wifi.js';
 import type { HilinkStatus } from './hilink.js';
 import type { UpdateCheck, UpdateSource } from './update.js';
+import type { Device, Subnet } from './discovery.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -262,6 +263,28 @@ export interface RemoteAccessStatus {
   loginUrl?: string | null;
 }
 
+/** What a network scan found, plus why it might be incomplete. */
+export interface ScanResult {
+  subnets: Subnet[];
+  devices: Device[];
+  /** Whether an active sweep ran, or only the passive neighbour table was read. */
+  active: boolean;
+  /** Anything the operator should know: skipped subnets, missing tools, timings. */
+  notes: string[];
+}
+
+/** Subnet routing state — the native way to reach the site's devices over Tailscale. */
+export interface SubnetRouteState {
+  /** Networks this gateway sits on and could advertise. */
+  available: Subnet[];
+  /** What it currently advertises. */
+  advertised: string[];
+  /** What the tailnet actually serves — an advertised route missing here is unapproved. */
+  approved: string[];
+  /** Whether the kernel will forward at all. */
+  forwarding: boolean;
+}
+
 export interface SystemManager {
   readonly kind: string;
   status(): Promise<SystemStatus>;
@@ -311,6 +334,12 @@ export interface SystemManager {
   hwDepInstall(name: HwDepName): Promise<HwDepInstallResult>;
   /** Restart the vehicle service itself, so a freshly installed driver is picked up. */
   restartService(): Promise<ActionResult>;
+  /** Everything reachable on the site's networks. `active` adds a ping sweep. */
+  scanNetwork(opts?: { active?: boolean }): Promise<ScanResult>;
+  /** Current subnet-routing state (advertised / approved / forwarding). */
+  subnetRoutes(): Promise<SubnetRouteState>;
+  /** Advertise exactly these CIDRs over Tailscale (empty list = stop routing). */
+  setSubnetRoutes(cidrs: string[]): Promise<ActionResult & { state: SubnetRouteState }>;
   /** What an update would change — fetches, changes nothing. */
   updateCheck(src?: UpdateSource): Promise<UpdateCheck>;
   /** Apply the update (pull, install/rebuild if needed) and restart. */

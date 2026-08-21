@@ -24,11 +24,11 @@ primary interface; there is no screen on site.
    the local network. Then it must give access to the Pi *and* to the FritzBox
    *and* to every other device on that LAN.
 
-**Find what is out there.** A **Scan** button, and a list of what answered:
+**Find what is out there.** *(implemented v0.2.0)* A **Scan** button, and a list of what answered:
 IP, MAC, vendor, hostname, open ports worth knowing about. Both on its own AP and
 on the LAN it is plugged into.
 
-**Let me through to those devices.** From the laptop, reach:
+**Let me through to those devices.** *(implemented v0.2.0 — both mechanisms)* From the laptop, reach:
 - the Pi itself,
 - the **LTE stick's own web page** (APN, SIM PIN, signal),
 - the **FritzBox** or whatever else runs the local network,

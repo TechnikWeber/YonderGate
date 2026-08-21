@@ -22,6 +22,77 @@ const ok = (name: string, cond: boolean, extra = '') => {
 const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) < t;
 
 async function main() {
+  // ---- device discovery: parsing, subnet maths, vendor lookup ----
+  const D = await import('../packages/gateway/src/system/discovery');
+  const subnets = D.parseSubnets([
+    '1: lo    inet 127.0.0.1/8 scope host lo\\       valid_lft forever',
+    '2: eth0    inet 192.168.178.42/24 brd 192.168.178.255 scope global eth0\\       valid_lft forever',
+    '3: wlan0    inet 192.168.4.1/24 brd 192.168.4.255 scope global wlan0\\       valid_lft forever',
+  ].join('\n'));
+  ok('subnets parsed, loopback dropped', subnets.length === 2 && !subnets.some((n) => n.iface === 'lo'));
+  ok('network address derived', subnets[0].cidr === '192.168.178.0/24' && subnets[1].cidr === '192.168.4.0/24');
+  ok('gateway address kept', subnets[1].address === '192.168.4.1');
+
+  const sweep = D.sweepTargets(subnets[1]);
+  ok('a /24 sweeps 253 hosts (no network, broadcast or self)', sweep.targets.length === 253 && !sweep.targets.includes('192.168.4.1'));
+  ok('and never the network or broadcast address', !sweep.targets.includes('192.168.4.0') && !sweep.targets.includes('192.168.4.255'));
+  // A /16 is 65k pings — that is not a scan, it is a nuisance. It must be refused
+  // with a reason rather than silently truncated.
+  const huge = D.sweepTargets({ iface: 'eth0', address: '10.0.0.5', prefix: 16, cidr: '10.0.0.0/16' });
+  ok('an oversized subnet is refused, with a reason', huge.targets.length === 0 && (huge.skipped || '').includes('too large'));
+
+  const neigh = D.parseIpNeigh([
+    '192.168.4.23 dev wlan0 lladdr ec:71:db:aa:bb:cc REACHABLE',
+    '192.168.4.45 dev wlan0 lladdr 98:da:c4:de:ad:be STALE',
+    '192.168.4.99 dev wlan0  FAILED',
+    '192.168.4.98 dev wlan0 lladdr 00:00:00:00:00:00 INCOMPLETE',
+    'fe80::1 dev wlan0 lladdr aa:bb:cc:dd:ee:ff router REACHABLE',
+  ].join('\n'));
+  ok('neighbours parsed', neigh.length === 2 && neigh[0].ip === '192.168.4.23');
+  // FAILED means the kernel remembers something did NOT answer — the opposite of a find.
+  ok('failed and incomplete entries are not devices', !neigh.some((n) => ['192.168.4.99', '192.168.4.98'].includes(n.ip)));
+  ok('macs normalised to lowercase', neigh[0].mac === 'ec:71:db:aa:bb:cc');
+
+  ok('known vendor recognised', D.macVendor('b8:27:eb:11:22:33') === 'Raspberry Pi' && D.macVendor('3c:a6:2f:00:00:01') === 'AVM (FritzBox)');
+  ok('an unknown prefix stays unknown, never a guess', D.macVendor('12:34:56:78:9a:bc') === null && D.macVendor(null) === null);
+
+  const devs = D.mergeDevices(neigh, {
+    selfAddresses: ['192.168.4.1'],
+    hostnames: { '192.168.4.23': 'cam-shed' },
+    ports: { '192.168.4.23': [80, 554], '192.168.4.45': [] },
+  });
+  ok('devices merged and sorted by address', devs.length === 2 && devs[0].ip === '192.168.4.23');
+  ok('hostname and vendor attached', devs[0].hostname === 'cam-shed' && devs[0].vendor === 'Reolink');
+  ok('a web UI is offered when something answers on 80', D.deviceUrl(devs[0]) === 'http://192.168.4.23/');
+  ok('nothing is offered when no web port answered', D.deviceUrl(devs[1]) === null);
+  ok('RTSP reads as a camera, phrased as a guess', D.describeDevice(devs[0]).includes('looks like a camera'));
+  ok('a silent device says so honestly', D.describeDevice(devs[1]).includes('no open ports'));
+
+  // ---- subnet routes: the native way through to those devices ----
+  const TS = await import('../packages/gateway/src/system/tailscale');
+  ok('routes are advertised as one list', TS.advertiseRoutesArgs(['192.168.4.0/24', '192.168.178.0/24']).join(' ') === 'set --advertise-routes=192.168.4.0/24,192.168.178.0/24');
+  ok('an empty list clears them', TS.advertiseRoutesArgs([]).join(' ') === 'set --advertise-routes=');
+  ok('cidrs validated', TS.isCidr('192.168.4.0/24') && !TS.isCidr('192.168.4.0') && !TS.isCidr('192.168.4.0/99') && !TS.isCidr('nope'));
+  ok('advertised routes read from prefs', TS.parseAdvertisedRoutes('{"AdvertiseRoutes":["192.168.4.0/24"]}')[0] === '192.168.4.0/24');
+  // Advertised but not approved is the single most common reason subnet routing
+  // "does not work" — the two lists have to stay distinguishable.
+  ok('approved routes come from the status, separately', TS.parseApprovedRoutes('{"Self":{"PrimaryRoutes":["192.168.4.0/24"]}}')[0] === '192.168.4.0/24');
+  ok('missing routes are an empty list, not a crash', TS.parseAdvertisedRoutes('{}').length === 0 && TS.parseApprovedRoutes('nonsense').length === 0);
+  ok('forwarding sysctl covers v4 and v6', TS.forwardingSysctl().includes('net.ipv4.ip_forward = 1') && TS.forwardingSysctl().includes('forwarding = 1'));
+
+  // ---- publishing a device on its own port ----
+  const DP = await import('../packages/gateway/src/transport/deviceProxy');
+  ok('ports are handed out from the base upwards', DP.nextListenPort([]) === 8100 && DP.nextListenPort([8100, 8101]) === 8102);
+  // Handing out a port twice would take down whatever already had it — including
+  // the gateway's own UI.
+  ok('a port in use is never handed out again', DP.nextListenPort([8100, 8102]) === 8101);
+  const okCfg = { id: '192.168.4.23:80', label: 'cam', host: '192.168.4.23', port: 80, listen: 8100 };
+  ok('a sane proxy passes', DP.validateProxy(okCfg, [8080]) === null);
+  ok('a taken publish port is refused', (DP.validateProxy({ ...okCfg, listen: 8080 }, [8080]) || {}).message?.includes('already in use'));
+  ok('a non-address target is refused', (DP.validateProxy({ ...okCfg, host: 'evil.example' }, []) || {}).message?.includes('not an IPv4'));
+  ok('a privileged publish port is refused', (DP.validateProxy({ ...okCfg, listen: 80 }, []) || {}).message?.includes('between 1024'));
+  ok('the id is one entry per host:port', DP.proxyId('192.168.4.23', 80) === '192.168.4.23:80');
+
   // ---- sensor conversion math ----
   ok('ina219 bus 12V', near(C.ina219BusVolts(3000 << 3), 12));
   ok('ina219 amps', near(C.ina219Amps(2000, 0.01), 2));
@@ -623,12 +694,12 @@ async function main() {
   ok('an API error is reported, not swallowed', denied.present && (denied.message || '').includes('session'));
 
   // Proxy gate for the stick's admin UI.
-  const P = await import('../packages/gateway/src/transport/hilinkProxy');
+  const P = await import('../packages/gateway/src/transport/deviceProxy');
   ok('cookie parsed', P.cookieValue('a=1; ygw_hilink=s3cret; b=2', 'ygw_hilink') === 's3cret');
   ok('no secret configured → open', P.proxyAuth(null, null, undefined) === 'ok');
   ok('matching query earns a cookie', P.proxyAuth('s3cret', 's3cret', undefined) === 'set-cookie');
-  ok('cookie is accepted afterwards', P.proxyAuth('s3cret', null, 'ygw_hilink=s3cret') === 'ok');
-  ok('wrong secret denied', P.proxyAuth('s3cret', 'nope', 'ygw_hilink=nope') === 'denied');
+  ok('cookie is accepted afterwards', P.proxyAuth('s3cret', null, 'ygw_proxy=s3cret') === 'ok');
+  ok('wrong secret denied', P.proxyAuth('s3cret', 'nope', 'ygw_proxy=nope') === 'denied');
   ok('no credentials denied', P.proxyAuth('s3cret', null, undefined) === 'denied');
 
   // ---- hotspot profile + WiFi radio ----

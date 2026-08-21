@@ -2,23 +2,24 @@ import { createServer, request, type IncomingMessage, type Server, type ServerRe
 import { secretOk } from './auth.js';
 
 /**
- * Passes a HiLink stick's own web UI through the vehicle.
+ * Passes a device's own web UI through the gateway.
  *
- * The stick lives on its private 192.168.8.0/24, reachable only from the Pi itself —
- * so configuring it (APN, PIN, network mode) used to mean plugging a keyboard and a
- * screen into the vehicle, or moving the stick to a laptop. This makes it reachable
- * from wherever you already are: the vehicle's own AP, the LAN, or the VPN.
+ * The things at the site — the LTE stick on its 192.168.8.0/24, a camera on the
+ * gateway's AP, the router upstream — are reachable from the Pi and from nowhere
+ * else. This makes any one of them reachable from wherever you already are: the
+ * AP, the LAN, or the VPN. (Tailscale subnet routes are the better answer when you
+ * can use them; this is what works without touching the tailnet's routing.)
  *
- * It listens on its OWN port and proxies from the root, rather than under a path on
- * the setup server: the HiLink UI is full of absolute paths (`/api/…`, `/html/…`) and
- * rewriting them is a losing game, while a dedicated origin also keeps the stick's
- * SessionID cookie working exactly as it expects.
+ * Each device gets its OWN port and is proxied from the root, rather than living
+ * under a path on the setup server: device UIs are full of absolute paths
+ * (`/api/…`, `/html/…`) and rewriting them is a losing game, while a dedicated
+ * origin also keeps their session cookies working exactly as they expect.
  *
- * When an API secret is configured it guards this port too — otherwise the vehicle
- * would hand the stick's admin UI to anyone who can reach it.
+ * When an API secret is configured it guards these ports too — otherwise the
+ * gateway would hand a device's admin UI to anyone who can reach it.
  */
 
-const COOKIE = 'ygw_hilink';
+const COOKIE = 'ygw_proxy';
 
 /** Value of one cookie from a request's Cookie header. */
 export function cookieValue(header: string | undefined, name: string): string | null {
@@ -43,21 +44,21 @@ export function proxyAuth(secret: string | null, query: string | null, cookieHea
   return 'denied';
 }
 
-export interface HilinkProxyHandle {
+export interface DeviceProxyHandle {
   port: number;
   close(): void;
 }
 
-export function startHilinkProxy(opts: {
+export function startDeviceProxy(opts: {
   port: number;
   host: string;
   /** API secret, or null when the vehicle runs without one. */
   secret: string | null;
-  /** The stick's HTTP port. Only tests move it off 80. */
+  /** The device's HTTP port. */
   targetPort?: number;
   bindHost?: string;
   log?: (msg: string) => void;
-}): HilinkProxyHandle {
+}): DeviceProxyHandle {
   const log = opts.log ?? (() => {});
   const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? '/', `http://${opts.host}`);
@@ -110,16 +111,16 @@ export function startHilinkProxy(opts: {
       }
       res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
       res.end(
-        `Could not reach the LTE stick at ${opts.host}: ${(err as Error).message}\n` +
-          'Is it plugged in, and does `ip route get ' + opts.host + '` show an interface?\n',
+        `Could not reach ${opts.host} from the gateway: ${(err as Error).message}\n` +
+          'Is it powered on, and does `ip route get ' + opts.host + '` show an interface?\n',
       );
     });
     req.pipe(upstream);
   });
 
-  server.on('error', (err) => log(`[hilink] proxy not started (${(err as NodeJS.ErrnoException).code ?? err.message})`));
+  server.on('error', (err) => log(`[proxy] not started (${(err as NodeJS.ErrnoException).code ?? err.message})`));
   server.listen(opts.port, opts.bindHost ?? '0.0.0.0', () =>
-    log(`[hilink] stick UI proxied on :${opts.port} → http://${opts.host}/`),
+    log(`[proxy] :${opts.port} → http://${opts.host}:${opts.targetPort ?? 80}/`),
   );
 
   return {
@@ -128,4 +129,49 @@ export function startHilinkProxy(opts: {
       server.close();
     },
   };
+}
+
+/** One device published on a local port. Persisted, so it survives a restart. */
+export interface ProxyCfg {
+  /** Stable id, derived from the target — one entry per host:port. */
+  id: string;
+  label: string;
+  host: string;
+  /** The device's own HTTP port. */
+  port: number;
+  /** The port the gateway publishes it on. */
+  listen: number;
+}
+
+export const PROXY_PORT_BASE = 8100;
+
+export function proxyId(host: string, port: number): string {
+  return `${host}:${port}`;
+}
+
+/**
+ * The next free port to publish a device on. Deliberately deterministic and
+ * low-drama: start above the base and take the first one nobody else claimed —
+ * including the gateway's own port, which taking would cut the operator off.
+ */
+export function nextListenPort(taken: number[], base = PROXY_PORT_BASE): number {
+  let port = base;
+  const used = new Set(taken);
+  while (used.has(port)) port += 1;
+  return port;
+}
+
+export interface ProxyProblem {
+  message: string;
+}
+
+/** Reject what would not work, with the reason, before anything is started. */
+export function validateProxy(cfg: ProxyCfg, reserved: number[]): ProxyProblem | null {
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(cfg.host)) return { message: `"${cfg.host}" is not an IPv4 address.` };
+  if (!Number.isInteger(cfg.port) || cfg.port < 1 || cfg.port > 65535) return { message: `Port ${cfg.port} is out of range.` };
+  if (!Number.isInteger(cfg.listen) || cfg.listen < 1024 || cfg.listen > 65535) {
+    return { message: `Publish port ${cfg.listen} must be between 1024 and 65535.` };
+  }
+  if (reserved.includes(cfg.listen)) return { message: `Port ${cfg.listen} is already in use on this gateway.` };
+  return null;
 }

@@ -3,7 +3,7 @@ import type { GatewayConfig } from '../config.js';
 import type { SystemManager } from '../system/index.js';
 import type { TelemetryService } from '../sensors/TelemetryService.js';
 import { handleSetup, type SetupContext } from './setupRouter.js';
-import { startHilinkProxy, type HilinkProxyHandle } from './hilinkProxy.js';
+import { startDeviceProxy, type DeviceProxyHandle } from './deviceProxy.js';
 import { applyCameras } from '../video/cameraManager.js';
 
 /**
@@ -18,29 +18,41 @@ export function startHttpServer(
   system: SystemManager,
   telemetry: TelemetryService,
 ): Server {
-  // The HiLink stick's own web UI, proxied so it is reachable from the AP/LAN/VPN.
-  let hilinkProxy: HilinkProxyHandle | null = null;
-  const applyHilink = () => {
-    hilinkProxy?.close();
-    hilinkProxy = null;
+  // Every device the gateway publishes: the LTE stick's own UI, plus whatever the
+  // operator added from the device list. Restarted as one fleet, because a changed
+  // API secret has to take effect on all of them at once.
+  let proxies: DeviceProxyHandle[] = [];
+  const applyProxies = () => {
+    for (const p of proxies) p.close();
+    proxies = [];
     system.setHilinkHost(config.hilink.host);
-    if (config.hilink.proxyPort) {
-      hilinkProxy = startHilinkProxy({
-        port: config.hilink.proxyPort,
-        host: config.hilink.host,
-        secret: config.apiSecret,
-        log: (m) => console.log(m),
-      });
+    const wanted = [
+      ...(config.hilink.proxyPort
+        ? [{ listen: config.hilink.proxyPort, host: config.hilink.host, port: 80, label: 'LTE stick' }]
+        : []),
+      ...config.proxies.map((p) => ({ listen: p.listen, host: p.host, port: p.port, label: p.label })),
+    ];
+    for (const w of wanted) {
+      proxies.push(
+        startDeviceProxy({
+          port: w.listen,
+          host: w.host,
+          targetPort: w.port,
+          secret: config.apiSecret,
+          log: (m) => console.log(`${m}  (${w.label})`),
+        }),
+      );
     }
   };
-  applyHilink();
+  applyProxies();
 
   const ctx: SetupContext = {
     config,
     system,
     telemetry,
     applyCameras: (cams) => applyCameras(cams, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder),
-    applyHilink,
+    applyHilink: applyProxies,
+    applyProxies,
     onConfigSaved: (patch) => console.log('[setup] config saved:', Object.keys(patch).join(', ')),
   };
 

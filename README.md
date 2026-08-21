@@ -4,14 +4,22 @@ An **off-grid site gateway** on a Raspberry Pi: it puts a remote place — a hol
 plot on solar, a cabin, a boat mooring — on your Tailscale network, serves its own
 WiFi for the devices there, finds those devices, and lets you through to them.
 
-> **Status: early.** The provisioning, remote access, LTE, camera and sensor layers
-> are inherited from [YonderRC](https://github.com/TechnikWeber/YonderRC) and work.
-> The parts that make it a *gateway* — device discovery, forwarding to discovered
-> devices, subnet routing — are the next step. See [docs/CONCEPT.md](docs/CONCEPT.md)
-> for what it is meant to become.
+> **Status: early but useful.** Provisioning, remote access, LTE, cameras and
+> sensors come from [YonderRC](https://github.com/TechnikWeber/YonderRC); device
+> discovery, subnet routing and per-device publishing are in. See
+> [docs/CONCEPT.md](docs/CONCEPT.md) for the goal and the **TODO** below for what is
+> still missing. Nothing here has run on a real site yet — the hardware paths
+> (nmcli, ping sweeps, Tailscale routing) are only verifiable on the Pi itself.
 
 ## What works today
 
+- **Find what is on site**: *Scan* reads the kernel's neighbour table (instant),
+  *Scan + sweep* pings the whole subnet for the quiet ones. The list shows address,
+  hostname, vendor, what answered, and a one-line guess at what a device is.
+- **Reach those devices two ways**: **Tailscale subnet routes** — advertise the
+  site's networks and every device is reachable at its real address from anywhere on
+  your tailnet — or **publish a single device** on a port of the gateway, which needs
+  no routing changes at all.
 - **Graphical setup page** served by the Pi (`/setup`) — no screen, no SSH.
 - **AP onboarding**: the Pi opens its own hotspot (`YonderGate-setup`, open by
   default) with a captive portal, so a phone can configure it out of the box. It
@@ -47,3 +55,30 @@ npm run dev       # the service in sim mode → http://localhost:8080/setup
 
 Nothing here needs hardware: every driver and sensor has a simulated
 implementation, and the setup page is fully usable against it.
+
+## TODO
+
+The living list of what is open. Ticked items are done and covered by tests.
+
+**Gateway core**
+- [x] Device discovery: neighbour table, optional ping sweep, vendor and port probing
+- [x] Tailscale subnet routes incl. IP forwarding, with the "approve it in the admin
+      console" step spelled out
+- [x] Publish a single device on a gateway port (the routing-free fallback)
+- [ ] Verify all of the above **on the real Pi** — sweeps, `tailscale set`, forwarding
+- [ ] Remember discovered devices between scans (names you gave them, what you published)
+- [ ] Let the operator name a device and pick its port (not just 80)
+- [ ] HTTPS devices: the proxy currently talks plain HTTP to the target
+- [ ] mDNS/avahi names in the device list, not just reverse DNS
+
+**Site monitoring**
+- [ ] A sensible page for a solar site: battery voltage, charge/discharge, temperature
+      history rather than just current values
+- [ ] Alert when the battery goes below a threshold (push? e-mail? Tailscale-only?)
+- [ ] Camera snapshots on the status page
+
+**Operations**
+- [ ] Decide the license before this gets contributors (see docs/CONCEPT.md)
+- [ ] Bilingual docs (`README.de.md`, `docs/HARDWARE.de.md`) as in YonderRC
+- [ ] A hardware guide: which Pi, which LTE stick, solar/charge controller wiring
+- [ ] Power behaviour: what happens on brownout, and does the SD card survive it

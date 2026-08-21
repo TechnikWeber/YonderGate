@@ -101,6 +101,23 @@
       </section>
 
       <section class="panel">
+        <div class="eyebrow">Site network</div>
+        <div class="btns">
+          <button class="btn primary" onclick="run(this, () => scanNet(false))">Scan</button>
+          <button class="btn" onclick="run(this, () => scanNet(true))">Scan + sweep</button>
+        </div>
+        <p class="msg"><b>Scan</b> reads the kernel's neighbour table — instant, and it already knows everything that has spoken recently. <b>Scan + sweep</b> also pings every address in the subnet, which finds the quiet ones and takes a few seconds.</p>
+        <div id="scan-out"><div class="msg">Not scanned yet.</div></div>
+        <div class="msg" id="scan-msg"></div>
+
+        <div class="eyebrow2" style="margin-top:14px">Reach these networks over Tailscale</div>
+        <div id="routes-out"><div class="msg">…</div></div>
+        <div class="btns"><button class="btn primary" onclick="run(this, () => saveRoutes())">Apply routes</button></div>
+        <p class="msg">Advertising a network lets any device on your tailnet talk to <b>every device here at its real address</b> — no per-device setup. The gateway turns on IP forwarding for it. One catch worth knowing before you rely on it: a route has to be <b>approved once in the tailnet admin console</b> (Machines → this gateway → Edit route settings), and until then it exists but carries nothing.</p>
+        <div class="msg" id="routes-msg"></div>
+      </section>
+
+      <section class="panel">
         <div class="eyebrow">LTE</div>
         <div class="msg" id="lte-hilink-note" style="display:none;color:var(--idle)"></div>
         <div class="btns" id="lte-toggle" style="display:none;margin-bottom:10px">
@@ -685,6 +702,115 @@
         $('ltePin').value = ''; $('ltePass').value = '';
         refresh();
       }
+      // ---- the site's network ----
+      let scanned = null;
+      let publishedPorts = {};
+
+      async function scanNet(active) {
+        $('scan-msg').textContent = active
+          ? 'Sweeping every address in the subnet… this takes a few seconds.'
+          : 'Reading the neighbour table…';
+        const r = await post('/api/scan', { active });
+        scanned = r;
+        await loadProxies();
+        renderScan();
+        $('scan-msg').textContent = (r.notes || []).join(' ');
+      }
+
+      function renderScan() {
+        if (!scanned) return;
+        const rows = (scanned.devices || []).map((d) => {
+          const id = `${d.ip}:80`;
+          const via = publishedPorts[id];
+          const name = d.hostname || d.vendor || (d.self ? 'this gateway' : 'unknown device');
+          const direct = deviceUrl(d);
+          const buttons = [
+            direct ? `<a class="btn tiny" href="${esc(direct)}" target="_blank" rel="noopener">Open ↗</a>` : '',
+            d.self || !direct ? '' :
+              via
+                ? `<a class="btn tiny primary" href="http://${esc(location.hostname)}:${via}/" target="_blank" rel="noopener">Open via gateway ↗</a>
+                   <button class="btn tiny" onclick="run(this, () => publish('${esc(d.ip)}', true))">Unpublish</button>`
+                : `<button class="btn tiny" onclick="run(this, () => publish('${esc(d.ip)}', false))">Publish</button>`,
+          ].join(' ');
+          return `<div class="hw-row">
+            <span><b class="mono">${esc(d.ip)}</b> ${d.self ? '<span class="v go">self</span>' : ''}<br>
+              <span style="color:var(--muted)">${esc(name)}${d.mac ? ' · ' + esc(d.mac) : ''}<br>${esc(describe(d))}</span></span>
+            <span class="hw-right">${buttons}</span>
+          </div>`;
+        }).join('');
+        $('scan-out').innerHTML = rows || '<div class="msg">Nothing answered.</div>';
+      }
+
+      // Mirrors deviceUrl()/describeDevice() in system/discovery.ts — the page only
+      // ever shows what the gateway actually probed.
+      function deviceUrl(d) {
+        const p = d.openPorts || [];
+        if (p.includes(80)) return `http://${d.ip}/`;
+        if (p.includes(8080)) return `http://${d.ip}:8080/`;
+        if (p.includes(443)) return `https://${d.ip}/`;
+        if (p.includes(8443)) return `https://${d.ip}:8443/`;
+        return null;
+      }
+      function describe(d) {
+        const p = d.openPorts || [];
+        const bits = [];
+        if (d.self) bits.push('this gateway');
+        if (p.includes(554)) bits.push('looks like a camera (RTSP)');
+        else if (p.some((x) => [80, 443, 8080, 8443].includes(x))) bits.push('has a web interface');
+        if (p.includes(22)) bits.push('SSH');
+        if (!bits.length) bits.push(d.mac ? 'answered, no open ports we probe' : 'seen on the network');
+        return bits.join(' · ');
+      }
+
+      async function loadProxies() {
+        try {
+          const r = await getJSON('/api/proxies');
+          publishedPorts = {};
+          for (const p of r.proxies || []) publishedPorts[p.id] = p.listen;
+        } catch {}
+      }
+
+      async function publish(ip, remove) {
+        const r = await post('/api/proxies', { host: ip, port: 80, remove });
+        $('scan-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message || 'Failed.')}</b>`;
+        await loadProxies();
+        renderScan();
+      }
+
+      async function loadRoutes() {
+        try {
+          renderRoutes(await getJSON('/api/routes'));
+        } catch {
+          $('routes-out').innerHTML = '<div class="msg">Could not read the routing state.</div>';
+        }
+      }
+
+      function renderRoutes(st) {
+        const nets = st.available || [];
+        if (!nets.length) {
+          $('routes-out').innerHTML = '<div class="msg">No networks to advertise.</div>';
+          return;
+        }
+        $('routes-out').innerHTML = nets.map((n) => {
+          const on = (st.advertised || []).includes(n.cidr);
+          const approved = (st.approved || []).includes(n.cidr);
+          const state = !on ? '' : approved
+            ? '<span class="v go">advertised · approved</span>'
+            : '<span class="v warn">advertised · waiting for approval</span>';
+          return `<label class="chk"><input type="checkbox" class="route-cb" value="${esc(n.cidr)}"${on ? ' checked' : ''} />
+            <b class="mono">${esc(n.cidr)}</b> <span style="color:var(--muted)">on ${esc(n.iface)}</span> ${state}</label>`;
+        }).join('') +
+        `<div class="row"><span class="k">IP forwarding</span><span class="v ${st.forwarding ? 'go' : 'warn'}">${st.forwarding ? 'on' : 'off'}</span></div>`;
+      }
+
+      async function saveRoutes() {
+        const cidrs = [...document.querySelectorAll('.route-cb')].filter((c) => c.checked).map((c) => c.value);
+        $('routes-msg').textContent = 'Applying…';
+        const r = await post('/api/routes', { cidrs });
+        $('routes-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message || 'Failed.')}</b>`;
+        if (r.state) renderRoutes(r.state);
+      }
+
       // ---- HiLink LTE stick ----
       async function loadHilink() {
         try {
@@ -1211,6 +1337,8 @@
       }
 
       loadConfig();
+      loadRoutes();
+      loadProxies();
       loadHwDeps();
       loadLte();
       loadHilink();

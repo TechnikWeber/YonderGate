@@ -5,8 +5,12 @@ import { hostname, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { createConnection } from 'node:net';
+import { promises as dns } from 'node:dns';
 import type {
   ActionResult,
+  ScanResult,
+  SubnetRouteState,
   HotspotResult,
   UpdateResult,
   HwDepInstallResult,
@@ -46,7 +50,23 @@ import {
 import { parseModemId, parseModemInfo, parseSimId, lteStateLabel } from './lte.js';
 import { parseWifiSignalDbm, dbmToQualityPct } from './signal.js';
 import { parseI2cAddresses, suggestI2c } from './detect.js';
-import { parseTailscaleStatus } from './tailscale.js';
+import {
+  advertiseRoutesArgs,
+  forwardingSysctl,
+  isCidr,
+  parseAdvertisedRoutes,
+  parseApprovedRoutes,
+  parseTailscaleStatus,
+  FORWARDING_SYSCTL_PATH,
+} from './tailscale.js';
+import {
+  mergeDevices,
+  parseIpNeigh,
+  parseSubnets,
+  sweepTargets,
+  PROBE_PORTS,
+  type Device,
+} from './discovery.js';
 import {
   classifyChanges,
   describeCheck,
@@ -127,6 +147,40 @@ function gitEnv(repoRoot: string): { env: NodeJS.ProcessEnv; note: string } {
   } catch (err) {
     return { env: { ...C_LOCALE }, note: `could not write ${file} (${(err as Error).message})` };
   }
+}
+
+
+/**
+ * Is this TCP port open? A plain connect with a short deadline — enough to know
+ * whether a device has a web UI worth offering, without pretending to be a port
+ * scanner. Every failure mode (refused, unreachable, timeout) means "no".
+ */
+function probePort(host: string, port: number, timeoutMs = 400): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host, port, timeout: timeoutMs });
+    const done = (open: boolean) => {
+      socket.destroy();
+      resolve(open);
+    };
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+  });
+}
+
+/** Run promise-returning work with a cap, so a /24 sweep doesn't fork 254 pings at once. */
+async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
 }
 
 /** Read a file, or '' when it isn't there — used for version lookups. */
@@ -814,6 +868,111 @@ export class RealSystem implements SystemManager {
       void sh('sudo systemctl restart yondergate.service');
     }, 700).unref();
     return { ok: true, message: 'Restarting the vehicle service — this page comes back on its own in a few seconds.' };
+  }
+
+
+  /**
+   * Everything on the site's networks. The neighbour table is free and instant, so
+   * it is always read; the ping sweep is opt-in because it costs seconds and one
+   * packet per address. Hostnames and ports are looked up only for what was found,
+   * and every step degrades to "unknown" rather than failing the scan.
+   */
+  async scanNetwork(opts: { active?: boolean } = {}): Promise<ScanResult> {
+    const notes: string[] = [];
+    const started = Date.now();
+    const subnets = parseSubnets((await sh('ip -o -f inet addr show')).out);
+    if (!subnets.length) notes.push('No IPv4 networks found — is anything connected?');
+
+    if (opts.active) {
+      const targets: string[] = [];
+      for (const net of subnets) {
+        const { targets: t, skipped } = sweepTargets(net);
+        if (skipped) notes.push(skipped);
+        targets.push(...t);
+      }
+      // One ping each, short deadline, capped concurrency: a /24 lands in a few
+      // seconds and the box stays responsive while it happens.
+      await pooled(targets, 48, (ip) => shArgs('ping', ['-c', '1', '-W', '1', ip]).then(() => undefined));
+      notes.push(`Swept ${targets.length} addresses in ${Math.round((Date.now() - started) / 1000)}s.`);
+    }
+
+    const neighbours = parseIpNeigh((await sh('ip neigh')).out);
+    const selfAddresses = subnets.map((n) => n.address);
+    // The gateway itself never shows up in its own neighbour table.
+    const withSelf = [
+      ...neighbours,
+      ...subnets.map((n) => ({ ip: n.address, mac: null, iface: n.iface, state: 'SELF' })),
+    ];
+
+    const ips = [...new Set(withSelf.map((n) => n.ip))].slice(0, 128);
+    const hostnames: Record<string, string | null> = {};
+    const ports: Record<string, number[]> = {};
+    await pooled(ips, 16, async (ip) => {
+      hostnames[ip] = await dns
+        .reverse(ip)
+        .then((names) => names[0] ?? null)
+        .catch(() => null);
+      const open = await pooled(PROBE_PORTS, PROBE_PORTS.length, async (port) =>
+        (await probePort(ip, port)) ? port : null,
+      );
+      ports[ip] = open.filter((p): p is number => p !== null);
+    });
+
+    const devices: Device[] = mergeDevices(withSelf, { selfAddresses, hostnames, ports });
+    return { subnets, devices, active: !!opts.active, notes };
+  }
+
+  async subnetRoutes(): Promise<SubnetRouteState> {
+    const [addrs, prefs, status, forward] = await Promise.all([
+      sh('ip -o -f inet addr show'),
+      sh('tailscale debug prefs'),
+      sh('tailscale status --json'),
+      sh('sysctl -n net.ipv4.ip_forward'),
+    ]);
+    return {
+      available: parseSubnets(addrs.out),
+      advertised: parseAdvertisedRoutes(prefs.out),
+      approved: parseApprovedRoutes(status.out),
+      forwarding: forward.out.trim() === '1',
+    };
+  }
+
+  /**
+   * Advertise these networks over Tailscale. Turning the box into a router needs
+   * kernel forwarding as well, which is written as a sysctl drop-in so it survives
+   * a reboot — doing one without the other produces a route that exists and drops
+   * every packet.
+   */
+  async setSubnetRoutes(cidrs: string[]): Promise<ActionResult & { state: SubnetRouteState }> {
+    const bad = cidrs.find((c) => !isCidr(c));
+    if (bad) return { ok: false, message: `"${bad}" is not an IPv4 network (e.g. 192.168.4.0/24).`, state: await this.subnetRoutes() };
+
+    const notes: string[] = [];
+    if (cidrs.length) {
+      try {
+        writeFileSync(FORWARDING_SYSCTL_PATH, forwardingSysctl());
+        await shArgs('sudo', ['sysctl', '--system']);
+      } catch (err) {
+        notes.push(`Could not enable IP forwarding: ${(err as Error).message}`);
+      }
+    }
+    const r = await shArgs('tailscale', advertiseRoutesArgs(cidrs));
+    if (!r.ok) {
+      return { ok: false, message: `Tailscale refused the routes: ${r.out.split('\n').slice(-1)[0]}`, state: await this.subnetRoutes() };
+    }
+    const state = await this.subnetRoutes();
+    const waiting = cidrs.filter((c) => !state.approved.includes(c));
+    if (waiting.length) {
+      notes.push(
+        `Now approve ${waiting.join(', ')} once in the tailnet admin console ` +
+          '(Machines → this gateway → Edit route settings) — until then the route exists but carries nothing.',
+      );
+    }
+    return {
+      ok: true,
+      message: cidrs.length ? `Advertising ${cidrs.join(', ')}. ${notes.join(' ')}`.trim() : 'Stopped advertising subnet routes.',
+      state,
+    };
   }
 
   /**

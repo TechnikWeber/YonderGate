@@ -58,10 +58,11 @@ German UI copy is fine in chat with the owner; **code, comments and identifiers
 stay in English**. Docs are English-first with `.de.md` siblings.
 
 ## Next up
-1. **Device discovery**: `ip neigh` / ARP (passive) plus an optional active sweep;
-   pure parsers + a Scan button and a list (IP, MAC, vendor, hostname).
-2. **Reaching discovered devices**: Tailscale **subnet routes**
-   (`--advertise-routes`, IP forwarding) as the primary path, the existing
-   per-device HTTP proxy (`transport/hilinkProxy.ts`, generalise it) as fallback.
-3. Sensor page for a solar site: battery voltage, charge/consumption, temperature.
-4. Decide the license (see `docs/CONCEPT.md`).
+The list lives in **README.md → TODO** so it is visible to anyone who opens the repo;
+keep it current when you finish something. The two that matter most right now:
+
+1. **Nothing has run on a real site yet.** Discovery, subnet routes and forwarding are
+   implemented and unit-tested, but sweeps, `tailscale set` and `sysctl` can only be
+   proven on the Pi. Say so rather than implying they work.
+2. **Sensor page for a solar site** — the numbers are the reason to open the page at
+   all, and right now they are shown exactly as inherited from a model vehicle.

@@ -1,6 +1,8 @@
 import { hostname } from 'node:os';
 import type {
   ActionResult,
+  ScanResult,
+  SubnetRouteState,
   HotspotResult,
   UpdateResult,
   HwDepInstallResult,
@@ -21,6 +23,7 @@ import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
+import { mergeDevices, parseIpNeigh, parseSubnets } from './discovery.js';
 
 /**
  * Mock system: pretends to have an LTE modem and Tailscale so the entire setup
@@ -296,6 +299,58 @@ export class SimSystem implements SystemManager {
 
   /** A pretend update, so the panel and both outcomes can be tried without a Pi. */
   private simBehind = 2;
+
+
+  /**
+   * A plausible site: the router upstream, a camera and a sensor on the AP, plus a
+   * laptop that answers nothing. Enough to exercise the list, the links and the
+   * proxy buttons without a network.
+   */
+  async scanNetwork(opts: { active?: boolean } = {}): Promise<ScanResult> {
+    const subnets = parseSubnets(
+      [
+        '2: eth0    inet 192.168.178.42/24 brd 192.168.178.255 scope global eth0\\       valid_lft forever',
+        '3: wlan0    inet 192.168.4.1/24 brd 192.168.4.255 scope global wlan0\\       valid_lft forever',
+      ].join('\n'),
+    );
+    const neighbours = parseIpNeigh(
+      [
+        '192.168.178.1 dev eth0 lladdr 3c:a6:2f:11:22:33 REACHABLE',
+        '192.168.4.23 dev wlan0 lladdr ec:71:db:aa:bb:cc REACHABLE',
+        '192.168.4.45 dev wlan0 lladdr 98:da:c4:de:ad:be STALE',
+        '192.168.4.77 dev wlan0 lladdr 00:11:22:33:44:55 REACHABLE',
+      ].join('\n'),
+    );
+    const devices = mergeDevices([...neighbours, ...subnets.map((n) => ({ ip: n.address, mac: null, iface: n.iface, state: 'SELF' }))], {
+      selfAddresses: subnets.map((n) => n.address),
+      hostnames: { '192.168.178.1': 'fritz.box', '192.168.4.23': 'cam-shed', '192.168.4.45': 'shelly-pv' },
+      ports: {
+        '192.168.178.1': [80, 443],
+        '192.168.4.23': [80, 554],
+        '192.168.4.45': [80],
+        '192.168.4.77': [],
+        '192.168.4.1': [80],
+        '192.168.178.42': [80],
+      },
+    });
+    return { subnets, devices, active: !!opts.active, notes: ['Simulated network — the real scan runs on the Pi.'] };
+  }
+
+  private routes: string[] = [];
+
+  async subnetRoutes(): Promise<SubnetRouteState> {
+    const { subnets } = await this.scanNetwork();
+    return { available: subnets, advertised: [...this.routes], approved: [...this.routes], forwarding: this.routes.length > 0 };
+  }
+
+  async setSubnetRoutes(cidrs: string[]): Promise<ActionResult & { state: SubnetRouteState }> {
+    this.routes = [...cidrs];
+    return {
+      ok: true,
+      message: cidrs.length ? `Advertising ${cidrs.join(', ')} (simulated).` : 'Stopped advertising subnet routes (simulated).',
+      state: await this.subnetRoutes(),
+    };
+  }
 
   async updateCheck(_src?: unknown): Promise<UpdateCheck> {
     const impact = classifyChanges(this.simBehind ? ['packages/vehicle/src/index.ts', 'packages/ground/src/App.tsx'] : []);
