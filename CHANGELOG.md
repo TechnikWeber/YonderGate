@@ -2,6 +2,39 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.2
+**English**
+- **You can now enter the secret, not just set one.** After generating one there was
+  nowhere obvious to type it again — the page only asked via a browser `prompt()`, in the
+  middle of whatever you had just pressed. Setup › Security now has an **Unlock this tab**
+  field that appears exactly when it is useful: a secret is set and this tab does not know
+  it. A refused save points at that field instead of popping a dialog.
+- The field is checked against the gateway (`POST /api/auth/check`, behind the same gate
+  as every other write, so a wrong secret is refused by the real rule rather than by a
+  second copy of it) — you find out immediately, not at the next save.
+- The status line says which of the two states you are in: *no secret*, *set · this tab is
+  unlocked*, or *set · this tab cannot change anything yet*.
+- Worth being clear about what it is for here, since this project has no ground app: it is
+  **not** needed to connect. Reading — the whole page, the sensors, the history — is always
+  open. The secret gates **changes**, and the device proxy.
+
+**Deutsch**
+- **Man kann das Secret jetzt auch eingeben, nicht nur setzen.** Nach dem Erzeugen gab es
+  keinen offensichtlichen Ort, es erneut einzutippen — die Seite fragte nur per Browser-
+  `prompt()`, mitten in der Aktion, die man gerade angestoßen hatte. Setup › Security hat
+  jetzt ein Feld **Unlock this tab**, das genau dann erscheint, wenn es nützlich ist: Ein
+  Secret ist gesetzt und dieser Tab kennt es nicht. Eine abgewiesene Änderung zeigt auf
+  dieses Feld, statt einen Dialog aufzumachen.
+- Das Feld wird gegen das Gateway geprüft (`POST /api/auth/check`, hinter demselben Gate
+  wie jeder andere Schreibzugriff — ein falsches Secret wird also von der echten Regel
+  abgewiesen, nicht von einer zweiten Kopie davon). Man erfährt es sofort, nicht erst beim
+  nächsten Speichern.
+- Die Statuszeile sagt, in welchem der Zustände man ist: *kein Secret*, *gesetzt · dieser
+  Tab ist entsperrt* oder *gesetzt · dieser Tab kann noch nichts ändern*.
+- Und zur Klarheit, weil dieses Projekt keine Boden-App hat: Zum **Verbinden** braucht man
+  es nicht. Lesen — die ganze Seite, Sensoren, Verlauf — ist immer offen. Das Secret
+  schützt **Änderungen** und den Geräte-Proxy.
+
 ## v0.12.1
 **English**
 - **The API secret was in the setup page but nobody could find it.** It sits ten panels

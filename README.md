@@ -63,8 +63,10 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **Update from the page**: check what is coming in, then pull and restart —
   designed for a site you reach only over LTE.
 - **Optional API secret** (Setup › Security — generate it there, or set `YGW_API_SECRET`)
-  guarding every mutating call and the proxied device UIs. The status block at the top of
-  the page says whether one is set, so an unlocked box is visible rather than forgotten.
+  guarding every mutating call and the proxied device UIs. Reading is never gated, so the
+  page always loads; you enter the secret in that same panel to unlock the browser tab,
+  and once as `…:PORT/?secret=…` for a proxied device page. The status block at the top
+  says whether a secret is set and whether this tab knows it.
   Status endpoints stay readable without it (so the page always opens), which is worth
   knowing for a site whose hotspot is open by default: the device list is visible to
   anyone in Wi-Fi range. Credentials are not — the ntfy topic and token are shown

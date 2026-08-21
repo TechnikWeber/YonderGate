@@ -149,6 +149,14 @@ export async function handleSetup(
     return true;
   }
 
+  // Somewhere to try a secret without changing anything. It sits behind the same
+  // gate as every other mutating call, so a wrong one is answered by the gate — the
+  // handler only ever runs when the secret was right.
+  if (url === '/api/auth/check' && method === 'POST') {
+    json(res, 200, { ok: true, required: !!ctx.config.apiSecret });
+    return true;
+  }
+
   if (url === '/api/system' && method === 'GET') {
     // authRequired rides along so the status block can say whether this box has a
     // lock on it — a setting nobody can see is a setting nobody sets.

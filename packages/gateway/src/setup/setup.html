@@ -400,6 +400,17 @@
         <div class="eyebrow">Security (optional)</div>
         <p class="msg">One shared secret for this gateway. With it set, <b>changing anything</b> — here, and through the device proxy — needs it; this page prompts you once and remembers it for the tab. Reading stays open, so the page always loads and you can never lock yourself out of it. <b>Off by default</b>, because first-time setup should need nothing.</p>
         <p class="msg">Worth setting when the site's network isn't only yours: an <b>open hotspot</b>, a marina or campsite WiFi, a shared LAN. Not needed when the box is reachable only over Tailscale or your own network — a page from the internet is refused either way (see below).</p>
+        <div id="sec-unlock" style="display:none">
+          <div class="eyebrow2">Enter the secret</div>
+          <p class="msg">This browser tab has to know it before it can change anything. Reading needs nothing, so the page you are looking at loaded fine either way.</p>
+          <label>Secret<input id="secretIn" type="password" placeholder="the secret you set" autocomplete="current-password" /></label>
+          <div class="btns">
+            <button class="btn primary" onclick="run(this, () => unlockSecret())">Unlock this tab</button>
+          </div>
+          <div class="msg" id="sec-unlock-msg"></div>
+          <div class="sep"></div>
+        </div>
+        <div class="eyebrow2" id="sec-set-head">Set a secret</div>
         <label>API secret<input id="apiSecret" type="password" placeholder="leave empty = off" autocomplete="new-password" /></label>
         <div class="btns">
           <button class="btn" onclick="run(this, () => generateSecret())">Generate</button>
@@ -581,6 +592,7 @@
       const $ = (id) => document.getElementById(id);
       // Optional shared secret for mutating calls; kept in sessionStorage for this tab.
       let apiSecret = sessionStorage.getItem('ygw_secret') || '';
+      let secretRequired = false;
       /**
        * Run a button's handler while showing that it IS running. nmcli, npm and
        * modem calls take seconds; without this the page looks dead, gets clicked
@@ -612,8 +624,11 @@
         });
         let r = await send();
         if (r.status === 401) {
-          const s = prompt('API secret required:');
-          if (s != null) { apiSecret = s; sessionStorage.setItem('ygw_secret', s); r = await send(); }
+          // A browser prompt() for a password is the wrong place to type one: it is
+          // unmasked, trivially dismissed, and it appears in the middle of an action
+          // you already started. Send them to the field instead, and say why.
+          askForSecret();
+          return r.json();
         }
         return r.json();
       }
@@ -694,10 +709,11 @@
           row(
             'Security',
             s.authRequired
-              ? 'API secret set'
+              ? (apiSecret ? 'API secret set · this tab is unlocked' : '<a href="#sec-panel">API secret set · this tab cannot change anything yet</a>')
               : '<a href="#sec-panel">no secret — anyone on this network can change settings</a>',
-            s.authRequired ? 'go' : 'warn',
+            s.authRequired && apiSecret ? 'go' : 'warn',
           );
+        updateSecState(!!s.authRequired);
         // Keep this line honest: it used to hold whatever the last button press wrote,
         // so a stale "Starting…" could sit under a status row that already said Running.
         if (ts.loginUrl) {
@@ -823,7 +839,47 @@
       }
 
       function updateSecState(authRequired) {
-        $('sec-msg').textContent = authRequired ? 'A secret is currently required.' : 'No secret set (open).';
+        secretRequired = authRequired;
+        $('sec-msg').textContent = authRequired
+          ? (apiSecret ? 'A secret is required — this tab knows it.' : 'A secret is required — this tab does not know it yet.')
+          : 'No secret set (open).';
+        // The "enter it" half only exists once there is something to enter, and the
+        // "set one" half is renamed so it is obvious it replaces the current secret.
+        $('sec-unlock').style.display = authRequired && !apiSecret ? 'block' : 'none';
+        $('sec-set-head').textContent = authRequired ? 'Replace the secret' : 'Set a secret';
+      }
+
+      /** Point at the field rather than blocking on a prompt. */
+      function askForSecret() {
+        updateSecState(true);
+        $('sec-unlock').style.display = 'block';
+        $('sec-unlock-msg').textContent = 'That change was refused: this tab has not entered the secret yet.';
+        $('sec-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        $('secretIn').focus();
+      }
+
+      /**
+       * Try a secret without changing anything. The check endpoint sits behind the
+       * same gate as every other write, so a wrong one is refused by the gate itself
+       * — no separate comparison that could drift from the real rule.
+       */
+      async function unlockSecret() {
+        const v = $('secretIn').value.trim();
+        if (!v) { $('sec-unlock-msg').textContent = 'Type the secret first.'; return; }
+        const r = await fetch('/api/auth/check', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-yondergate-secret': v },
+          body: '{}',
+        });
+        if (!r.ok) {
+          $('sec-unlock-msg').textContent = r.status === 401 ? 'That secret is not right.' : `The gateway answered ${r.status}.`;
+          return;
+        }
+        apiSecret = v;
+        sessionStorage.setItem('ygw_secret', v);
+        $('secretIn').value = '';
+        $('sec-unlock-msg').textContent = 'Unlocked — this tab can change settings now.';
+        updateSecState(true);
       }
       /** 20 random chars from a confusable-free alphabet — long enough to be worth having. */
       function generateSecret() {
