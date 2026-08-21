@@ -6,6 +6,9 @@ import { loadPersisted, savePersisted, resetPersisted } from '../config.js';
 import type { SystemManager } from '../system/index.js';
 import type { TelemetryService } from '../sensors/TelemetryService.js';
 import type { HistoryService } from '../sensors/HistoryService.js';
+import type { AlertService } from '../system/AlertService.js';
+import { isNtfyUrl } from '../system/alerts.js';
+import { parseNtpServers } from '../system/health.js';
 import { RANGES } from '../sensors/history.js';
 import type { CameraCfg, TelemetryConfig } from '@yondergate/protocol';
 import { safeStreamName } from '../video/cameraManager.js';
@@ -35,6 +38,7 @@ export interface SetupContext {
   system: SystemManager;
   telemetry: TelemetryService;
   history: HistoryService;
+  alerts: AlertService;
   applyCameras: (cams: CameraCfg[]) => Promise<void>;
   /** Re-read config.hilink: point the reader at the stick and (re)start its proxy. */
   applyHilink?: () => void;
@@ -42,6 +46,13 @@ export interface SetupContext {
   applyProxies?: () => void;
   /** Called after config is persisted so the caller can note "restart needed". */
   onConfigSaved?: (patch: PersistentConfig) => void;
+}
+
+/** Keep a number inside sane bounds, falling back rather than rejecting. */
+function clampInt(v: unknown, fallback: number, lo: number, hi: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
 function json(res: ServerResponse, code: number, body: unknown): void {
@@ -305,6 +316,92 @@ export async function handleSetup(
   }
 
   // --- WiFi: join a network from the onboarding hotspot, and the hotspot itself ---
+  // ---- how the box itself is doing, what the SIM has used, and speaking up ----
+  if (url === '/api/health' && method === 'GET') {
+    const snap = ctx.alerts.snapshot();
+    json(res, 200, {
+      health: await ctx.system.health(),
+      usage: snap.usage,
+      usageStatus: snap.status,
+      data: ctx.config.data,
+      ntpServers: ctx.config.ntpServers,
+      history: ctx.config.history,
+      alerts: { ...ctx.config.alerts, ntfyToken: ctx.config.alerts.ntfyToken ? '(stored)' : null },
+    });
+    return true;
+  }
+
+  if (url === '/api/ntp' && method === 'POST') {
+    const body = (await readBody(req)) as { servers?: unknown };
+    const servers = parseNtpServers(String(body.servers ?? ''));
+    savePersisted(ctx.config.configPath, { ntpServers: servers });
+    ctx.config.ntpServers = servers;
+    json(res, 200, await ctx.system.setNtpServers(servers));
+    return true;
+  }
+
+  if (url === '/api/data' && method === 'POST') {
+    const body = (await readBody(req)) as { source?: unknown; iface?: unknown; capGb?: unknown };
+    const source = body.source === 'interface' ? 'interface' : 'hilink';
+    const iface = String(body.iface ?? ctx.config.data.iface).trim() || 'eth1';
+    const capRaw = body.capGb === '' || body.capGb === null || body.capGb === undefined ? null : Number(body.capGb);
+    if (capRaw !== null && (!Number.isFinite(capRaw) || capRaw <= 0)) {
+      json(res, 400, { ok: false, message: 'The allowance is a number of gigabytes, or empty for none.' });
+      return true;
+    }
+    const data = { source: source as 'hilink' | 'interface', iface, capGb: capRaw };
+    savePersisted(ctx.config.configPath, { data });
+    ctx.config.data = data;
+    json(res, 200, { ok: true, message: `Counting ${source === 'hilink' ? "the stick's own counter" : iface}${capRaw ? `, warning at 80% of ${capRaw} GB` : ', no allowance set'}.`, data });
+    return true;
+  }
+
+  if (url === '/api/history/settings' && method === 'POST') {
+    const body = (await readBody(req)) as { enabled?: unknown; keepMonths?: unknown; flushMinutes?: unknown };
+    const history = {
+      enabled: body.enabled === true,
+      keepMonths: clampInt(body.keepMonths, ctx.config.history.keepMonths, 1, 60),
+      flushMinutes: clampInt(body.flushMinutes, ctx.config.history.flushMinutes, 1, 60),
+    };
+    savePersisted(ctx.config.configPath, { history });
+    ctx.config.history = history;
+    json(res, 200, {
+      ok: true,
+      // Restart-gated on purpose: starting and stopping the recorder underneath a
+      // running box is a good way to lose the minute it was in the middle of.
+      message: `Saved. Recording ${history.enabled ? 'on' : 'off'} — restart the gateway to apply.`,
+      history,
+    });
+    return true;
+  }
+
+  if (url === '/api/alerts' && method === 'POST') {
+    const body = (await readBody(req)) as { enabled?: unknown; ntfyUrl?: unknown; ntfyToken?: unknown; rules?: unknown };
+    const ntfyUrl = body.ntfyUrl === '' || body.ntfyUrl === null ? null : String(body.ntfyUrl ?? '');
+    if (ntfyUrl !== null && !isNtfyUrl(ntfyUrl)) {
+      json(res, 400, { ok: false, message: 'That is not an ntfy topic URL — it looks like https://ntfy.sh/your-topic.' });
+      return true;
+    }
+    const alerts = {
+      enabled: body.enabled === true,
+      ntfyUrl,
+      // An unchanged token arrives as the placeholder; never overwrite a stored
+      // secret with the word "(stored)".
+      ntfyToken: body.ntfyToken === '(stored)' ? ctx.config.alerts.ntfyToken : (String(body.ntfyToken ?? '') || null),
+      rules: Array.isArray(body.rules) ? (body.rules as typeof ctx.config.alerts.rules) : ctx.config.alerts.rules,
+    };
+    savePersisted(ctx.config.configPath, { alerts });
+    ctx.config.alerts = alerts;
+    json(res, 200, { ok: true, message: alerts.enabled ? 'Alerts are on.' : 'Alerts are off.', alerts: { ...alerts, ntfyToken: alerts.ntfyToken ? '(stored)' : null } });
+    return true;
+  }
+
+  if (url === '/api/alerts/test' && method === 'POST') {
+    const r = await ctx.alerts.test();
+    json(res, r.ok ? 200 : 500, r);
+    return true;
+  }
+
   // ---- the site's network: what is out there, and how to reach it ----
   if (url === '/api/scan' && method === 'POST') {
     const body = (await readBody(req)) as { active?: unknown };

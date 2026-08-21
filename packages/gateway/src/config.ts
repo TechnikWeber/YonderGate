@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TelemetryConfig, CameraCfg } from '@yondergate/protocol';
 import type { SystemKind } from './system/index.js';
@@ -8,6 +9,8 @@ import { HILINK_DEFAULT_HOST } from './system/hilink.js';
 import { UPDATE_SOURCE_DEFAULT, type UpdateSource } from './system/update.js';
 import type { ProxyCfg } from './transport/deviceProxy.js';
 import type { KnownDevice } from './system/discovery.js';
+import type { AlertRule } from './system/alerts.js';
+import { defaultRules } from './system/alerts.js';
 import { HOTSPOT_DEFAULTS } from './system/SystemManager.js';
 
 /**
@@ -49,8 +52,22 @@ export interface GatewayConfig {
   telemetry: TelemetryConfig;
   /** Cameras (graphical); generates go2rtc.yaml. */
   cameras: CameraCfg[];
+  /** Everything the box writes at runtime (history, counters) — never the checkout. */
+  stateDir: string;
   /** Where the sensor history is recorded (one CSV per month). */
   historyDir: string;
+  /**
+   * Recording is **off by default**. It is the only thing here that writes to the
+   * card continuously, and an installation that wants maximum endurance should not
+   * have to discover that it opted in by accident.
+   */
+  history: HistorySettings;
+  /** Speaking up when something is wrong (ntfy). */
+  alerts: AlertSettings;
+  /** Mobile data allowance and where the counter comes from. */
+  data: DataSettings;
+  /** Time servers for systemd-timesyncd; empty = distribution default. */
+  ntpServers: string[];
   /** Path of the generated go2rtc config. */
   go2rtcConfigPath: string;
   /** Detected H.264 encoder for generated camera sources (set at startup). */
@@ -81,6 +98,36 @@ export interface HilinkSettings {
 export const HILINK_PROXY_PORT = 8081;
 export const HILINK_SETTINGS_DEFAULT: HilinkSettings = { host: HILINK_DEFAULT_HOST, proxyPort: HILINK_PROXY_PORT };
 
+export interface HistorySettings {
+  enabled: boolean;
+  /** How long to keep month files. */
+  keepMonths: number;
+  /** Minutes between disk writes — the SD-card wear knob. */
+  flushMinutes: number;
+}
+
+export const HISTORY_DEFAULTS: HistorySettings = { enabled: false, keepMonths: 13, flushMinutes: 5 };
+
+export interface AlertSettings {
+  enabled: boolean;
+  /** ntfy topic URL, e.g. https://ntfy.sh/your-secret-topic */
+  ntfyUrl: string | null;
+  /** Bearer token for a private ntfy server. */
+  ntfyToken: string | null;
+  rules: AlertRule[];
+}
+
+export interface DataSettings {
+  /** 'hilink' (the stick's own counter) or 'interface' (the kernel's). */
+  source: 'hilink' | 'interface';
+  /** Which interface to count when source is 'interface'. */
+  iface: string;
+  /** Monthly allowance in GB; null = no cap, no warning. */
+  capGb: number | null;
+}
+
+export const DATA_DEFAULTS: DataSettings = { source: 'hilink', iface: 'eth1', capGb: null };
+
 /** The subset the setup UI can edit and persist. */
 export interface PersistentConfig {
   siteName?: string;
@@ -96,6 +143,10 @@ export interface PersistentConfig {
   update?: UpdateSource;
   proxies?: ProxyCfg[];
   devices?: KnownDevice[];
+  history?: Partial<HistorySettings>;
+  alerts?: Partial<AlertSettings>;
+  data?: Partial<DataSettings>;
+  ntpServers?: string[];
   telemetry?: TelemetryConfig;
   cameras?: CameraCfg[];
   /**
@@ -150,6 +201,8 @@ export function resetPersisted(path: string): void {
 
 export function loadConfig(): GatewayConfig {
   const configPath = process.env.YGW_CONFIG ?? 'yondergate-config.json';
+  const stateDir =
+    process.env.YGW_STATE_DIR ?? fileURLToPath(new URL('../../../.runtime', import.meta.url));
   const p = loadPersisted(configPath);
 
   return {
@@ -183,8 +236,17 @@ export function loadConfig(): GatewayConfig {
       chargeSource: 'auto',
     },
     cameras: p.cameras ?? [{ name: 'test', type: 'sim', width: 1280, height: 720, fps: 25 }],
-    historyDir:
-      process.env.YGW_HISTORY_DIR ?? fileURLToPath(new URL('../../../.runtime/history', import.meta.url)),
+    stateDir,
+    historyDir: process.env.YGW_HISTORY_DIR ?? join(stateDir, 'history'),
+    history: { ...HISTORY_DEFAULTS, ...(p.history ?? {}) },
+    alerts: {
+      enabled: p.alerts?.enabled ?? false,
+      ntfyUrl: p.alerts?.ntfyUrl ?? null,
+      ntfyToken: p.alerts?.ntfyToken ?? null,
+      rules: p.alerts?.rules ?? defaultRules(),
+    },
+    data: { ...DATA_DEFAULTS, ...(p.data ?? {}) },
+    ntpServers: p.ntpServers ?? [],
     // Generated from the camera list, so it never belongs in the checkout: a file
     // the service rewrites at every start leaves the repo permanently modified and
     // blocks `git pull --ff-only`. systemd points this at /var/lib on a real box.

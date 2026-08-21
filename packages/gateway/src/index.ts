@@ -2,6 +2,7 @@ import { loadConfig } from './config.js';
 import { createSystem } from './system/index.js';
 import { TelemetryService } from './sensors/TelemetryService.js';
 import { HistoryService } from './sensors/HistoryService.js';
+import { AlertService } from './system/AlertService.js';
 import { applyCameras, detectH264Encoder } from './video/cameraManager.js';
 import { startCaptivePortal } from './transport/captivePortal.js';
 import { startHttpServer } from './transport/httpServer.js';
@@ -18,17 +19,29 @@ async function main() {
   console.log('');
 
   const system = createSystem(config.systemKind);
+  system.setStateDir?.(config.stateDir);
 
   // Sensors (voltage / current / temperature). Sim by default, so a box without
   // hardware still shows a full, working page.
   const telemetry = new TelemetryService(config.telemetry);
   await telemetry.start();
 
-  // Recording starts with the box, not with a browser: the whole point is what
-  // happened while nobody was looking.
-  const history = new HistoryService(config.historyDir, telemetry);
-  history.start();
-  console.log(`  history   : ${config.historyDir}`);
+  // Recording is opt-in: it is the one thing that writes to the card continuously.
+  const history = new HistoryService(config.historyDir, telemetry, {
+    keepMonths: config.history.keepMonths,
+    flushMs: config.history.flushMinutes * 60_000,
+  });
+  if (config.history.enabled) {
+    history.start();
+    console.log(`  history   : ${config.historyDir} (every minute, flushed every ${config.history.flushMinutes} min)`);
+  } else {
+    console.log('  history   : off (enable it in Setup › Sensors)');
+  }
+
+  // Watches the site and speaks up; also keeps the mobile-data counter, which is
+  // useful whether or not anyone wants push messages.
+  const alerts = new AlertService(config, system, telemetry);
+  alerts.start();
 
   // Generate go2rtc.yaml from the camera list (best effort at boot).
   config.h264Encoder = await detectH264Encoder();
@@ -36,7 +49,7 @@ async function main() {
     (e) => console.error('[video] initial camera generation failed:', (e as Error).message),
   );
 
-  startHttpServer(config, system, telemetry, history);
+  startHttpServer(config, system, telemetry, history, alerts);
   console.log(`  setup UI  : http://<gateway>:${config.port}/setup  (system: ${config.systemKind})`);
 
   // Captive portal for AP-mode onboarding (binds :80; skipped if not permitted).
@@ -54,6 +67,7 @@ async function main() {
 
   const shutdown = async () => {
     console.log('\n[gateway] shutting down…');
+    alerts.stop();
     await history.stop();
     await telemetry.stop();
     process.exit(0);

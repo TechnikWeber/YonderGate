@@ -3,6 +3,7 @@ import type { GatewayConfig } from '../config.js';
 import type { SystemManager } from '../system/index.js';
 import type { TelemetryService } from '../sensors/TelemetryService.js';
 import type { HistoryService } from '../sensors/HistoryService.js';
+import type { AlertService } from '../system/AlertService.js';
 import { handleSetup, type SetupContext } from './setupRouter.js';
 import { startDeviceProxy, type DeviceProxyHandle } from './deviceProxy.js';
 import { applyCameras } from '../video/cameraManager.js';
@@ -19,6 +20,7 @@ export function startHttpServer(
   system: SystemManager,
   telemetry: TelemetryService,
   history: HistoryService,
+  alerts: AlertService,
 ): Server {
   // Every device the gateway publishes: the LTE stick's own UI, plus whatever the
   // operator added from the device list. Restarted as one fleet, because a changed
@@ -53,6 +55,7 @@ export function startHttpServer(
     system,
     telemetry,
     history,
+    alerts,
     applyCameras: (cams) => applyCameras(cams, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder),
     applyHilink: applyProxies,
     applyProxies,

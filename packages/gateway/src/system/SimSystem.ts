@@ -23,6 +23,7 @@ import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
+import { HEALTH_UNKNOWN, type Health } from './health.js';
 import { mergeDevices, mergeKnown, parseIpNeigh, parseSubnets, routableSubnets, type KnownDevice } from './discovery.js';
 
 /**
@@ -300,6 +301,41 @@ export class SimSystem implements SystemManager {
   /** A pretend update, so the panel and both outcomes can be tried without a Pi. */
   private simBehind = 2;
 
+
+
+  /** A healthy-looking box, with one deliberate wart so the warnings are visible. */
+  async health(): Promise<Health> {
+    return {
+      ...HEALTH_UNKNOWN,
+      diskFreeMb: 11_800,
+      diskUsedPercent: 23,
+      cpuTempC: 47.2,
+      uptimeS: 86_400 * 3 + 3600,
+      load1: 0.12,
+      undervoltage: true, // seen once since boot — the classic Pi + LTE stick symptom
+      undervoltageNow: false,
+      clockSynced: true,
+      ntpServer: 'time.cloudflare.com',
+      rtc: null, // no DS3231 fitted, which is the default
+    };
+  }
+
+  async setNtpServers(servers: string[]): Promise<ActionResult> {
+    return { ok: true, message: servers.length ? `Time servers set to ${servers.join(', ')} (simulated).` : 'Back to the default time servers (simulated).' };
+  }
+
+  private simCounter = 4.2e9;
+  async dataCounter(): Promise<number | null> {
+    // Creeps upwards like a real counter, so the monthly total actually moves.
+    this.simCounter += 12e6;
+    return this.simCounter;
+  }
+
+  async probeDevices(devices: KnownDevice[]): Promise<Record<string, boolean>> {
+    // Everything answers except a device explicitly named to be missing, so the
+    // "device is gone" alert can be tried without unplugging anything.
+    return Object.fromEntries(devices.map((d) => [d.id, !/offline|missing/i.test(d.label)]));
+  }
 
   /**
    * A plausible site: the router upstream, a camera and a sensor on the AP, plus a

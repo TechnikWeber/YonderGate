@@ -2,6 +2,64 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.6.0
+**English**
+- **Recording is now off by default.** It is the only thing here that writes to the card
+  continuously, and an installation that wants maximum endurance should not have to
+  discover that it opted in by accident. One checkbox in Setup › Sensors turns it on;
+  retention and the write interval are settings rather than assumptions.
+- **The gateway speaks up.** Alerts over **ntfy**: a sensor past a threshold, a saved
+  device gone quiet, the supply sagging, the data allowance at 80 %. Each rule has to
+  hold for a while before it counts and then stays quiet for six hours — the lesson from
+  the sibling project, where a link that flapped every minute taught us what a voice that
+  cries wolf is worth. Recovery is only announced for a problem that was announced.
+- **A sensor nobody wired up is not an alarm.** This box is meant to run with whatever
+  the operator happened to connect, so a missing reading is silence, never a breach.
+- **Site health**: disk, CPU temperature, load, uptime, **undervoltage now and since
+  boot** (the classic Pi-plus-LTE-stick failure that quietly eats SD cards), whether the
+  **clock is synced**, and whether a hardware clock is fitted. Every one of them is
+  `null` when it cannot be read — a box without `vcgencmd` is a normal box, and "unknown"
+  must never render as a healthy zero.
+- **Time is configurable from the page**: NTP servers are validated, written as a
+  systemd-timesyncd drop-in and applied. A **DS3231 RTC** is detected when present and
+  documented for sites that are offline for long stretches — deliberately not enabled by
+  default.
+- **Mobile data counter with an allowance.** Either the stick's own figure (what the
+  carrier sees) or the kernel's interface counters (works for any uplink); the gateway
+  keeps its own monthly total from the **differences**, so a stick reboot or a Pi reboot
+  costs nothing. A counter that went backwards means "something restarted", not "we
+  un-sent 4 GB" — and a warning goes out at 80 % of the cap.
+
+**Deutsch**
+- **Die Aufzeichnung ist jetzt standardmäßig aus.** Sie ist das Einzige hier, das
+  dauerhaft auf die Karte schreibt, und eine Installation, die maximale Lebensdauer will,
+  soll das nicht versehentlich eingeschaltet haben. Ein Haken in Setup › Sensors
+  aktiviert sie; Aufbewahrung und Schreibintervall sind Einstellungen statt Annahmen.
+- **Das Gateway meldet sich.** Alarme über **ntfy**: ein Sensor jenseits der Schwelle,
+  ein gespeichertes Gerät, das verstummt, sackende Versorgungsspannung, 80 % des
+  Datenvolumens. Jede Regel muss erst eine Weile halten und schweigt danach sechs Stunden
+  — die Lehre aus dem Schwesterprojekt, wo eine im Minutentakt flackernde Verbindung uns
+  gezeigt hat, was eine Stimme wert ist, die zu oft ruft. Entwarnung gibt es nur für eine
+  Meldung, die auch rausging.
+- **Ein Sensor, den niemand angeschlossen hat, ist kein Alarm.** Diese Kiste soll mit dem
+  laufen, was der Betreiber zufällig verkabelt hat — ein fehlender Messwert bedeutet
+  Schweigen, nie eine Grenzverletzung.
+- **Systemgesundheit**: Speicherplatz, CPU-Temperatur, Last, Laufzeit, **Unterspannung
+  jetzt und seit dem Booten** (der klassische Pi-plus-LTE-Stick-Fehler, der still
+  SD-Karten frisst), ob die **Uhr synchron** ist und ob eine Hardware-Uhr steckt. Jeder
+  Wert ist `null`, wenn er nicht lesbar ist — eine Kiste ohne `vcgencmd` ist eine normale
+  Kiste, und „unbekannt" darf nie als gesunde Null erscheinen.
+- **Die Zeit ist über die Seite einstellbar**: NTP-Server werden geprüft, als
+  systemd-timesyncd-Datei geschrieben und angewendet. Eine **DS3231-RTC** wird erkannt,
+  wenn sie steckt, und für Standorte dokumentiert, die lange offline sind — bewusst nicht
+  standardmäßig aktiv.
+- **Datenzähler mit Volumengrenze.** Wahlweise der Zähler des Sticks (was der Anbieter
+  sieht) oder die Interface-Zähler des Kernels (funktioniert bei jedem Uplink); das
+  Gateway führt seinen eigenen Monatswert aus den **Differenzen**, ein Neustart von Stick
+  oder Pi kostet also nichts. Ein rückwärts gelaufener Zähler heißt „etwas wurde neu
+  gestartet", nicht „wir haben 4 GB ungesendet" — und bei 80 % des Volumens geht eine
+  Meldung raus.
+
 ## v0.5.0
 **English**
 - **The sensors have a memory.** One averaged value per minute is recorded and kept for

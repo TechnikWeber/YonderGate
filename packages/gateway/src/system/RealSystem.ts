@@ -50,6 +50,7 @@ import {
 import { parseModemId, parseModemInfo, parseSimId, lteStateLabel } from './lte.js';
 import { parseWifiSignalDbm, dbmToQualityPct } from './signal.js';
 import { parseI2cAddresses, suggestI2c } from './detect.js';
+import { parseHilinkXml as parseHilinkXmlText } from './hilink.js';
 import {
   advertiseRoutesArgs,
   forwardingSysctl,
@@ -59,6 +60,21 @@ import {
   parseTailscaleStatus,
   FORWARDING_SYSCTL_PATH,
 } from './tailscale.js';
+import {
+  parseCpuTemp,
+  parseDf,
+  parseLoad,
+  parseNtpServers,
+  parseThrottled,
+  parseTimedatectl,
+  parseTimesyncServer,
+  parseUptime,
+  timesyncdConf,
+  HEALTH_UNKNOWN,
+  TIMESYNCD_CONF_PATH,
+  type Health,
+} from './health.js';
+import { parseHilinkTraffic, parseProcNetDev } from './usage.js';
 import {
   mergeDevices,
   mergeKnown,
@@ -873,6 +889,101 @@ export class RealSystem implements SystemManager {
     return { ok: true, message: 'Restarting the gateway service — this page comes back on its own in a few seconds.' };
   }
 
+
+
+  /**
+   * The box's own vitals. Every probe is allowed to fail: a machine without
+   * `vcgencmd`, without a thermal zone, without an RTC is a normal machine, and a
+   * missing reading must read as "unknown" rather than as a healthy zero.
+   */
+  async health(): Promise<Health> {
+    const [df, temp, uptime, load, throttled, timedate, timesync, rtc] = await Promise.all([
+      sh(`df -P -m ${this.stateDir}`),
+      sh('cat /sys/class/thermal/thermal_zone0/temp'),
+      sh('cat /proc/uptime'),
+      sh('cat /proc/loadavg'),
+      sh('vcgencmd get_throttled'),
+      sh('timedatectl show'),
+      sh('timedatectl timesync-status'),
+      sh('cat /sys/class/rtc/rtc0/name'),
+    ]);
+    const disk = df.ok ? parseDf(df.out) : { freeMb: null, usedPercent: null };
+    const volt = throttled.ok ? parseThrottled(throttled.out) : { now: null, since: null };
+    const clock = timedate.ok ? parseTimedatectl(timedate.out) : { synced: null, ntpEnabled: null };
+    return {
+      ...HEALTH_UNKNOWN,
+      diskFreeMb: disk.freeMb,
+      diskUsedPercent: disk.usedPercent,
+      cpuTempC: temp.ok ? parseCpuTemp(temp.out) : null,
+      uptimeS: uptime.ok ? parseUptime(uptime.out) : null,
+      load1: load.ok ? parseLoad(load.out) : null,
+      undervoltageNow: volt.now,
+      undervoltage: volt.since,
+      clockSynced: clock.synced,
+      ntpServer: timesync.ok ? parseTimesyncServer(timesync.out) : null,
+      rtc: rtc.ok ? rtc.out.trim() || null : null,
+    };
+  }
+
+  /** Where this box writes runtime state; set from the config at startup. */
+  private stateDir = '/var/lib/yondergate';
+  setStateDir(dir: string): void {
+    this.stateDir = dir;
+  }
+
+  async setNtpServers(servers: string[]): Promise<ActionResult> {
+    const clean = parseNtpServers(servers.join(' '));
+    try {
+      mkdirSync(dirname(TIMESYNCD_CONF_PATH), { recursive: true });
+      if (clean.length) writeFileSync(TIMESYNCD_CONF_PATH, timesyncdConf(clean));
+      else if (existsSync(TIMESYNCD_CONF_PATH)) rmSync(TIMESYNCD_CONF_PATH);
+    } catch (err) {
+      return { ok: false, message: `Could not write the time configuration: ${(err as Error).message}` };
+    }
+    const r = await shArgs('sudo', ['systemctl', 'restart', 'systemd-timesyncd']);
+    return {
+      ok: true,
+      message: clean.length
+        ? `Time servers set to ${clean.join(', ')}.${r.ok ? '' : ' (timesyncd did not restart — it will pick this up at the next boot.)'}`
+        : 'Back to the default time servers.',
+    };
+  }
+
+  async dataCounter(source: 'hilink' | 'interface', iface: string): Promise<number | null> {
+    if (source === 'interface') {
+      const r = await sh('cat /proc/net/dev');
+      return r.ok ? parseProcNetDev(r.out, iface) : null;
+    }
+    const hi = await this.hilinkStatus();
+    if (!hi.present) return null;
+    try {
+      const res = await fetch(`http://${this.hilinkHost}/api/monitoring/traffic-statistics`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) return null;
+      return parseHilinkTraffic(parseHilinkXmlText(await res.text()));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Are the saved devices answering? A TCP connect on the port the operator gave
+   * us, falling back to a ping — a camera that refuses TCP but answers ICMP is
+   * still there, and "the camera is gone" is the message we must not get wrong.
+   */
+  async probeDevices(devices: KnownDevice[]): Promise<Record<string, boolean>> {
+    const out: Record<string, boolean> = {};
+    await pooled(devices, 8, async (d) => {
+      if (await probePort(d.ip, d.port, 1200)) {
+        out[d.id] = true;
+        return;
+      }
+      const ping = await shArgs('ping', ['-c', '1', '-W', '1', d.ip]);
+      out[d.id] = ping.ok;
+    });
+    return out;
+  }
 
   /**
    * Everything on the site's networks. The neighbour table is free and instant, so

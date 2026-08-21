@@ -330,6 +330,7 @@
           <button class="btn tiny" onclick="run(this, () => loadHistory('year'))">Year</button>
         </div>
         <div id="sensor-history"><div class="msg">Recording starts with the gateway — a fresh box has nothing to show yet.</div></div>
+        <label class="chk" style="margin-top:10px"><input type="checkbox" id="historyEnabled" onchange="run(this, () => saveHistorySettings())" /> <b>Record history</b> — off by default, because it is the only thing that writes to the card continuously</label>
         <p class="msg">One averaged value per minute is recorded, kept for 13 months (about 21 MB a year) in <span class="mono">/var/lib/yondergate/history</span>. Longer views are averaged when you ask for them, and the band behind the line is the <b>minimum and maximum</b> inside each step — on a battery the dip under load is the part an average hides.</p>
 
         <div class="eyebrow2" style="margin-top:14px">Configuration</div>
@@ -393,6 +394,50 @@
 
       
       
+      <section class="panel">
+        <div class="eyebrow">Site health &amp; alerts</div>
+        <div id="health-out"><div class="msg">…</div></div>
+
+        <div class="eyebrow2" style="margin-top:12px">Time</div>
+        <div class="grid2">
+          <label>NTP servers (space separated)<input id="ntpServers" placeholder="time.cloudflare.com pool.ntp.org" /></label>
+          <div style="display:flex;align-items:flex-end;margin-bottom:10px">
+            <button class="btn" onclick="run(this, () => saveNtp())">Apply time servers</button>
+          </div>
+        </div>
+        <p class="msg">A box that boots without internet starts with the wrong time, and every recorded value carries that timestamp. If this site is offline for long stretches, fit a <b>DS3231 real-time clock</b> (I²C, a few euros) — it is not enabled by default; add <span class="mono">dtoverlay=i2c-rtc,ds3231</span> to <span class="mono">/boot/firmware/config.txt</span> and it appears above.</p>
+        <div class="msg" id="ntp-msg"></div>
+
+        <div class="eyebrow2" style="margin-top:12px">Mobile data</div>
+        <div class="grid3">
+          <label>Counter
+            <select id="dataSource">
+              <option value="hilink">the LTE stick's own counter</option>
+              <option value="interface">an interface on the Pi</option>
+            </select>
+          </label>
+          <label>Interface<input id="dataIface" placeholder="eth1" /></label>
+          <label>Allowance (GB/month)<input id="dataCap" type="number" step="0.1" placeholder="none" /></label>
+        </div>
+        <div class="btns"><button class="btn" onclick="run(this, () => saveData())">Save allowance</button></div>
+        <p class="msg">The stick's counter is what the carrier sees but resets when the stick reboots; the interface counter works for any uplink but counts local traffic too. Either way the gateway keeps its own monthly total from the <b>differences</b>, so a reset costs nothing. A warning goes out at <b>80 %</b> of the allowance.</p>
+        <div class="msg" id="data-msg"></div>
+
+        <div class="eyebrow2" style="margin-top:12px">Alerts (ntfy)</div>
+        <label class="chk"><input type="checkbox" id="alertsEnabled" /> Send alerts</label>
+        <div class="grid2">
+          <label>ntfy topic URL<input id="ntfyUrl" placeholder="https://ntfy.sh/pick-something-unguessable" /></label>
+          <label>Token (only for a private server)<input id="ntfyToken" type="password" placeholder="usually empty" /></label>
+        </div>
+        <div class="btns">
+          <button class="btn primary" onclick="run(this, () => saveAlerts())">Save</button>
+          <button class="btn" onclick="run(this, () => testAlert())">Send test message</button>
+        </div>
+        <p class="msg">Install the <b>ntfy</b> app, subscribe to a topic name nobody could guess, and put its URL here — anyone who knows the topic can read your alerts. Watched by default: the supply voltage sagging and the data allowance. Add a sensor threshold or a saved device below; each alert waits until the condition has held for a while and then stays quiet for six hours, because a flaky link must not turn into a night of notifications.</p>
+        <div id="rules-out"></div>
+        <div class="msg" id="alerts-msg"></div>
+      </section>
+
       <section class="panel">
         <div class="eyebrow">Software update</div>
         <div id="upd-status"><div class="msg">Press <b>Check for updates</b> — that only looks, it changes nothing.</div></div>
@@ -718,6 +763,93 @@
         $('ltePin').value = ''; $('ltePass').value = '';
         refresh();
       }
+      // ---- health, time, data allowance, alerts ----
+      function fmtBytes(b) {
+        if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+        if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+        return Math.round(b / 1e3) + ' kB';
+      }
+      function fmtUptime(s) {
+        if (s == null) return '—';
+        const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+        return d ? `${d} d ${h} h` : `${h} h ${Math.floor((s % 3600) / 60)} min`;
+      }
+
+      async function loadHealth() {
+        let d;
+        try { d = await getJSON('/api/health'); } catch { return; }
+        const h = d.health || {};
+        const row = (k, v, cls) => `<div class="row"><span class="k">${esc(k)}</span><span class="v ${cls || ''}">${esc(v)}</span></div>`;
+        const na = (v, unit) => (v === null || v === undefined ? '—' : `${v}${unit || ''}`);
+        // Every reading may be missing: not every box has a thermal zone, vcgencmd
+        // or an RTC, and "unknown" must not read as a healthy zero.
+        $('health-out').innerHTML =
+          row('uptime', fmtUptime(h.uptimeS)) +
+          row('disk free', na(h.diskFreeMb, ' MB') + (h.diskUsedPercent != null ? ` · ${h.diskUsedPercent}% used` : ''), h.diskUsedPercent > 90 ? 'bad' : '') +
+          row('CPU temperature', na(h.cpuTempC, ' °C'), h.cpuTempC > 75 ? 'warn' : '') +
+          row('load', na(h.load1)) +
+          row('supply', h.undervoltageNow ? 'sagging right now' : h.undervoltage ? 'sagged since boot' : h.undervoltage === false ? 'ok' : '—',
+              h.undervoltageNow ? 'bad' : h.undervoltage ? 'warn' : 'go') +
+          row('clock', h.clockSynced === null ? '—' : h.clockSynced ? `synced${h.ntpServer ? ' · ' + h.ntpServer : ''}` : 'NOT synced', h.clockSynced === false ? 'bad' : 'go') +
+          row('hardware clock', h.rtc || 'none fitted', h.rtc ? 'go' : '') +
+          (d.usage ? row('mobile data this month', fmtBytes(d.usage.bytes) + (d.usageStatus?.percent != null ? ` · ${d.usageStatus.percent}% of allowance` : ''),
+              d.usageStatus?.over ? 'bad' : d.usageStatus?.warn ? 'warn' : '') : '');
+
+        if (d.ntpServers && !$('ntpServers').value) $('ntpServers').value = d.ntpServers.join(' ');
+        if (d.data) {
+          $('dataSource').value = d.data.source;
+          if (!$('dataIface').value) $('dataIface').value = d.data.iface || '';
+          if (!$('dataCap').value && d.data.capGb) $('dataCap').value = d.data.capGb;
+        }
+        if (d.history) $('historyEnabled').checked = !!d.history.enabled;
+        if (d.alerts) {
+          $('alertsEnabled').checked = !!d.alerts.enabled;
+          if (!$('ntfyUrl').value) $('ntfyUrl').value = d.alerts.ntfyUrl || '';
+          if (d.alerts.ntfyToken && !$('ntfyToken').value) $('ntfyToken').value = '(stored)';
+          renderRules(d.alerts.rules || []);
+        }
+      }
+
+      function renderRules(rules) {
+        $('rules-out').innerHTML =
+          '<div class="eyebrow2" style="margin-top:10px">Watching</div>' +
+          (rules.map((r) => `<div class="row"><span class="k">${esc(r.label)}</span><span class="v">${esc(r.kind)}${r.below != null ? ' &lt; ' + r.below : ''}${r.above != null ? ' &gt; ' + r.above : ''}</span></div>`).join('') ||
+           '<div class="msg">Nothing yet.</div>');
+      }
+
+      async function saveNtp() {
+        const r = await post('/api/ntp', { servers: $('ntpServers').value });
+        $('ntp-msg').textContent = r.message || '';
+        loadHealth();
+      }
+      async function saveData() {
+        const r = await post('/api/data', {
+          source: $('dataSource').value,
+          iface: $('dataIface').value.trim(),
+          capGb: $('dataCap').value.trim(),
+        });
+        $('data-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message)}</b>`;
+      }
+      async function saveHistorySettings() {
+        const r = await post('/api/history/settings', { enabled: $('historyEnabled').checked });
+        $('sensor-history').innerHTML = `<div class="msg">${esc(r.message || '')}</div>`;
+      }
+      function alertMsg(r) {
+        $('alerts-msg').innerHTML = r.ok ? esc(r.message || '') : `<b style="color:var(--bad)">${esc(r.message || 'Failed.')}</b>`;
+      }
+      async function saveAlerts() {
+        const r = await post('/api/alerts', {
+          enabled: $('alertsEnabled').checked,
+          ntfyUrl: $('ntfyUrl').value.trim(),
+          ntfyToken: $('ntfyToken').value.trim(),
+        });
+        alertMsg(r);
+        loadHealth();
+      }
+      async function testAlert() {
+        alertMsg(await post('/api/alerts/test', {}));
+      }
+
       // ---- sensors: now, and what happened while nobody looked ----
       const SENSOR_UNIT = { v: 'V', c: 'A', t: '°C', pct: '%' };
       function unitFor(key) { return SENSOR_UNIT[String(key).split(':')[0]] || ''; }
@@ -1484,6 +1616,8 @@
       }
 
       loadConfig();
+      loadHealth();
+      setInterval(loadHealth, 30000);
       loadSensorsNow();
       setInterval(loadSensorsNow, 5000);
       loadHistory('day');

@@ -29,6 +29,18 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
 - **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot.
+- **It speaks up when something is wrong** (ntfy push): the battery under a
+  threshold, a saved device gone quiet, the supply sagging, the SIM's allowance at
+  80 %. Every alert waits until the condition has held, then stays quiet for six
+  hours — a flaky link must not become a night of notifications.
+- **Site health**: disk, CPU temperature, load, uptime, **undervoltage** (the classic
+  Pi-plus-LTE-stick failure that eats SD cards) and whether the **clock is actually
+  synced** — a year of history is worthless if the timestamps came from a box that
+  booted in 1970. NTP servers are set from the page; a DS3231 RTC is detected if you
+  fit one.
+- **Mobile data counter** with a monthly allowance: the stick's own figure or the
+  kernel's interface counters, kept as a running total that survives either side
+  resetting.
 - **Sensors with history**: voltage, current and temperature over I²C (INA2xx,
   ADS1115, and the usual temperature parts), or simulated when no hardware is
   attached — recorded once a minute and kept for 13 months, so the page can answer
@@ -160,13 +172,17 @@ The living list of what is open. Ticked items are done and covered by tests.
 
 **Site monitoring**
 - [x] Sensor history: one averaged value per minute, kept 13 months (~21 MB a year),
-      with min/max per step and hour…year views
-- [ ] **Alerts** — a box nobody watches has to speak up: battery below a threshold, a
-      saved device gone quiet, no uplink, undervoltage. Needs a channel (ntfy, e-mail,
-      webhook) that works from a site with a flaky link
-- [ ] **System health**: disk space, CPU temperature, undervoltage, uptime, and whether
-      the clock is actually synced (timestamps in the history depend on it)
-- [ ] **LTE data usage** with a warning before the SIM's cap — the stick already knows
+      with min/max per step and hour…year views — **off by default**, because it is the
+      only thing that writes to the card continuously
+- [x] **Alerts** over ntfy, with a hold-down and a cooldown so a flaky link cannot
+      turn into a night of notifications
+- [x] **System health**: disk, temperature, load, uptime, undervoltage, clock sync,
+      RTC detection, NTP servers settable from the page
+- [x] **Mobile data counter** with an allowance and a warning at 80 %
+- [ ] Alert when the **uplink itself** is gone — needs a way to notice after the fact,
+      since a box with no link cannot send anything while it is down
+- [ ] Let alert rules be added from the page (thresholds and devices are configurable
+      in the config file today, the defaults cover supply and data)
 - [ ] Export a range of history as CSV from the page
 - [ ] Config backup / restore as one file
 - [x] Camera preview on the setup page (still frame + link to go2rtc's player)

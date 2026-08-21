@@ -5,6 +5,7 @@ import type { WifiRadioStatus } from './wifi.js';
 import type { HilinkStatus } from './hilink.js';
 import type { UpdateCheck, UpdateSource } from './update.js';
 import type { KnownDevice, ScannedDevice, Subnet } from './discovery.js';
+import type { Health } from './health.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -334,6 +335,19 @@ export interface SystemManager {
   hwDepInstall(name: HwDepName): Promise<HwDepInstallResult>;
   /** Restart the gateway service itself, so a freshly installed driver is picked up. */
   restartService(): Promise<ActionResult>;
+  /** Where runtime state lives; used for the disk reading. Optional on purpose. */
+  setStateDir?(dir: string): void;
+  /** How the box itself is doing: disk, temperature, supply, clock. */
+  health(): Promise<Health>;
+  /** Set the NTP servers (empty list = distribution default) and report the result. */
+  setNtpServers(servers: string[]): Promise<ActionResult>;
+  /**
+   * Raw byte counter for the mobile uplink, or null when it cannot be read. The
+   * caller turns counters into a monthly total — see system/usage.ts.
+   */
+  dataCounter(source: 'hilink' | 'interface', iface: string): Promise<number | null>;
+  /** Which of these devices answer right now (id → reachable). */
+  probeDevices(devices: KnownDevice[]): Promise<Record<string, boolean>>;
   /** Everything reachable on the site's networks. `active` adds a ping sweep. */
   scanNetwork(opts?: { active?: boolean; known?: KnownDevice[] }): Promise<ScanResult>;
   /** Current subnet-routing state (advertised / approved / forwarding). */

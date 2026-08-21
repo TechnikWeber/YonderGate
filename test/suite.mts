@@ -133,6 +133,77 @@ async function main() {
   ok('a privileged publish port is refused', (DP.validateProxy({ ...okCfg, listen: 80 }, []) || {}).message?.includes('between 1024'));
   ok('the id is one entry per host:port', DP.proxyId('192.168.4.23', 80) === '192.168.4.23:80');
 
+  // ---- speaking up, without becoming noise ----
+  const A = await import('../packages/gateway/src/system/alerts');
+  const rule = { id: 'v', kind: 'sensor' as const, target: 'v:Battery', label: 'Battery voltage', below: 11.8, forMs: 300_000 };
+  const T0 = 1_000_000;
+  // A threshold that flaps must not turn into a night of notifications.
+  let st = { since: null as number | null, firedAt: null as number | null };
+  let step = A.evaluateRule(rule, true, 'low', st, T0);
+  ok('a fresh breach waits', step.alert === null && step.next.since === T0);
+  step = A.evaluateRule(rule, true, 'low', step.next, T0 + 299_000);
+  ok('and keeps waiting inside its window', step.alert === null);
+  step = A.evaluateRule(rule, true, '11.2 is below 11.8', step.next, T0 + 300_000);
+  ok('then fires once', step.alert?.priority === 'high' && step.alert?.message.includes('11.2'));
+  const fired = step.next;
+  ok('and stays quiet afterwards', A.evaluateRule(rule, true, 'low', fired, T0 + 400_000).alert === null);
+  ok('for the whole cooldown', A.evaluateRule(rule, true, 'low', fired, T0 + A.ALERT_COOLDOWN_MS - 1).alert === null);
+  const recovered = A.evaluateRule(rule, false, 'back to 12.6', fired, T0 + 500_000);
+  ok('recovery is announced for an announced problem', recovered.alert?.priority === 'default');
+  ok('and clears the state', recovered.next.since === null && recovered.next.firedAt === null);
+  // A blip that never got announced must not produce a lone "all clear".
+  const blip = A.evaluateRule(rule, false, 'fine', { since: T0, firedAt: null }, T0 + 1000);
+  ok('a blip produces no all-clear', blip.alert === null);
+
+  // A sensor nobody wired up is not an alarm.
+  ok('a missing reading is not a breach', A.sensorBreached(rule, null).breached === false);
+  ok('below the line is', A.sensorBreached(rule, 11.4).breached === true);
+  ok('above it is not', A.sensorBreached(rule, 12.9).breached === false);
+  ok('an upper limit works too', A.sensorBreached({ ...rule, below: null, above: 60 }, 71).breached === true);
+
+  ok('an ntfy topic is a URL with a topic', A.isNtfyUrl('https://ntfy.sh/my-topic') && !A.isNtfyUrl('ntfy.sh') && !A.isNtfyUrl('https://ntfy.sh/'));
+  const req = A.ntfyRequest({ url: 'https://ntfy.sh/t' }, { id: 'x', title: 'Battery low', message: '11.2 V', priority: 'high', tags: ['warning'] }, 'Allotment');
+  ok('the site is named in the title', req.headers.Title === 'Allotment: Battery low');
+  ok('urgency travels as a header', req.headers.Priority === 'high' && req.body === '11.2 V');
+
+  // ---- mobile data: counters that reset must not invent traffic ----
+  const USE = await import('../packages/gateway/src/system/usage');
+  let usage = USE.emptyUsage(USE.billingMonth(T0));
+  usage = USE.accumulate(usage, 1_000_000, T0);
+  ok('the first reading only sets a baseline', usage.bytes === 0);
+  usage = USE.accumulate(usage, 3_000_000, T0 + 60_000);
+  ok('the difference counts', usage.bytes === 2_000_000);
+  // The stick rebooting is not 3 MB of un-sent traffic.
+  usage = USE.accumulate(usage, 500_000, T0 + 120_000);
+  ok('a counter that went backwards starts a new baseline', usage.bytes === 2_000_000 && usage.lastCounter === 500_000);
+  usage = USE.accumulate(usage, 1_500_000, T0 + 180_000);
+  ok('and counting resumes from there', usage.bytes === 3_000_000);
+  const nextMonth = USE.accumulate(usage, 9_000_000, Date.UTC(2027, 0, 2));
+  ok('a new month starts at zero', nextMonth.bytes === 0 && nextMonth.month === '2027-01');
+
+  ok('interface counters are read from /proc', USE.parseProcNetDev('Inter-|   Receive\n face |bytes\n  eth1: 1000 0 0 0 0 0 0 0 2000 0\n', 'eth1') === 3000);
+  ok('an interface that is not there is null', USE.parseProcNetDev('  eth0: 1 2\n', 'eth1') === null);
+  ok('hilink totals are up plus down', USE.parseHilinkTraffic({ TotalUpload: '100', TotalDownload: '900' }) === 1000);
+  const status = USE.usageStatus({ month: '2026-08', bytes: 4.2e9, lastCounter: 0, updated: null }, 5);
+  ok('80% of the allowance warns', status.warn === true && status.over === false && status.percent === 84);
+  ok('no allowance means no warning', USE.usageStatus({ month: '2026-08', bytes: 9e12, lastCounter: 0, updated: null }, null).warn === false);
+
+  // ---- the box's own vitals, all of them optional ----
+  const HL = await import('../packages/gateway/src/system/health');
+  ok('disk parsed', HL.parseDf('Filesystem 1M-blocks Used Available Use% Mounted\n/dev/root 30000 6000 22000 23% /').freeMb === 22000);
+  ok('cpu temperature is millidegrees', HL.parseCpuTemp('47212\n') === 47.2);
+  ok('uptime and load', HL.parseUptime('280054.32 1.2') === 280054 && HL.parseLoad('0.14 0.20 0.19') === 0.14);
+  // Bit 0 is sagging now, bit 16 is "it has sagged since boot" — the one that
+  // catches a supply that only dips when the LTE stick transmits.
+  const thr = HL.parseThrottled('throttled=0x50005');
+  ok('undervoltage now and since boot are different facts', thr.now === true && thr.since === true);
+  ok('a clean supply reads as clean', HL.parseThrottled('throttled=0x0').since === false);
+  ok('no vcgencmd means unknown, not fine', HL.parseThrottled('').now === null);
+  ok('clock sync is read from timedatectl', HL.parseTimedatectl('NTP=yes\nNTPSynchronized=no\n').synced === false);
+  ok('and the server in use', HL.parseTimesyncServer('       Server: 162.159.200.1 (time.cloudflare.com)') === '162.159.200.1');
+  ok('ntp servers are validated, not trusted', HL.parseNtpServers('time.cloudflare.com, pool.ntp.org; rm -rf /').join() === 'time.cloudflare.com,pool.ntp.org,rm');
+  ok('and capped in number', HL.parseNtpServers('a b c d e f g h').length === 5);
+
   // ---- sensor history: recording what happened while nobody looked ----
   const HIST = await import('../packages/gateway/src/sensors/history');
   const mk = (t: number, v: number, c: number) => ({ t, values: { 'v:Battery': v, 'c:Battery': c } });
