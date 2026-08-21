@@ -29,6 +29,11 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
 - **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot.
+- **It gets itself back online.** A watchdog probes whether traffic still reaches the
+  outside — the only honest test, since an LTE session can be "up" and carry nothing —
+  and escalates cheapest-first: bring Tailscale up, restart the network stack (which
+  redials LTE), reboot as a last resort. Plus an optional weekly reboot, guarded so a
+  box that just booted cannot loop.
 - **It speaks up when something is wrong** (ntfy push): the battery under a
   threshold, a saved device gone quiet, the supply sagging, the SIM's allowance at
   80 %. Every alert waits until the condition has held, then stays quiet for six

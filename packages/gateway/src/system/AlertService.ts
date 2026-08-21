@@ -52,6 +52,12 @@ export class AlertService {
     return { usage: this.usage, status: usageStatus(this.usage, this.config.data.capGb) };
   }
 
+  /** Send one alert from elsewhere in the box (the watchdog uses this). */
+  async notify(alert: Alert): Promise<{ ok: boolean; message: string }> {
+    if (!this.config.alerts.enabled) return { ok: false, message: 'Alerts are off.' };
+    return this.send(alert);
+  }
+
   /** Send one message by hand, so "does this actually reach my phone" is answerable. */
   async test(): Promise<{ ok: boolean; message: string }> {
     const alert: Alert = {

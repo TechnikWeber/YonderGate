@@ -133,6 +133,32 @@ async function main() {
   ok('a privileged publish port is refused', (DP.validateProxy({ ...okCfg, listen: 80 }, []) || {}).message?.includes('between 1024'));
   ok('the id is one entry per host:port', DP.proxyId('192.168.4.23', 80) === '192.168.4.23:80');
 
+  // ---- getting back online with nobody there ----
+  const WD = await import('../packages/gateway/src/system/watchdog');
+  const wd = { ...WD.WATCHDOG_DEFAULTS, enabled: true };
+  ok('a single failed probe does nothing', WD.nextWatchdogAction(1, wd) === 'none');
+  ok('two failures bring Tailscale up', WD.nextWatchdogAction(2, wd) === 'tailscale');
+  ok('four restart the network', WD.nextWatchdogAction(4, wd) === 'network');
+  ok('eight reboot', WD.nextWatchdogAction(8, wd) === 'reboot');
+  // Steps fire once at their threshold: repeating "restart the network" every five
+  // minutes helps nothing and hides whether the previous attempt did anything.
+  ok('a step does not repeat past its threshold', WD.nextWatchdogAction(5, wd) === 'none' && WD.nextWatchdogAction(9, wd) === 'none');
+  ok('the reboot step can be switched off entirely', WD.nextWatchdogAction(8, { ...wd, afterReboot: 0 }) === 'none');
+  ok('a disabled watchdog never acts', WD.nextWatchdogAction(99, { ...wd, enabled: false }) === 'none');
+  ok('the action explains itself in minutes', WD.describeAction('network', 4, wd).includes('20 minutes'));
+  // A hostname would make a broken DNS look like a dead link.
+  ok('the probe target is an address', WD.isProbeTarget('1.1.1.1') && !WD.isProbeTarget('one.one.one.one'));
+
+  const sunday4 = new Date(2026, 7, 23, 4, 30); // a Sunday
+  ok('the weekly reboot fires in its window', WD.dueForReboot(sunday4, WD.REBOOT_DEFAULTS, 86_400).due === true);
+  ok('and not outside it', WD.dueForReboot(new Date(2026, 7, 23, 5, 30), WD.REBOOT_DEFAULTS, 86_400).due === false);
+  ok('nor on another day', WD.dueForReboot(new Date(2026, 7, 24, 4, 30), WD.REBOOT_DEFAULTS, 86_400).due === false);
+  // Without this guard a box that boots inside its own window reboots again, and a
+  // site nobody can reach is now in a loop.
+  const loop = WD.dueForReboot(sunday4, WD.REBOOT_DEFAULTS, 600);
+  ok('a box that just booted does not reboot again', loop.due === false && loop.reason.includes('just booted'));
+  ok('and it can be switched off', WD.dueForReboot(sunday4, { ...WD.REBOOT_DEFAULTS, enabled: false }, 86_400).due === false);
+
   // ---- speaking up, without becoming noise ----
   const A = await import('../packages/gateway/src/system/alerts');
   const rule = { id: 'v', kind: 'sensor' as const, target: 'v:Battery', label: 'Battery voltage', below: 11.8, forMs: 300_000 };

@@ -114,6 +114,22 @@
       </section>
 
       <section class="panel">
+        <details>
+        <summary class="eyebrow" style="cursor:pointer;list-style:revert">Cameras</summary>
+        <div id="cam-list"></div>
+        <div class="btns">
+          <button class="btn" onclick="run(this, () => addCamera())">+ Add camera</button>
+          <button class="btn primary" onclick="run(this, () => saveCameras())">Save &amp; apply</button>
+          <button class="btn" onclick="run(this, () => refreshCams())">Refresh preview</button>
+        </div>
+        <div class="msg" id="cam-msg"></div>
+        <div class="eyebrow2" style="margin-top:12px">Live view</div>
+        <div id="cam-preview"><div class="msg">Save a camera, then Refresh preview.</div></div>
+        <p class="msg">Streams are served by <b>go2rtc</b> on the video base URL above (default port 1984), not by this page — the gateway only writes its configuration. A still image means the camera works; <b>Open stream ↗</b> gives you the live player. Locally: <span class="mono">npm run dev:video</span>.</p>
+        </details>
+      </section>
+
+      <section class="panel">
         <details id="sensor-details">
         <summary class="eyebrow" style="cursor:pointer;list-style:revert">Sensors</summary>
         <div id="sensor-now"><div class="msg">…</div></div>
@@ -394,20 +410,6 @@
       </section>
 
       <section class="panel">
-        <div class="eyebrow">Cameras</div>
-        <div id="cam-list"></div>
-        <div class="btns">
-          <button class="btn" onclick="run(this, () => addCamera())">+ Add camera</button>
-          <button class="btn primary" onclick="run(this, () => saveCameras())">Save &amp; apply</button>
-          <button class="btn" onclick="run(this, () => refreshCams())">Refresh preview</button>
-        </div>
-        <div class="msg" id="cam-msg"></div>
-        <div class="eyebrow2" style="margin-top:12px">Live view</div>
-        <div id="cam-preview"><div class="msg">Save a camera, then Refresh preview.</div></div>
-        <p class="msg">Streams are served by <b>go2rtc</b> on the video base URL above (default port 1984), not by this page — the gateway only writes its configuration. A still image means the camera works; <b>Open stream ↗</b> gives you the live player. Locally: <span class="mono">npm run dev:video</span>.</p>
-      </section>
-
-      <section class="panel">
         <div class="eyebrow">Site health &amp; alerts</div>
         <div id="health-out"><div class="msg">…</div></div>
 
@@ -454,6 +456,49 @@
         <p class="msg">Install the <b>ntfy</b> app, subscribe to a topic name nobody could guess, and put its URL here — anyone who knows the topic can read your alerts. Watched by default: the supply voltage sagging and the data allowance. Add a sensor threshold or a saved device below; each alert waits until the condition has held for a while and then stays quiet for six hours, because a flaky link must not turn into a night of notifications.</p>
         <div id="rules-out"></div>
         <div class="msg" id="alerts-msg"></div>
+        <div class="eyebrow2" style="margin-top:14px">Watch a reading or a device</div>
+        <div class="grid3">
+          <label>What
+            <select id="ruleKind" onchange="renderRuleTargets()">
+              <option value="sensor">a sensor reading</option>
+              <option value="device">a saved device</option>
+              <option value="health">the box itself</option>
+            </select>
+          </label>
+          <label>Which<select id="ruleTarget"></select></label>
+          <label>Name<input id="ruleLabel" placeholder="Battery voltage" /></label>
+        </div>
+        <div class="grid3">
+          <label>Alert below<input id="ruleBelow" type="number" step="0.1" placeholder="e.g. 11.8" /></label>
+          <label>Alert above<input id="ruleAbove" type="number" step="0.1" placeholder="e.g. 60" /></label>
+          <label>Must hold for (min)<input id="ruleFor" type="number" value="5" /></label>
+        </div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addRule())">Add rule</button></div>
+
+        <div class="eyebrow2" style="margin-top:14px">Staying online by itself</div>
+        <label class="chk"><input type="checkbox" id="wdEnabled" /> <span><b>Watchdog</b> — probe the uplink and recover when traffic stops reaching the outside</span></label>
+        <div class="grid3">
+          <label>Ping this address<input id="wdTarget" placeholder="1.1.1.1" /></label>
+          <label>Every (min)<input id="wdInterval" type="number" value="5" /></label>
+          <div style="display:flex;align-items:flex-end;margin-bottom:10px">
+            <label class="chk"><input type="checkbox" id="wdReboot" /> <span>may reboot as a last resort</span></label>
+          </div>
+        </div>
+        <label class="chk"><input type="checkbox" id="rbEnabled" /> <span><b>Weekly reboot</b> — a crutch, but a cheap one on a box nobody visits</span></label>
+        <div class="grid2">
+          <label>Day
+            <select id="rbWeekday">
+              <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
+              <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </select>
+          </label>
+          <label>Hour<input id="rbHour" type="number" min="0" max="23" value="4" /></label>
+        </div>
+        <div class="btns"><button class="btn primary" onclick="run(this, () => saveWatchdog())">Save watchdog</button></div>
+        <p class="msg">The recovery goes cheapest-first: bring Tailscale up again, then restart the network stack (which redials LTE), and only then reboot. Each step needs its own run of failed probes, so a half-minute outage never gets near a restart. The probe target is an <b>address</b> on purpose — a hostname would make a broken DNS look like a dead link. A box that has just booted will not reboot again inside the same window.</p>
+        <div class="msg" id="wd-msg"></div>
+
       </section>
 
       <section class="panel">
@@ -781,6 +826,57 @@
         $('ltePin').value = ''; $('ltePass').value = '';
         refresh();
       }
+      // ---- alert rules, watchdog, scheduled reboot ----
+      let healthData = null;
+
+      function renderRuleTargets() {
+        const kind = $('ruleKind').value;
+        const sel = $('ruleTarget');
+        const opts =
+          kind === 'sensor' ? (healthData?.sensorKeys || []).map((k) => [k.key, k.label])
+          : kind === 'device' ? (healthData?.devices || []).map((d) => [d.id, `${d.label} (${d.ip})`])
+          : [['undervoltage', 'supply voltage sagging'], ['disk', 'disk nearly full'], ['clock', 'clock not synchronised']];
+        sel.innerHTML = opts.length
+          ? opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')
+          : '<option value="">nothing to watch yet</option>';
+        // Limits only make sense for a reading; the others are on/off conditions.
+        const isSensor = kind === 'sensor';
+        $('ruleBelow').disabled = !isSensor;
+        $('ruleAbove').disabled = !isSensor;
+      }
+
+      async function addRule() {
+        const r = await post('/api/alerts/rules', {
+          kind: $('ruleKind').value,
+          target: $('ruleTarget').value,
+          label: $('ruleLabel').value.trim(),
+          below: $('ruleBelow').value,
+          above: $('ruleAbove').value,
+          forMinutes: Number($('ruleFor').value) || 5,
+        });
+        alertMsg(r);
+        if (r.rules) renderRules(r.rules);
+      }
+
+      async function removeRule(id) {
+        const r = await post('/api/alerts/rules', { remove: true, id });
+        alertMsg(r);
+        if (r.rules) renderRules(r.rules);
+      }
+
+      async function saveWatchdog() {
+        const r = await post('/api/watchdog', {
+          enabled: $('wdEnabled').checked,
+          target: $('wdTarget').value.trim() || '1.1.1.1',
+          intervalMinutes: Number($('wdInterval').value) || 5,
+          allowReboot: $('wdReboot').checked,
+          rebootEnabled: $('rbEnabled').checked,
+          rebootWeekday: Number($('rbWeekday').value),
+          rebootHour: Number($('rbHour').value),
+        });
+        $('wd-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message)}</b>`;
+      }
+
       // ---- health, time, data allowance, alerts ----
       function fmtBytes(b) {
         if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
@@ -836,6 +932,19 @@
           if (!$('dataCap').value && d.data.capGb) $('dataCap').value = d.data.capGb;
         }
         if (d.history) $('historyEnabled').checked = !!d.history.enabled;
+        healthData = d;
+        renderRuleTargets();
+        if (d.watchdog) {
+          $('wdEnabled').checked = !!d.watchdog.enabled;
+          if (!$('wdTarget').value) $('wdTarget').value = d.watchdog.target || '';
+          $('wdInterval').value = d.watchdog.intervalMinutes;
+          $('wdReboot').checked = (d.watchdog.afterReboot || 0) > 0;
+        }
+        if (d.reboot) {
+          $('rbEnabled').checked = !!d.reboot.enabled;
+          $('rbWeekday').value = String(d.reboot.weekday);
+          $('rbHour').value = d.reboot.hour;
+        }
         if (d.alerts) {
           $('alertsEnabled').checked = !!d.alerts.enabled;
           if (!$('ntfyUrl').value) $('ntfyUrl').value = d.alerts.ntfyUrl || '';
@@ -847,8 +956,10 @@
       function renderRules(rules) {
         $('rules-out').innerHTML =
           '<div class="eyebrow2" style="margin-top:10px">Watching</div>' +
-          (rules.map((r) => `<div class="row"><span class="k">${esc(r.label)}</span><span class="v">${esc(r.kind)}${r.below != null ? ' &lt; ' + r.below : ''}${r.above != null ? ' &gt; ' + r.above : ''}</span></div>`).join('') ||
-           '<div class="msg">Nothing yet.</div>');
+          (rules.map((r) => `<div class="hw-row">
+              <span><b>${esc(r.label)}</b><br><span style="color:var(--muted)">${esc(r.kind)}${r.below != null ? ' · below ' + r.below : ''}${r.above != null ? ' · above ' + r.above : ''} · for ${Math.round((r.forMs || 0) / 60000)} min</span></span>
+              <span class="hw-right"><button class="btn tiny" onclick="run(this, () => removeRule('${esc(r.id)}'))">Remove</button></span>
+            </div>`).join('') || '<div class="msg">Nothing yet.</div>');
       }
 
       // The interface list comes from the box itself: nobody should have to know

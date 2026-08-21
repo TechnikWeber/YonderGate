@@ -3,6 +3,7 @@ import { createSystem } from './system/index.js';
 import { TelemetryService } from './sensors/TelemetryService.js';
 import { HistoryService } from './sensors/HistoryService.js';
 import { AlertService } from './system/AlertService.js';
+import { WatchdogService } from './system/WatchdogService.js';
 import { applyCameras, detectH264Encoder } from './video/cameraManager.js';
 import { startCaptivePortal } from './transport/captivePortal.js';
 import { startHttpServer } from './transport/httpServer.js';
@@ -43,13 +44,21 @@ async function main() {
   const alerts = new AlertService(config, system, telemetry);
   alerts.start();
 
+  // Nobody is there to notice a link that is up but carries nothing.
+  const watchdog = new WatchdogService(config, system, alerts);
+  watchdog.start();
+  console.log(
+    `  watchdog  : ${config.watchdog.enabled ? `probing ${config.watchdog.target} every ${config.watchdog.intervalMinutes} min` : 'off'}` +
+      ` · reboot ${config.reboot.enabled ? `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][config.reboot.weekday]} ${String(config.reboot.hour).padStart(2, '0')}:00` : 'off'}`,
+  );
+
   // Generate go2rtc.yaml from the camera list (best effort at boot).
   config.h264Encoder = await detectH264Encoder();
   await applyCameras(config.cameras, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder).catch(
     (e) => console.error('[video] initial camera generation failed:', (e as Error).message),
   );
 
-  startHttpServer(config, system, telemetry, history, alerts);
+  startHttpServer(config, system, telemetry, history, alerts, watchdog);
   console.log(`  setup UI  : http://<gateway>:${config.port}/setup  (system: ${config.systemKind})`);
 
   // Captive portal for AP-mode onboarding (binds :80; skipped if not permitted).
@@ -67,6 +76,7 @@ async function main() {
 
   const shutdown = async () => {
     console.log('\n[gateway] shutting down…');
+    watchdog.stop();
     alerts.stop();
     await history.stop();
     await telemetry.stop();

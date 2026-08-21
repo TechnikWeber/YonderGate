@@ -2,6 +2,62 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.8.0
+**English**
+- **Alert rules are made on the page now.** Pick a sensor reading (the list comes from
+  the channels this site actually has), a saved device, or the box itself; set a limit
+  and how long it has to hold. A sensor rule without a limit is refused rather than
+  silently watching nothing.
+- **There is a watchdog, and it was worth asking about.** Until now the only protection
+  was `Restart=always`, which catches a process that *crashed* — and none of the failures
+  that actually happen at a remote site: an LTE session that is up but carries nothing,
+  a modem that answers but stopped routing, Tailscale logged out after a token expired.
+  From the inside all of those look healthy. So the gateway probes whether traffic still
+  reaches the outside and escalates **cheapest-first**: bring Tailscale up (2 failed
+  probes), restart the network stack, which redials LTE (4), reboot (8, and only if
+  allowed). Each step fires **once** at its threshold — repeating "restart the network"
+  every five minutes helps nothing and hides whether the last attempt did anything.
+- The probe target is an **address**, not a hostname: a broken DNS would otherwise read
+  as a dead link and trigger a reboot that fixes nothing.
+- **A weekly reboot, on by default (Sunday 04:00) — and yes, it is a good idea.** It is a
+  crutch, and a cheap one: it clears leaked memory, wedged USB modems and drivers that
+  quietly stopped, none of which anyone is there to notice. The guard that matters is the
+  uptime check — without it a box that boots inside its own window reboots again, and a
+  site you cannot reach is now in a loop.
+- Every recovery step is announced **before** it runs, best-effort: the missing link is
+  exactly why the message may not arrive, and that must never stop the recovery.
+- Cameras moved above the sensors and both panels are collapsed — the page is read from
+  the top, and those two are set once.
+
+**Deutsch**
+- **Alarmregeln entstehen jetzt auf der Seite.** Sensorwert wählen (die Liste kommt aus
+  den Kanälen, die dieser Standort wirklich hat), gespeichertes Gerät oder die Kiste
+  selbst; Grenze setzen und wie lange sie halten muss. Eine Sensorregel ohne Grenze wird
+  abgelehnt, statt still nichts zu überwachen.
+- **Einen Watchdog gibt es jetzt — die Frage war berechtigt.** Bisher schützte nur
+  `Restart=always`, und das fängt einen *abgestürzten* Prozess: also keine der Störungen,
+  die an einem entfernten Standort tatsächlich auftreten. Eine LTE-Sitzung, die steht und
+  nichts transportiert; ein Modem, das antwortet, aber nicht mehr routet; ein Tailscale,
+  das nach abgelaufenem Token ausgeloggt ist. Von innen sieht das alles gesund aus.
+  Deshalb prüft das Gateway, ob Verkehr noch nach draußen kommt, und eskaliert
+  **vom Billigsten zum Härtesten**: Tailscale neu hochfahren (2 Fehlversuche),
+  Netzwerk-Stack neu starten, was LTE neu wählt (4), Neustart (8, und nur wenn erlaubt).
+  Jede Stufe feuert **einmal** an ihrer Schwelle — „Netzwerk neu starten" alle fünf
+  Minuten zu wiederholen hilft nicht und verdeckt, ob der letzte Versuch etwas bewirkt hat.
+- Das Prüfziel ist eine **Adresse**, kein Hostname: ein kaputtes DNS würde sonst wie eine
+  tote Leitung aussehen und einen Neustart auslösen, der nichts repariert.
+- **Wöchentlicher Neustart, standardmäßig an (Sonntag 4 Uhr) — und ja, das ist eine gute
+  Idee.** Es ist eine Krücke, aber eine billige: Sie räumt geleckten Speicher, verklemmte
+  USB-Modems und still gestorbene Treiber weg, was sonst niemand bemerkt. Entscheidend
+  ist die Laufzeitprüfung — ohne sie startet eine Kiste, die innerhalb ihres eigenen
+  Fensters hochkommt, gleich wieder neu, und ein Standort, den du nicht erreichst, ist
+  jetzt in einer Schleife.
+- Jede Rettungsstufe wird **vorher** angekündigt, im Rahmen des Möglichen: Die fehlende
+  Verbindung ist ja der Grund, warum die Meldung vielleicht nicht ankommt — aufhalten
+  darf sie die Rettung deswegen nicht.
+- Kameras sind über die Sensoren gewandert, beide Blöcke eingeklappt — die Seite wird von
+  oben gelesen, und diese zwei richtet man einmal ein.
+
 ## v0.7.0
 **English**
 - **Fixed a layout bug with one cause and four symptoms.** `input { width: 100% }` — the

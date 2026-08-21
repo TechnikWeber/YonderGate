@@ -6,6 +6,7 @@ import type { HilinkStatus } from './hilink.js';
 import type { UpdateCheck, UpdateSource } from './update.js';
 import type { KnownDevice, ScannedDevice, Subnet } from './discovery.js';
 import type { Health, NetInterface } from './health.js';
+import type { WatchdogAction } from './watchdog.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -337,6 +338,10 @@ export interface SystemManager {
   restartService(): Promise<ActionResult>;
   /** Where runtime state lives; used for the disk reading. Optional on purpose. */
   setStateDir?(dir: string): void;
+  /** Does traffic still reach the outside? The only honest uplink test. */
+  reachable(target: string): Promise<boolean>;
+  /** Escalation step from the watchdog: bring Tailscale up, redial, or reboot. */
+  recover(action: WatchdogAction): Promise<ActionResult>;
   /** How the box itself is doing: disk, temperature, supply, clock. */
   health(): Promise<Health>;
   /** Set the NTP servers (empty list = distribution default) and report the result. */

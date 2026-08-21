@@ -23,6 +23,7 @@ import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
+import type { WatchdogAction } from './watchdog.js';
 import { HEALTH_UNKNOWN, isTimezone, parseInterfaces, type Health, type NetInterface } from './health.js';
 import { mergeDevices, mergeKnown, parseIpNeigh, parseSubnets, routableSubnets, type KnownDevice } from './discovery.js';
 
@@ -326,6 +327,15 @@ export class SimSystem implements SystemManager {
 
   private rtcOverlay = false;
   private ntpServers: string[] = [];
+
+  /** The simulated site is always reachable, so the watchdog stays quiet. */
+  async reachable(): Promise<boolean> {
+    return true;
+  }
+
+  async recover(action: WatchdogAction): Promise<ActionResult> {
+    return { ok: true, message: `Would ${action} (simulated).` };
+  }
 
   async setTimezone(tz: string): Promise<ActionResult> {
     return isTimezone(tz)

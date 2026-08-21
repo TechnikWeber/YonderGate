@@ -7,6 +7,8 @@ import type { SystemManager } from '../system/index.js';
 import type { TelemetryService } from '../sensors/TelemetryService.js';
 import type { HistoryService } from '../sensors/HistoryService.js';
 import type { AlertService } from '../system/AlertService.js';
+import type { WatchdogService } from '../system/WatchdogService.js';
+import { isProbeTarget, dayName } from '../system/watchdog.js';
 import { isNtfyUrl } from '../system/alerts.js';
 import { isTimezone, parseNtpServers } from '../system/health.js';
 import { usageOverview } from '../system/usage.js';
@@ -40,6 +42,7 @@ export interface SetupContext {
   telemetry: TelemetryService;
   history: HistoryService;
   alerts: AlertService;
+  watchdog: WatchdogService;
   applyCameras: (cams: CameraCfg[]) => Promise<void>;
   /** Re-read config.hilink: point the reader at the stick and (re)start its proxy. */
   applyHilink?: () => void;
@@ -54,6 +57,18 @@ function clampInt(v: unknown, fallback: number, lo: number, hi: number): number 
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(lo, Math.min(hi, Math.round(n)));
+}
+
+/** Reading keys the site currently has, so a rule can be pointed at a real channel. */
+function sensorKeysOf(m: unknown): { key: string; label: string }[] {
+  const msg = m as { voltages?: { label: string }[]; currents?: { label: string }[]; temperatures?: { label: string }[] } | null;
+  if (!msg) return [];
+  const out: { key: string; label: string }[] = [];
+  msg.voltages?.forEach((r, i) => out.push({ key: `v:${r.label || i}`, label: `Voltage · ${r.label}` }));
+  msg.currents?.forEach((r, i) => out.push({ key: `c:${r.label || i}`, label: `Current · ${r.label}` }));
+  msg.temperatures?.forEach((r, i) => out.push({ key: `t:${r.label || i}`, label: `Temperature · ${r.label}` }));
+  out.push({ key: 'pct:battery', label: 'Battery percentage' });
+  return out;
 }
 
 function json(res: ServerResponse, code: number, body: unknown): void {
@@ -330,6 +345,10 @@ export async function handleSetup(
       ntpServers: ctx.config.ntpServers,
       history: ctx.config.history,
       alerts: { ...ctx.config.alerts, ntfyToken: ctx.config.alerts.ntfyToken ? '(stored)' : null },
+      watchdog: { ...ctx.config.watchdog, ...ctx.watchdog.snapshot() },
+      reboot: ctx.config.reboot,
+      devices: ctx.config.devices,
+      sensorKeys: sensorKeysOf(ctx.telemetry.message),
     });
     return true;
   }
@@ -412,6 +431,97 @@ export async function handleSetup(
     savePersisted(ctx.config.configPath, { alerts });
     ctx.config.alerts = alerts;
     json(res, 200, { ok: true, message: alerts.enabled ? 'Alerts are on.' : 'Alerts are off.', alerts: { ...alerts, ntfyToken: alerts.ntfyToken ? '(stored)' : null } });
+    return true;
+  }
+
+  // Rules are edited here rather than in a config file: the thresholds that matter
+  // are the ones for the sensors this particular site happens to have.
+  if (url === '/api/alerts/rules' && method === 'POST') {
+    const body = (await readBody(req)) as {
+      remove?: unknown; id?: unknown; kind?: unknown; target?: unknown; label?: unknown;
+      below?: unknown; above?: unknown; forMinutes?: unknown;
+    };
+    if (body.remove === true) {
+      const rules = ctx.config.alerts.rules.filter((r) => r.id !== String(body.id ?? ''));
+      const alerts = { ...ctx.config.alerts, rules };
+      savePersisted(ctx.config.configPath, { alerts });
+      ctx.config.alerts = alerts;
+      json(res, 200, { ok: true, message: 'Rule removed.', rules });
+      return true;
+    }
+    const kind = String(body.kind ?? '');
+    if (!['sensor', 'device', 'health', 'usage'].includes(kind)) {
+      json(res, 400, { ok: false, message: 'Pick what to watch.' });
+      return true;
+    }
+    const target = String(body.target ?? '').trim();
+    if (!target) {
+      json(res, 400, { ok: false, message: 'Pick which reading or device to watch.' });
+      return true;
+    }
+    const below = body.below === '' || body.below === undefined || body.below === null ? null : Number(body.below);
+    const above = body.above === '' || body.above === undefined || body.above === null ? null : Number(body.above);
+    if (kind === 'sensor' && below === null && above === null) {
+      json(res, 400, { ok: false, message: 'A sensor rule needs a limit — below, above, or both.' });
+      return true;
+    }
+    if ((below !== null && !Number.isFinite(below)) || (above !== null && !Number.isFinite(above))) {
+      json(res, 400, { ok: false, message: 'A limit is a number.' });
+      return true;
+    }
+    const forMinutes = clampInt(body.forMinutes, 5, 1, 1440);
+    const rule = {
+      id: `${kind}:${target}`,
+      kind: kind as 'sensor' | 'device' | 'health' | 'usage',
+      target,
+      label: String(body.label ?? '').trim() || target,
+      below,
+      above,
+      forMs: forMinutes * 60_000,
+    };
+    const rules = [...ctx.config.alerts.rules.filter((r) => r.id !== rule.id), rule];
+    const alerts = { ...ctx.config.alerts, rules };
+    savePersisted(ctx.config.configPath, { alerts });
+    ctx.config.alerts = alerts;
+    json(res, 200, { ok: true, message: `Watching ${rule.label}.`, rules });
+    return true;
+  }
+
+  if (url === '/api/watchdog' && method === 'POST') {
+    const body = (await readBody(req)) as {
+      enabled?: unknown; target?: unknown; intervalMinutes?: unknown; allowReboot?: unknown;
+      rebootEnabled?: unknown; rebootWeekday?: unknown; rebootHour?: unknown;
+    };
+    const target = String(body.target ?? ctx.config.watchdog.target).trim();
+    if (!isProbeTarget(target)) {
+      json(res, 400, { ok: false, message: 'The probe target is an IP address (a name would make a DNS failure look like a dead link).' });
+      return true;
+    }
+    const watchdog = {
+      ...ctx.config.watchdog,
+      enabled: body.enabled === true,
+      target,
+      intervalMinutes: clampInt(body.intervalMinutes, ctx.config.watchdog.intervalMinutes, 1, 60),
+      // 0 disables the reboot step; the ladder below it still runs.
+      afterReboot: body.allowReboot === true ? ctx.config.watchdog.afterReboot || 8 : 0,
+    };
+    const reboot = {
+      enabled: body.rebootEnabled === true,
+      weekday: clampInt(body.rebootWeekday, ctx.config.reboot.weekday, 0, 6),
+      hour: clampInt(body.rebootHour, ctx.config.reboot.hour, 0, 23),
+    };
+    savePersisted(ctx.config.configPath, { watchdog, reboot });
+    ctx.config.watchdog = watchdog;
+    ctx.config.reboot = reboot;
+    json(res, 200, {
+      ok: true,
+      message:
+        `Saved. Watchdog ${watchdog.enabled ? `probes ${watchdog.target} every ${watchdog.intervalMinutes} min` : 'off'}` +
+        `, weekly reboot ${reboot.enabled ? `${dayName(reboot.weekday)} ${String(reboot.hour).padStart(2, '0')}:00` : 'off'}` +
+        ' — restart the gateway to apply the interval.',
+      watchdog,
+      reboot,
+    });
     return true;
   }
 

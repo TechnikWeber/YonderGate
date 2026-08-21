@@ -60,6 +60,7 @@ import {
   parseTailscaleStatus,
   FORWARDING_SYSCTL_PATH,
 } from './tailscale.js';
+import type { WatchdogAction } from './watchdog.js';
 import {
   parseCpuTemp,
   parseDf,
@@ -957,6 +958,31 @@ export class RealSystem implements SystemManager {
     this.stateDir = dir;
   }
 
+
+
+  /**
+   * Can we still reach the outside? Two pings, because a single lost packet on a
+   * mobile link is normal and a watchdog that reacts to it is worse than none.
+   */
+  async reachable(target: string): Promise<boolean> {
+    const r = await shArgs('ping', ['-c', '2', '-W', '3', target]);
+    return r.ok;
+  }
+
+  async recover(action: WatchdogAction): Promise<ActionResult> {
+    if (action === 'tailscale') {
+      const r = await shArgs('sudo', ['tailscale', 'up', '--hostname=yondergate']);
+      return { ok: r.ok, message: r.ok ? 'Tailscale brought up again.' : r.out };
+    }
+    if (action === 'network') {
+      // NetworkManager owns both the WiFi and the LTE connection, so restarting it
+      // redials the modem as well — one action instead of guessing which is broken.
+      const r = await shArgs('sudo', ['systemctl', 'restart', 'NetworkManager']);
+      return { ok: r.ok, message: r.ok ? 'Network stack restarted.' : r.out };
+    }
+    if (action === 'reboot') return this.reboot();
+    return { ok: true, message: 'Nothing to do.' };
+  }
 
   async setTimezone(tz: string): Promise<ActionResult> {
     if (!isTimezone(tz)) return { ok: false, message: `"${tz}" is not a timezone like Europe/Berlin.` };
