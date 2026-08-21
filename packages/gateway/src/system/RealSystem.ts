@@ -69,10 +69,18 @@ import {
   parseTimedatectl,
   parseTimesyncServer,
   parseUptime,
+  configTxtHasRtc,
+  configTxtWithRtc,
+  isTimezone,
+  parseFallbackNtp,
+  parseInterfaces,
+  parseTimesyncdConf,
+  parseTimezone,
   timesyncdConf,
   HEALTH_UNKNOWN,
   TIMESYNCD_CONF_PATH,
   type Health,
+  type NetInterface,
 } from './health.js';
 import { parseHilinkTraffic, parseProcNetDev } from './usage.js';
 import {
@@ -214,6 +222,9 @@ function readFileSafe(path: string): string {
 /** The repo checkout (…/packages/gateway/src/system → repo root), where npm must run. */
 // resolve() strips the trailing slash the URL form leaves behind — git compares
 // safe.directory literally, so "/opt/yondergate/" is not "/opt/yondergate".
+/** Where Raspberry Pi OS keeps its boot configuration (Bookworm moved it). */
+const BOOT_CONFIG_PATH = process.env.YGW_BOOT_CONFIG ?? '/boot/firmware/config.txt';
+
 const REPO_ROOT = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
 /** Resolves from the gateway package, i.e. through the workspace's node_modules. */
 const requireFrom = createRequire(import.meta.url);
@@ -907,6 +918,11 @@ export class RealSystem implements SystemManager {
       sh('timedatectl timesync-status'),
       sh('cat /sys/class/rtc/rtc0/name'),
     ]);
+    const [ourConf, distConf, bootTxt] = await Promise.all([
+      sh(`cat ${TIMESYNCD_CONF_PATH}`),
+      sh('cat /etc/systemd/timesyncd.conf'),
+      sh(`cat ${BOOT_CONFIG_PATH}`),
+    ]);
     const disk = df.ok ? parseDf(df.out) : { freeMb: null, usedPercent: null };
     const volt = throttled.ok ? parseThrottled(throttled.out) : { now: null, since: null };
     const clock = timedate.ok ? parseTimedatectl(timedate.out) : { synced: null, ntpEnabled: null };
@@ -922,6 +938,16 @@ export class RealSystem implements SystemManager {
       clockSynced: clock.synced,
       ntpServer: timesync.ok ? parseTimesyncServer(timesync.out) : null,
       rtc: rtc.ok ? rtc.out.trim() || null : null,
+      time: new Date().toISOString(),
+      timezone: timedate.ok ? parseTimezone(timedate.out) : null,
+      // Ours if we set any, otherwise whatever the distribution ships — the field
+      // should show what is actually in use, not an empty box that looks unset.
+      ntpServers: ourConf.ok && parseTimesyncdConf(ourConf.out).length
+        ? parseTimesyncdConf(ourConf.out)
+        : distConf.ok
+          ? [...parseTimesyncdConf(distConf.out), ...parseFallbackNtp(distConf.out)]
+          : [],
+      rtcOverlay: bootTxt.ok ? configTxtHasRtc(bootTxt.out) : null,
     };
   }
 
@@ -929,6 +955,46 @@ export class RealSystem implements SystemManager {
   private stateDir = '/var/lib/yondergate';
   setStateDir(dir: string): void {
     this.stateDir = dir;
+  }
+
+
+  async setTimezone(tz: string): Promise<ActionResult> {
+    if (!isTimezone(tz)) return { ok: false, message: `"${tz}" is not a timezone like Europe/Berlin.` };
+    const r = await shArgs('sudo', ['timedatectl', 'set-timezone', tz.trim()]);
+    return r.ok
+      ? { ok: true, message: `Timezone set to ${tz.trim()}.` }
+      : { ok: false, message: `Could not set the timezone: ${r.out.split('\n').slice(-1)[0]}` };
+  }
+
+  /**
+   * Fit the clock, tick a box — no SSH. The overlay line is added to (or removed
+   * from) config.txt, which only takes effect at the next boot, so the answer says
+   * so instead of pretending the clock is live.
+   */
+  async setRtcOverlay(enabled: boolean): Promise<ActionResult> {
+    const current = await sh(`cat ${BOOT_CONFIG_PATH}`);
+    if (!current.ok) {
+      return { ok: false, message: `Could not read ${BOOT_CONFIG_PATH} — is this a Raspberry Pi?` };
+    }
+    if (configTxtHasRtc(current.out) === enabled) {
+      return { ok: true, message: enabled ? 'The hardware clock is already enabled.' : 'The hardware clock was not enabled.' };
+    }
+    try {
+      writeFileSync(BOOT_CONFIG_PATH, configTxtWithRtc(current.out, enabled));
+    } catch (err) {
+      return { ok: false, message: `Could not write ${BOOT_CONFIG_PATH}: ${(err as Error).message}` };
+    }
+    return {
+      ok: true,
+      message: enabled
+        ? 'Hardware clock enabled — reboot to load it. Until then the box still keeps time over the network.'
+        : 'Hardware clock disabled — reboot to apply.',
+    };
+  }
+
+  async interfaces(): Promise<NetInterface[]> {
+    const [link, addr] = await Promise.all([sh('ip -o link'), sh('ip -o -f inet addr show')]);
+    return parseInterfaces(link.ok ? link.out : '', addr.ok ? addr.out : '');
   }
 
   async setNtpServers(servers: string[]): Promise<ActionResult> {

@@ -104,3 +104,30 @@ export function usageStatus(
   const percent = Math.round((usage.bytes / capBytes) * 1000) / 10;
   return { percent, warn: usage.bytes >= capBytes * warnAt, over: usage.bytes >= capBytes, capBytes };
 }
+
+/**
+ * The month at a glance: used, left, and how long that has to last. "1.9 GB left
+ * with 9 days to go" is the sentence someone can act on; a percentage alone is not.
+ */
+export function usageOverview(usage: UsageState, capGb: number | null, now: number): {
+  usedBytes: number;
+  capBytes: number | null;
+  leftBytes: number | null;
+  percent: number | null;
+  daysLeft: number;
+  perDayLeft: number | null;
+} {
+  const d = new Date(now);
+  const endOfMonth = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+  const daysLeft = Math.max(1, Math.ceil((endOfMonth - now) / 86_400_000));
+  const st = usageStatus(usage, capGb);
+  const leftBytes = st.capBytes === null ? null : Math.max(0, st.capBytes - usage.bytes);
+  return {
+    usedBytes: usage.bytes,
+    capBytes: st.capBytes,
+    leftBytes,
+    percent: st.percent,
+    daysLeft,
+    perDayLeft: leftBytes === null ? null : Math.round(leftBytes / daysLeft),
+  };
+}

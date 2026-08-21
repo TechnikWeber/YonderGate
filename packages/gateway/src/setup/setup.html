@@ -69,7 +69,20 @@
       @media (max-width: 380px) {
         .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
       }
-      .chk { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+      .chk { flex-direction: row; align-items: center; gap: 10px; color: var(--text); }
+      /*
+       * A checkbox must not obey the full-width rule meant for text fields. It did,
+       * so it stretched across the row and pushed its own label to the far edge —
+       * which is what made every "Send alerts" style line look broken.
+       */
+      input[type='checkbox'] { width: auto; min-width: 0; flex: 0 0 auto; margin: 0; }
+      .chk span, .chk b { flex: 1 1 auto; }
+      /* Headings need room before the controls that belong to them. */
+      .eyebrow { margin-bottom: 10px; }
+      .route { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+      .route:first-of-type { border-top: 0; }
+      .route .cidr { font-family: var(--mono); min-width: 10.5em; }
+      .route .where { color: var(--muted); flex: 1 1 auto; }
       .foot { text-align: center; color: var(--muted); font-size: 11px; padding: 8px; }
       .mono { font-family: var(--mono); font-size: .92em; }
       /* npm / node-gyp log tail — long lines wrap, tall logs scroll inside the box. */
@@ -98,6 +111,81 @@
       <section class="panel">
         <div class="eyebrow">System status</div>
         <div id="status"><div class="row"><span class="k">loading…</span></div></div>
+      </section>
+
+      <section class="panel">
+        <details id="sensor-details">
+        <summary class="eyebrow" style="cursor:pointer;list-style:revert">Sensors</summary>
+        <div id="sensor-now"><div class="msg">…</div></div>
+        <div class="btns" style="margin-top:8px">
+          <button class="btn tiny" onclick="run(this, () => loadHistory('hour'))">Hour</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('day'))">Day</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('week'))">Week</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('month'))">Month</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('year'))">Year</button>
+        </div>
+        <div id="sensor-history"><div class="msg">Recording starts with the gateway — a fresh box has nothing to show yet.</div></div>
+        <label class="chk" style="margin-top:10px"><input type="checkbox" id="historyEnabled" onchange="run(this, () => saveHistorySettings())" /> <b>Record history</b> — off by default, because it is the only thing that writes to the card continuously</label>
+        <p class="msg">One averaged value per minute is recorded, kept for 13 months (about 21 MB a year) in <span class="mono">/var/lib/yondergate/history</span>. Longer views are averaged when you ask for them, and the band behind the line is the <b>minimum and maximum</b> inside each step — on a battery the dip under load is the part an average hides.</p>
+
+        <div class="eyebrow2" style="margin-top:14px">Configuration</div>
+        <div class="grid2">
+          <label>Source
+            <select id="telSource">
+              <option value="off">off (no telemetry)</option>
+              <option value="sim">sim (fake values)</option>
+              <option value="real">real sensors</option>
+            </select>
+          </label>
+          <label>Sample rate (Hz)<input id="telHz" type="number" placeholder="10" /></label>
+        </div>
+        <div class="eyebrow2">Voltage channels</div>
+        <div id="volt-list"></div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addVolt())">+ Voltage</button></div>
+        <div class="eyebrow2">Current channels</div>
+        <div id="curr-list"></div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addCurr())">+ Current</button></div>
+        <p class="msg">The channel marked <b>primary</b> drives the battery %, the mAh/Wh counting, the low-battery warning and the blackbox columns. With one channel of a kind there is nothing to choose; with several, mark the one that measures the pack.</p>
+        <div class="eyebrow2">Temperature channels</div>
+        <div id="temp-list"></div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addTemp())">+ Temperature</button></div>
+        <p class="msg">Optional. Shown in the status page below voltage/current; each value can be hidden per ground device under video › ⚙ › <i>Sensor values</i>. Give short labels (<code>T1</code>, <code>Motor</code>, <code>ESC</code>) — they are only shown once a kind has more than one channel.</p>
+        <div class="grid2">
+          <label>Battery capacity (mAh)<input id="capacity" type="number" placeholder="e.g. 2200" /></label>
+          <label>Capacity display
+            <select id="displayMode">
+              <option value="remaining">x/x mAh remaining</option>
+              <option value="consumed">x/x mAh consumed</option>
+            </select>
+          </label>
+        </div>
+        <label class="chk"><input type="checkbox" id="countCapacity" /> Count consumed capacity (coulomb counting)</label>
+        <label>Charge counter
+          <select id="chargeSource">
+            <option value="auto">auto — the sensor's own counter when it has one (INA228)</option>
+            <option value="sensor">sensor — INA228 CHARGE/ENERGY registers</option>
+            <option value="pi">pi — integrate the sampled current here</option>
+          </select>
+        </label>
+        <p class="msg">The <b>INA228</b> integrates charge and energy in hardware at ADC rate, so the mAh no longer depend on the polling rate or on samples this loop missed. Every other sensor (incl. INA237/238) is integrated on the Pi — "sensor" then falls back to "pi".</p>
+        <div class="grid2">
+          <label>Full pack voltage (V, optional)<input id="voltageFullV" type="number" step="0.1" placeholder="e.g. 16.8" /></label>
+          <label>Empty pack voltage (V, optional)<input id="voltageEmptyV" type="number" step="0.1" placeholder="e.g. 13.2" /></label>
+        </div>
+        <label>Battery % source (drives the top-right % display; mAh is always shown)
+          <select id="percentSource">
+            <option value="clamp">clamp — lower of coulomb &amp; voltage (safe)</option>
+            <option value="coulomb">coulomb — consumed mAh vs capacity</option>
+            <option value="voltage">voltage — from the full/empty curve</option>
+          </select>
+        </label>
+        <p class="msg">"voltage"/"clamp" need the full &amp; empty voltage above. mAh (consumed/remaining) is unaffected — this only changes what the % gauge uses.</p>
+        <div class="btns">
+          <button class="btn primary" onclick="run(this, () => saveTelemetry())">Save</button>
+          <button class="btn" onclick="run(this, () => resetCapacity())">Reset mAh</button>
+        </div>
+        <div class="msg" id="tel-msg"></div>
+        </details>
       </section>
 
       <section class="panel">
@@ -320,92 +408,20 @@
       </section>
 
       <section class="panel">
-        <div class="eyebrow">Sensors</div>
-        <div id="sensor-now"><div class="msg">…</div></div>
-        <div class="btns" style="margin-top:8px">
-          <button class="btn tiny" onclick="run(this, () => loadHistory('hour'))">Hour</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('day'))">Day</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('week'))">Week</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('month'))">Month</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('year'))">Year</button>
-        </div>
-        <div id="sensor-history"><div class="msg">Recording starts with the gateway — a fresh box has nothing to show yet.</div></div>
-        <label class="chk" style="margin-top:10px"><input type="checkbox" id="historyEnabled" onchange="run(this, () => saveHistorySettings())" /> <b>Record history</b> — off by default, because it is the only thing that writes to the card continuously</label>
-        <p class="msg">One averaged value per minute is recorded, kept for 13 months (about 21 MB a year) in <span class="mono">/var/lib/yondergate/history</span>. Longer views are averaged when you ask for them, and the band behind the line is the <b>minimum and maximum</b> inside each step — on a battery the dip under load is the part an average hides.</p>
-
-        <div class="eyebrow2" style="margin-top:14px">Configuration</div>
-        <div class="grid2">
-          <label>Source
-            <select id="telSource">
-              <option value="off">off (no telemetry)</option>
-              <option value="sim">sim (fake values)</option>
-              <option value="real">real sensors</option>
-            </select>
-          </label>
-          <label>Sample rate (Hz)<input id="telHz" type="number" placeholder="10" /></label>
-        </div>
-        <div class="eyebrow2">Voltage channels</div>
-        <div id="volt-list"></div>
-        <div class="btns"><button class="btn" onclick="run(this, () => addVolt())">+ Voltage</button></div>
-        <div class="eyebrow2">Current channels</div>
-        <div id="curr-list"></div>
-        <div class="btns"><button class="btn" onclick="run(this, () => addCurr())">+ Current</button></div>
-        <p class="msg">The channel marked <b>primary</b> drives the battery %, the mAh/Wh counting, the low-battery warning and the blackbox columns. With one channel of a kind there is nothing to choose; with several, mark the one that measures the pack.</p>
-        <div class="eyebrow2">Temperature channels</div>
-        <div id="temp-list"></div>
-        <div class="btns"><button class="btn" onclick="run(this, () => addTemp())">+ Temperature</button></div>
-        <p class="msg">Optional. Shown in the status page below voltage/current; each value can be hidden per ground device under video › ⚙ › <i>Sensor values</i>. Give short labels (<code>T1</code>, <code>Motor</code>, <code>ESC</code>) — they are only shown once a kind has more than one channel.</p>
-        <div class="grid2">
-          <label>Battery capacity (mAh)<input id="capacity" type="number" placeholder="e.g. 2200" /></label>
-          <label>Capacity display
-            <select id="displayMode">
-              <option value="remaining">x/x mAh remaining</option>
-              <option value="consumed">x/x mAh consumed</option>
-            </select>
-          </label>
-        </div>
-        <label class="chk"><input type="checkbox" id="countCapacity" /> Count consumed capacity (coulomb counting)</label>
-        <label>Charge counter
-          <select id="chargeSource">
-            <option value="auto">auto — the sensor's own counter when it has one (INA228)</option>
-            <option value="sensor">sensor — INA228 CHARGE/ENERGY registers</option>
-            <option value="pi">pi — integrate the sampled current here</option>
-          </select>
-        </label>
-        <p class="msg">The <b>INA228</b> integrates charge and energy in hardware at ADC rate, so the mAh no longer depend on the polling rate or on samples this loop missed. Every other sensor (incl. INA237/238) is integrated on the Pi — "sensor" then falls back to "pi".</p>
-        <div class="grid2">
-          <label>Full pack voltage (V, optional)<input id="voltageFullV" type="number" step="0.1" placeholder="e.g. 16.8" /></label>
-          <label>Empty pack voltage (V, optional)<input id="voltageEmptyV" type="number" step="0.1" placeholder="e.g. 13.2" /></label>
-        </div>
-        <label>Battery % source (drives the top-right % display; mAh is always shown)
-          <select id="percentSource">
-            <option value="clamp">clamp — lower of coulomb &amp; voltage (safe)</option>
-            <option value="coulomb">coulomb — consumed mAh vs capacity</option>
-            <option value="voltage">voltage — from the full/empty curve</option>
-          </select>
-        </label>
-        <p class="msg">"voltage"/"clamp" need the full &amp; empty voltage above. mAh (consumed/remaining) is unaffected — this only changes what the % gauge uses.</p>
-        <div class="btns">
-          <button class="btn primary" onclick="run(this, () => saveTelemetry())">Save</button>
-          <button class="btn" onclick="run(this, () => resetCapacity())">Reset mAh</button>
-        </div>
-        <div class="msg" id="tel-msg"></div>
-      </section>
-
-      
-      
-      <section class="panel">
         <div class="eyebrow">Site health &amp; alerts</div>
         <div id="health-out"><div class="msg">…</div></div>
 
         <div class="eyebrow2" style="margin-top:12px">Time</div>
         <div class="grid2">
-          <label>NTP servers (space separated)<input id="ntpServers" placeholder="time.cloudflare.com pool.ntp.org" /></label>
-          <div style="display:flex;align-items:flex-end;margin-bottom:10px">
-            <button class="btn" onclick="run(this, () => saveNtp())">Apply time servers</button>
-          </div>
+          <label>NTP servers (space separated)<input id="ntpServers" placeholder="in use is shown here" /></label>
+          <label>Timezone<input id="timezone" placeholder="Europe/Berlin" /></label>
         </div>
-        <p class="msg">A box that boots without internet starts with the wrong time, and every recorded value carries that timestamp. If this site is offline for long stretches, fit a <b>DS3231 real-time clock</b> (I²C, a few euros) — it is not enabled by default; add <span class="mono">dtoverlay=i2c-rtc,ds3231</span> to <span class="mono">/boot/firmware/config.txt</span> and it appears above.</p>
+        <div class="btns">
+          <button class="btn" onclick="run(this, () => saveNtp())">Apply time servers</button>
+          <button class="btn" onclick="run(this, () => saveTimezone())">Apply timezone</button>
+        </div>
+        <label class="chk" style="margin-top:10px"><input type="checkbox" id="rtcEnabled" onchange="run(this, () => saveRtc())" /> <span><b>Use a DS3231 hardware clock</b> — plug it onto the I²C pins, tick this, reboot. No SSH.</span></label>
+        <p class="msg">Time synchronisation is on by default (systemd-timesyncd with the distribution's servers, shown above). A box that boots <b>without</b> internet starts with the wrong time, and every value it records carries that timestamp — that is what the DS3231 (I²C, a few euros) fixes: it keeps time on its own battery through power cuts, the kernel reads it at boot, and once the network is back NTP corrects both. Ticking the box writes the overlay into <span class="mono">config.txt</span> for you.</p>
         <div class="msg" id="ntp-msg"></div>
 
         <div class="eyebrow2" style="margin-top:12px">Mobile data</div>
@@ -416,7 +432,9 @@
               <option value="interface">an interface on the Pi</option>
             </select>
           </label>
-          <label>Interface<input id="dataIface" placeholder="eth1" /></label>
+          <label>Interface
+            <select id="dataIface"><option value="">(scan first)</option></select>
+          </label>
           <label>Allowance (GB/month)<input id="dataCap" type="number" step="0.1" placeholder="none" /></label>
         </div>
         <div class="btns"><button class="btn" onclick="run(this, () => saveData())">Save allowance</button></div>
@@ -792,13 +810,29 @@
               h.undervoltageNow ? 'bad' : h.undervoltage ? 'warn' : 'go') +
           row('clock', h.clockSynced === null ? '—' : h.clockSynced ? `synced${h.ntpServer ? ' · ' + h.ntpServer : ''}` : 'NOT synced', h.clockSynced === false ? 'bad' : 'go') +
           row('hardware clock', h.rtc || 'none fitted', h.rtc ? 'go' : '') +
-          (d.usage ? row('mobile data this month', fmtBytes(d.usage.bytes) + (d.usageStatus?.percent != null ? ` · ${d.usageStatus.percent}% of allowance` : ''),
-              d.usageStatus?.over ? 'bad' : d.usageStatus?.warn ? 'warn' : '') : '');
+          row('time on this box', h.time ? new Date(h.time).toLocaleString() + (h.timezone ? ` · ${h.timezone}` : '') : '—') +
+          (d.usage ? row('mobile data used', fmtBytes(d.usage.bytes) + (d.usageStatus?.percent != null ? ` · ${d.usageStatus.percent}% of allowance` : ' · no allowance set'),
+              d.usageStatus?.over ? 'bad' : d.usageStatus?.warn ? 'warn' : '') : '') +
+          // "1.9 GB left with 9 days to go" is a sentence someone can act on; a
+          // percentage on its own is not.
+          (d.usageOverview?.leftBytes != null
+            ? row('left this month', `${fmtBytes(d.usageOverview.leftBytes)} · ${d.usageOverview.daysLeft} days to go · ${fmtBytes(d.usageOverview.perDayLeft)}/day`)
+            : '');
 
-        if (d.ntpServers && !$('ntpServers').value) $('ntpServers').value = d.ntpServers.join(' ');
+        // Show what is actually in use, not an empty box that looks unconfigured.
+        // An empty list means the time daemon has its own defaults (or is not
+        // timesyncd at all) — say that instead of showing nothing.
+        if (!$('ntpServers').value) $('ntpServers').value = (h.ntpServers || []).join(' ');
+        $('ntpServers').placeholder = (h.ntpServers || []).length
+          ? ''
+          : h.ntpServer
+            ? `in use: ${h.ntpServer}`
+            : 'the system default (leave empty to keep it)';
+        if (!$('timezone').value && h.timezone) $('timezone').value = h.timezone;
+        $('rtcEnabled').checked = !!h.rtcOverlay;
+        renderInterfaces(d.interfaces || [], d.data);
         if (d.data) {
           $('dataSource').value = d.data.source;
-          if (!$('dataIface').value) $('dataIface').value = d.data.iface || '';
           if (!$('dataCap').value && d.data.capGb) $('dataCap').value = d.data.capGb;
         }
         if (d.history) $('historyEnabled').checked = !!d.history.enabled;
@@ -815,6 +849,30 @@
           '<div class="eyebrow2" style="margin-top:10px">Watching</div>' +
           (rules.map((r) => `<div class="row"><span class="k">${esc(r.label)}</span><span class="v">${esc(r.kind)}${r.below != null ? ' &lt; ' + r.below : ''}${r.above != null ? ' &gt; ' + r.above : ''}</span></div>`).join('') ||
            '<div class="msg">Nothing yet.</div>');
+      }
+
+      // The interface list comes from the box itself: nobody should have to know
+      // that their WiFi is called `wlp59s0`.
+      function renderInterfaces(list, data) {
+        const sel = $('dataIface');
+        const chosen = sel.value || (data && data.iface) || '';
+        sel.innerHTML = list.length
+          ? list.map((i) => {
+              const label = `${i.name}${i.addresses.length ? ' · ' + i.addresses.join(', ') : ' · no address'}${i.up ? '' : ' · down'}`;
+              return `<option value="${esc(i.name)}"${i.name === chosen ? ' selected' : ''}>${esc(label)}</option>`;
+            }).join('')
+          : '<option value="">no interfaces found</option>';
+      }
+
+      async function saveTimezone() {
+        const r = await post('/api/timezone', { timezone: $('timezone').value.trim() });
+        $('ntp-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message)}</b>`;
+        loadHealth();
+      }
+
+      async function saveRtc() {
+        const r = await post('/api/rtc', { enabled: $('rtcEnabled').checked });
+        $('ntp-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message)}</b>`;
       }
 
       async function saveNtp() {
@@ -1076,8 +1134,8 @@
           const state = !on ? '' : approved
             ? '<span class="v go">advertised · approved</span>'
             : '<span class="v warn">advertised · waiting for approval</span>';
-          return `<label class="chk"><input type="checkbox" class="route-cb" value="${esc(n.cidr)}"${on ? ' checked' : ''} />
-            <b class="mono">${esc(n.cidr)}</b> <span style="color:var(--muted)">on ${esc(n.iface)}</span> ${state}</label>`;
+          return `<label class="route"><input type="checkbox" class="route-cb" value="${esc(n.cidr)}"${on ? ' checked' : ''} />
+            <span class="cidr">${esc(n.cidr)}</span><span class="where">on ${esc(n.iface)}</span>${state}</label>`;
         }).join('') +
         `<div class="row"><span class="k">IP forwarding</span><span class="v ${st.forwarding ? 'go' : 'warn'}">${st.forwarding ? 'on' : 'off'}</span></div>`;
       }

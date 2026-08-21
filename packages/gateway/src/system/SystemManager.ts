@@ -5,7 +5,7 @@ import type { WifiRadioStatus } from './wifi.js';
 import type { HilinkStatus } from './hilink.js';
 import type { UpdateCheck, UpdateSource } from './update.js';
 import type { KnownDevice, ScannedDevice, Subnet } from './discovery.js';
-import type { Health } from './health.js';
+import type { Health, NetInterface } from './health.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -341,6 +341,12 @@ export interface SystemManager {
   health(): Promise<Health>;
   /** Set the NTP servers (empty list = distribution default) and report the result. */
   setNtpServers(servers: string[]): Promise<ActionResult>;
+  /** Set the timezone, so recorded timestamps read the way the operator expects. */
+  setTimezone(tz: string): Promise<ActionResult>;
+  /** Enable or disable the DS3231 overlay in config.txt (takes effect on reboot). */
+  setRtcOverlay(enabled: boolean): Promise<ActionResult>;
+  /** Interfaces to choose from, so nobody has to guess that WiFi is `wlp59s0`. */
+  interfaces(): Promise<NetInterface[]>;
   /**
    * Raw byte counter for the mobile uplink, or null when it cannot be read. The
    * caller turns counters into a monthly total — see system/usage.ts.

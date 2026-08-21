@@ -23,7 +23,7 @@ import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
-import { HEALTH_UNKNOWN, type Health } from './health.js';
+import { HEALTH_UNKNOWN, isTimezone, parseInterfaces, type Health, type NetInterface } from './health.js';
 import { mergeDevices, mergeKnown, parseIpNeigh, parseSubnets, routableSubnets, type KnownDevice } from './discovery.js';
 
 /**
@@ -316,11 +316,37 @@ export class SimSystem implements SystemManager {
       undervoltageNow: false,
       clockSynced: true,
       ntpServer: 'time.cloudflare.com',
-      rtc: null, // no DS3231 fitted, which is the default
+      rtc: this.rtcOverlay ? 'rtc-ds3231' : null,
+      time: new Date().toISOString(),
+      timezone: 'Europe/Berlin',
+      ntpServers: this.ntpServers.length ? this.ntpServers : ['0.debian.pool.ntp.org', '1.debian.pool.ntp.org'],
+      rtcOverlay: this.rtcOverlay,
     };
   }
 
+  private rtcOverlay = false;
+  private ntpServers: string[] = [];
+
+  async setTimezone(tz: string): Promise<ActionResult> {
+    return isTimezone(tz)
+      ? { ok: true, message: `Timezone set to ${tz} (simulated).` }
+      : { ok: false, message: `"${tz}" is not a timezone like Europe/Berlin.` };
+  }
+
+  async setRtcOverlay(enabled: boolean): Promise<ActionResult> {
+    this.rtcOverlay = enabled;
+    return { ok: true, message: enabled ? 'Hardware clock enabled — reboot to load it (simulated).' : 'Hardware clock disabled (simulated).' };
+  }
+
+  async interfaces(): Promise<NetInterface[]> {
+    return parseInterfaces(
+      '2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP\n3: wlan0: <BROADCAST,MULTICAST,UP> mtu 1500 state UP\n4: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP\n',
+      '2: eth0    inet 192.168.178.42/24 brd 192.168.178.255 scope global eth0\n3: wlan0    inet 192.168.4.1/24 brd 192.168.4.255 scope global wlan0\n4: eth1    inet 192.168.8.100/24 brd 192.168.8.255 scope global eth1\n',
+    );
+  }
+
   async setNtpServers(servers: string[]): Promise<ActionResult> {
+    this.ntpServers = servers;
     return { ok: true, message: servers.length ? `Time servers set to ${servers.join(', ')} (simulated).` : 'Back to the default time servers (simulated).' };
   }
 

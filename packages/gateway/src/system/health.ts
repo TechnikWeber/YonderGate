@@ -31,11 +31,19 @@ export interface Health {
   ntpServer: string | null;
   /** Name of a hardware clock, e.g. "rtc-ds3231" — null when there is none. */
   rtc: string | null;
+  /** The box's own idea of now, so the page can be checked against your watch. */
+  time: string | null;
+  timezone: string | null;
+  /** Time servers actually configured (ours, or the distribution's default). */
+  ntpServers: string[];
+  /** Whether the DS3231 overlay is enabled in config.txt (needs a reboot to take). */
+  rtcOverlay: boolean | null;
 }
 
 export const HEALTH_UNKNOWN: Health = {
   diskFreeMb: null, diskUsedPercent: null, cpuTempC: null, uptimeS: null, load1: null,
   undervoltage: null, undervoltageNow: null, clockSynced: null, ntpServer: null, rtc: null,
+  time: null, timezone: null, ntpServers: [], rtcOverlay: null,
 };
 
 /** `df -P -m <path>` → free MB and used percent for that filesystem. */
@@ -124,4 +132,84 @@ export function parseNtpServers(input: string): string[] {
 export const TIMESYNCD_CONF_PATH = '/etc/systemd/timesyncd.conf.d/99-yondergate.conf';
 export function timesyncdConf(servers: string[]): string {
   return `[Time]\nNTP=${servers.join(' ')}\n`;
+}
+
+/** `timedatectl show` → the configured timezone. */
+export function parseTimezone(out: string): string | null {
+  const m = (out ?? '').match(/^Timezone=(.+)$/m);
+  return m ? m[1].trim() : null;
+}
+
+/** Region/City, as `timedatectl list-timezones` prints them. */
+export function isTimezone(tz: unknown): tz is string {
+  return typeof tz === 'string' && /^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2}$/.test(tz.trim());
+}
+
+/** Servers from a timesyncd config file (ours or the distribution's). */
+export function parseTimesyncdConf(text: string): string[] {
+  const m = (text ?? '').match(/^\s*NTP=(.*)$/m);
+  return m ? parseNtpServers(m[1]) : [];
+}
+
+/** Fallback servers systemd-timesyncd uses when nothing else is configured. */
+export function parseFallbackNtp(text: string): string[] {
+  const m = (text ?? '').match(/^\s*#?\s*FallbackNTP=(.*)$/m);
+  return m ? parseNtpServers(m[1]) : [];
+}
+
+/**
+ * The DS3231 line for `/boot/firmware/config.txt`.
+ *
+ * Fitting the clock should be a plug and a checkbox, not an SSH session — so the
+ * gateway edits this file itself. It is idempotent in both directions and touches
+ * nothing else in a file that also decides whether the Pi boots at all.
+ */
+export const RTC_OVERLAY = 'dtoverlay=i2c-rtc,ds3231';
+
+/** The comment we write above the overlay, removed with it so it cannot pile up. */
+const RTC_MARKER = '# YonderGate: hardware clock, so the site keeps time without a network';
+
+export function configTxtWithRtc(text: string, enabled: boolean): string {
+  const without = (text ?? '')
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim();
+      return t !== RTC_OVERLAY && t !== `#${RTC_OVERLAY}` && t !== RTC_MARKER;
+    })
+    .join('\n')
+    .replace(/\n+$/, '');
+  return enabled ? `${without}\n\n${RTC_MARKER}\n${RTC_OVERLAY}\n` : `${without}\n`;
+}
+
+export function configTxtHasRtc(text: string): boolean {
+  return (text ?? '').split('\n').some((l) => l.trim() === RTC_OVERLAY);
+}
+
+export interface NetInterface {
+  name: string;
+  addresses: string[];
+  up: boolean;
+}
+
+/**
+ * Interfaces to choose from, so nobody has to know that their WiFi is called
+ * `wlp59s0`. Built from `ip -o link` (everything, including the ones with no
+ * address yet) plus `ip -o -f inet addr` for the addresses.
+ */
+export function parseInterfaces(linkOut: string, addrOut: string): NetInterface[] {
+  const addrs = new Map<string, string[]>();
+  for (const line of (addrOut ?? '').split('\n')) {
+    const m = line.match(/^\d+:\s+(\S+)\s+inet\s+(\d+\.\d+\.\d+\.\d+)\/\d+/);
+    if (!m) continue;
+    addrs.set(m[1], [...(addrs.get(m[1]) ?? []), m[2]]);
+  }
+  const out: NetInterface[] = [];
+  for (const line of (linkOut ?? '').split('\n')) {
+    const m = line.match(/^\d+:\s+([^:@]+)[:@]/);
+    if (!m) continue;
+    const name = m[1].trim();
+    if (name === 'lo') continue;
+    out.push({ name, addresses: addrs.get(name) ?? [], up: /state UP/.test(line) || /[<,]UP[,>]/.test(line) });
+  }
+  return out;
 }

@@ -204,6 +204,36 @@ async function main() {
   ok('ntp servers are validated, not trusted', HL.parseNtpServers('time.cloudflare.com, pool.ntp.org; rm -rf /').join() === 'time.cloudflare.com,pool.ntp.org,rm');
   ok('and capped in number', HL.parseNtpServers('a b c d e f g h').length === 5);
 
+  // ---- fitting a hardware clock must not require an SSH session ----
+  const cfgTxt = 'dtparam=audio=on\ndtoverlay=vc4-kms-v3d\n';
+  const withRtc = HL.configTxtWithRtc(cfgTxt, true);
+  ok('the overlay is added', HL.configTxtHasRtc(withRtc) && withRtc.includes('dtparam=audio=on'));
+  // config.txt also decides whether the Pi boots at all, so the edit must be
+  // idempotent in both directions and touch nothing else.
+  ok('adding twice changes nothing', HL.configTxtWithRtc(withRtc, true) === withRtc);
+  ok('removing it restores the file', HL.configTxtWithRtc(withRtc, false).trim() === cfgTxt.trim());
+  ok('and removing when absent is a no-op', HL.configTxtHasRtc(HL.configTxtWithRtc(cfgTxt, false)) === false);
+
+  ok('a timezone is Region/City', HL.isTimezone('Europe/Berlin') && HL.isTimezone('America/Argentina/Salta'));
+  ok('and nothing else', !HL.isTimezone('Berlin') && !HL.isTimezone('../etc/passwd') && !HL.isTimezone(''));
+  ok('timezone read from timedatectl', HL.parseTimezone('Timezone=Europe/Berlin\nNTP=yes\n') === 'Europe/Berlin');
+  // The field should show what is actually in use, not look unconfigured.
+  ok('distribution servers are found', HL.parseTimesyncdConf('[Time]\nNTP=a.pool.ntp.org b.pool.ntp.org\n').length === 2);
+  ok('and the commented-out fallbacks too', HL.parseFallbackNtp('#FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org\n').length === 2);
+
+  const ifaces = HL.parseInterfaces(
+    '1: lo: <LOOPBACK,UP> mtu 65536 state UNKNOWN\n2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP\n3: wlan0: <BROADCAST> mtu 1500 state DOWN\n',
+    '2: eth0    inet 192.168.178.42/24 brd 192.168.178.255 scope global eth0\n',
+  );
+  ok('interfaces are offered with their addresses', ifaces.length === 2 && ifaces[0].name === 'eth0' && ifaces[0].addresses[0] === '192.168.178.42');
+  ok('one without an address is still offered', ifaces[1].name === 'wlan0' && ifaces[1].addresses.length === 0);
+  ok('loopback is not a choice', !ifaces.some((i) => i.name === 'lo'));
+
+  const ov = USE.usageOverview({ month: '2026-08', bytes: 3.1e9, lastCounter: 0, updated: null }, 5, Date.UTC(2026, 7, 22, 12));
+  ok('the month is summed up as used / left / days', ov.leftBytes === 1.9e9 && ov.daysLeft === 10);
+  ok('with a per-day budget for what is left', ov.perDayLeft === Math.round(1.9e9 / 10));
+  ok('and no allowance means no budget', USE.usageOverview({ month: '2026-08', bytes: 1e9, lastCounter: 0, updated: null }, null, Date.now()).leftBytes === null);
+
   // ---- sensor history: recording what happened while nobody looked ----
   const HIST = await import('../packages/gateway/src/sensors/history');
   const mk = (t: number, v: number, c: number) => ({ t, values: { 'v:Battery': v, 'c:Battery': c } });

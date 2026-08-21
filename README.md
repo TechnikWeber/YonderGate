@@ -181,6 +181,9 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [x] **Mobile data counter** with an allowance and a warning at 80 %
 - [ ] Alert when the **uplink itself** is gone — needs a way to notice after the fact,
       since a box with no link cannot send anything while it is down
+- [x] Time on the page: current time, timezone, the servers actually in use, and a
+      **DS3231 hardware clock enabled with a checkbox** rather than an SSH session
+- [x] Interface picker for the data counter, and a "used / left / days to go" line
 - [ ] Let alert rules be added from the page (thresholds and devices are configurable
       in the config file today, the defaults cover supply and data)
 - [ ] Export a range of history as CSV from the page

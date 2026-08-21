@@ -8,7 +8,8 @@ import type { TelemetryService } from '../sensors/TelemetryService.js';
 import type { HistoryService } from '../sensors/HistoryService.js';
 import type { AlertService } from '../system/AlertService.js';
 import { isNtfyUrl } from '../system/alerts.js';
-import { parseNtpServers } from '../system/health.js';
+import { isTimezone, parseNtpServers } from '../system/health.js';
+import { usageOverview } from '../system/usage.js';
 import { RANGES } from '../sensors/history.js';
 import type { CameraCfg, TelemetryConfig } from '@yondergate/protocol';
 import { safeStreamName } from '../video/cameraManager.js';
@@ -323,6 +324,8 @@ export async function handleSetup(
       health: await ctx.system.health(),
       usage: snap.usage,
       usageStatus: snap.status,
+      usageOverview: usageOverview(snap.usage, ctx.config.data.capGb, Date.now()),
+      interfaces: await ctx.system.interfaces(),
       data: ctx.config.data,
       ntpServers: ctx.config.ntpServers,
       history: ctx.config.history,
@@ -337,6 +340,22 @@ export async function handleSetup(
     savePersisted(ctx.config.configPath, { ntpServers: servers });
     ctx.config.ntpServers = servers;
     json(res, 200, await ctx.system.setNtpServers(servers));
+    return true;
+  }
+
+  if (url === '/api/timezone' && method === 'POST') {
+    const body = (await readBody(req)) as { timezone?: unknown };
+    if (!isTimezone(body.timezone)) {
+      json(res, 400, { ok: false, message: 'A timezone looks like Europe/Berlin.' });
+      return true;
+    }
+    json(res, 200, await ctx.system.setTimezone(String(body.timezone)));
+    return true;
+  }
+
+  if (url === '/api/rtc' && method === 'POST') {
+    const body = (await readBody(req)) as { enabled?: unknown };
+    json(res, 200, await ctx.system.setRtcOverlay(body.enabled === true));
     return true;
   }
 

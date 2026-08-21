@@ -2,6 +2,63 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.7.0
+**English**
+- **Fixed a layout bug with one cause and four symptoms.** `input { width: 100% }` — the
+  rule that makes text fields fill their column — also applied to checkboxes, so each one
+  stretched across the row and shoved its own label to the far edge. "Send alerts",
+  "Record history", "Allow data roaming" and the coulomb-counting toggle all looked
+  broken for the same reason; the subnet-route rows now line up as well.
+- Headings had no space before the controls belonging to them, which is why *Site
+  network* sat directly on its buttons.
+- **The Sensors panel moved to the top and is collapsed**, since it is the thing you
+  glance at and the rest is what you configure once.
+- **Time is now answerable from the page**: the box's own clock and timezone are shown
+  (so you can check them against your watch), the **servers actually in use** appear in
+  the field instead of an empty box that looks unconfigured, and the timezone is
+  settable. Synchronisation is on by default — that is systemd-timesyncd with the
+  distribution's servers.
+- **The DS3231 is a checkbox now.** Plug the clock onto the I²C pins, tick the box,
+  reboot: the gateway writes `dtoverlay=i2c-rtc,ds3231` into `config.txt` itself. The
+  edit is idempotent in both directions and touches nothing else, because that file also
+  decides whether the Pi boots at all. What it buys: the site keeps time through a power
+  cut on the clock's own battery, the kernel reads it at boot, and NTP corrects both once
+  the network is back.
+- **The interface for the data counter is a list, not a guess.** It is populated from the
+  box, with each interface's addresses next to it — nobody should have to know their WiFi
+  is called `wlp59s0`.
+- **The allowance now reads as a plan**: used, left, days to go and what that leaves per
+  day. A percentage alone does not tell you whether to keep a camera streaming.
+
+**Deutsch**
+- **Ein Layout-Fehler mit einer Ursache und vier Symptomen behoben.** `input { width:
+  100% }` — die Regel, die Textfelder ihre Spalte füllen lässt — galt auch für
+  Checkboxen: jede zog sich über die ganze Zeile und schob ihre eigene Beschriftung an
+  den rechten Rand. „Send alerts", „Record history", „Allow data roaming" und der
+  Coulomb-Zähler sahen aus demselben Grund kaputt aus; die Routen-Zeilen fluchten jetzt
+  ebenfalls.
+- Überschriften hatten keinen Abstand zu den Bedienelementen darunter — deshalb klebte
+  *Site network* auf seinen Knöpfen.
+- **Das Sensor-Panel ist nach oben gewandert und eingeklappt**, denn es ist das, worauf
+  man schaut; der Rest wird einmal eingerichtet.
+- **Die Zeit lässt sich jetzt auf der Seite kontrollieren**: Uhrzeit und Zeitzone der
+  Kiste stehen da (zum Abgleich mit der eigenen Uhr), die **tatsächlich genutzten
+  Server** stehen im Feld statt eines leeren Kastens, der unkonfiguriert aussieht, und
+  die Zeitzone ist einstellbar. Zeitsynchronisation ist standardmäßig an — das ist
+  systemd-timesyncd mit den Servern der Distribution.
+- **Die DS3231 ist ein Haken.** Uhr auf die I²C-Pins stecken, Haken setzen, neu starten:
+  das Gateway schreibt `dtoverlay=i2c-rtc,ds3231` selbst in die `config.txt`. Die
+  Änderung ist in beide Richtungen idempotent und fasst sonst nichts an — diese Datei
+  entscheidet schließlich auch, ob der Pi überhaupt bootet. Was sie bringt: Der Standort
+  behält die Zeit über einen Stromausfall auf der eigenen Knopfzelle, der Kernel liest
+  sie beim Booten, und sobald das Netz wieder da ist, korrigiert NTP beide.
+- **Das Interface für den Datenzähler ist eine Liste, keine Rateübung.** Sie kommt aus
+  der Kiste selbst, mit den Adressen daneben — niemand muss wissen, dass sein WLAN
+  `wlp59s0` heißt.
+- **Das Volumen liest sich jetzt wie ein Plan**: verbraucht, offen, verbleibende Tage und
+  was das pro Tag bedeutet. Eine Prozentzahl allein beantwortet nicht, ob eine Kamera
+  weiterlaufen darf.
+
 ## v0.6.0
 **English**
 - **Recording is now off by default.** It is the only thing here that writes to the card
