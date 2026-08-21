@@ -1,6 +1,6 @@
 {
   "name": "yondergate",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Off-grid gateway for a remote site: LTE/Tailscale access, AP onboarding, device discovery and sensors.",
@@ -12,7 +12,8 @@
     "dev": "npm run start -w @yondergate/gateway",
     "start": "npm run start -w @yondergate/gateway",
     "test": "tsx test/suite.mts",
-    "typecheck": "tsc --noEmit -p packages/protocol/tsconfig.json && tsc --noEmit -p packages/gateway/tsconfig.json"
+    "typecheck": "tsc --noEmit -p packages/protocol/tsconfig.json && tsc --noEmit -p packages/gateway/tsconfig.json",
+    "dev:video": "bash scripts/dev-video.sh"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

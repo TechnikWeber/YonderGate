@@ -15,7 +15,7 @@ import { createReader, type TelemetryReader } from './TelemetryReader.js';
  * expose the latest TelemetryMessage for the link to stream to the ground.
  *
  * If real sensors fail to initialise, it falls back to the sim source and reports
- * that in the message, so the OSD can make clear the numbers aren't real.
+ * that in the message, so the status page can make clear the numbers aren't real.
  */
 export class TelemetryService {
   private cfg: TelemetryConfig;
@@ -42,7 +42,7 @@ export class TelemetryService {
       await this.reader.init();
     } catch (err) {
       // Do NOT silently fall back to sim — that could be mistaken for real data
-      // mid-flight. Mark degraded so the OSD shows "no data" instead.
+      // while it runs. Mark degraded so the status page shows "no data" instead.
       console.error(
         `[telemetry] ${this.cfg.source} sensors failed to init: ${(err as Error).message}\n` +
           '[telemetry] reporting NO DATA (no sim substitution while source=real).',

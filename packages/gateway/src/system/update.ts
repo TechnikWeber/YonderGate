@@ -1,30 +1,30 @@
 /**
  * Self-update from the setup page: what a terminal session would do
  * (`git pull --ff-only` + restart), minus the terminal — because the moment you
- * need it is the moment you are standing in a field with a phone.
+ * need it is the moment you are standing on site with a phone.
  *
  * Two rules shape this file:
  *
- *  1. **Check before you change.** The vehicle fetches, then reports what would
+ *  1. **Check before you change.** The gateway fetches, then reports what would
  *     happen — which commits, which version, and whether the update needs more
  *     than a pull. You decide afterwards.
- *  2. **Never leave the vehicle unable to start.** A pull that adds a dependency
- *     or changes the ground app, followed by a bare restart, gives you a service
+ *  2. **Never leave the gateway unable to start.** A pull that adds a dependency
+ *     or changes the setup page, followed by a bare restart, gives you a service
  *     that crashes on boot — and the setup UI *is* that service, so you would
  *     lose the very page you were using. The steps are therefore derived from the
- *     diff: dependencies changed → install them, ground app changed → rebuild it,
+ *     diff: dependencies changed → install them, setup page changed → rebuild it,
  *     and only then restart.
  *
  * All of it is pure here; RealSystem runs the commands.
  */
 
 /**
- * Files the vehicle writes into its own checkout, so they are modified on every
- * running vehicle and must not be mistaken for someone's work in progress. They are
+ * Files the gateway writes into its own checkout, so they are modified on every
+ * running gateway and must not be mistaken for someone's work in progress. They are
  * regenerated at startup, so the update simply discards them.
  *
  * (`docker/go2rtc.yaml` is tracked *and* rewritten from the camera settings at every
- * start — which is why a real vehicle could never fast-forward.)
+ * start — which is why a real gateway could never fast-forward.)
  */
 export const GENERATED_PATHS = ['docker/go2rtc.yaml'];
 
@@ -33,14 +33,14 @@ export interface WorkingTree {
   clean: boolean;
   /** Tracked modifications that DO block — someone's actual changes. */
   dirty: string[];
-  /** Tracked files the vehicle generates itself; discarded before pulling. */
+  /** Tracked files the gateway generates itself; discarded before pulling. */
   generated: string[];
 }
 
 /**
  * `git status --porcelain`. Untracked files are ignored on purpose: they never stand
- * in the way of a fast-forward, and a vehicle always has some (its own config, logs).
- * Counting them was why an ordinary vehicle reported "local changes".
+ * in the way of a fast-forward, and a gateway always has some (its own config, logs).
+ * Counting them was why an ordinary gateway reported "local changes".
  */
 export function parseWorkingTree(out: string): WorkingTree {
   const dirty: string[] = [];
@@ -73,7 +73,7 @@ export function parseCommits(out: string): Commit[] {
     });
 }
 
-/** Version field out of a `package.json` blob (`git show origin/main:package.json`). */
+/** Version site out of a `package.json` blob (`git show origin/main:package.json`). */
 export function parseVersion(pkgJson: string): string | null {
   try {
     const v = (JSON.parse(pkgJson ?? '') as { version?: string }).version;
@@ -105,7 +105,7 @@ export function classifyChanges(files: string[]): UpdateImpact {
 export type UpdateStep = { label: string; args: string[]; cmd: 'git' | 'npm' };
 
 /**
- * Arguments for every git call the vehicle makes: just run inside the checkout.
+ * Arguments for every git call the gateway makes: just run inside the checkout.
  *
  * The ownership exception does NOT belong here. The installer clones as `pi` while
  * the service runs as root, so git refuses with "detected dubious ownership" — and
@@ -124,7 +124,7 @@ export function gitArgs(repoRoot: string, args: string[]): string[] {
  * were invisible from here: the path with and without a trailing slash (the repo
  * root is derived from a URL and carries one, and older git compares literally),
  * plus `*`. The wildcard is safe *here* precisely because this file is handed to
- * git only through `GIT_CONFIG_GLOBAL` on the vehicle's own invocations — it never
+ * git only through `GIT_CONFIG_GLOBAL` on the gateway's own invocations — it never
  * touches the operator's git config, and it never applies to any other command.
  */
 export function safeDirectoryConfig(repoRoot: string): string {
@@ -174,7 +174,7 @@ export function updateSteps(
 ): UpdateStep[] {
   const steps: UpdateStep[] = [];
   if (generated.length) {
-    // The vehicle wrote these itself and writes them again on the next start, so
+    // The gateway wrote these itself and writes them again on the next start, so
     // discarding them costs nothing — and without it the pull cannot fast-forward.
     steps.push({ label: 'Discarding generated files', cmd: 'git', args: ['checkout', '--', ...generated] });
   }
@@ -196,28 +196,28 @@ export function explainGitFailure(out: string): { cause: string; fix: string; se
   if (/dubious ownership|safe\.directory/i.test(log)) {
     return {
       cause: 'git refused to use the checkout because it belongs to a different user than the service',
-      fix: 'The vehicle can fix this itself — press Check again. (Manually: `sudo git config --global --add safe.directory /opt/yondergate`.)',
+      fix: 'The gateway can fix this itself — press Check again. (Manually: `sudo git config --global --add safe.directory /opt/yondergate`.)',
       selfFixable: true,
     };
   }
   if (/not a git repository/i.test(log)) {
     return {
-      cause: 'this vehicle was not installed from git, so there is nothing to pull',
+      cause: 'this gateway was not installed from git, so there is nothing to pull',
       fix: 'Re-install it with the bootstrap one-liner (it clones into /opt/yondergate); a copied or unzipped folder cannot update itself.',
       selfFixable: false,
     };
   }
   if (/could not resolve (host|proxy)|name or service not known|temporary failure in name resolution/i.test(log)) {
     return {
-      cause: 'the vehicle could not resolve github.com (no DNS)',
+      cause: 'the gateway could not resolve github.com (no DNS)',
       fix: 'The uplink is up but name resolution is not — check Setup › WiFi / the LTE stick, then try again.',
       selfFixable: false,
     };
   }
   if (/failed to connect|connection timed out|network is unreachable|could not read from remote/i.test(log)) {
     return {
-      cause: 'the vehicle could not reach github.com',
-      fix: 'Check the uplink. Reaching the vehicle over Tailscale does not mean the vehicle itself has internet.',
+      cause: 'the gateway could not reach github.com',
+      fix: 'Check the uplink. Reaching the gateway over Tailscale does not mean the gateway itself has internet.',
       selfFixable: false,
     };
   }
@@ -237,7 +237,7 @@ export function explainGitFailure(out: string): { cause: string; fix: string; se
   }
   return {
     cause: 'git could not fetch',
-    fix: 'The message below is git\'s own. The vehicle needs internet for this — reaching it over a VPN does not prove that it has any.',
+    fix: 'The message below is git\'s own. The gateway needs internet for this — reaching it over a VPN does not prove that it has any.',
     selfFixable: false,
   };
 }
@@ -277,7 +277,7 @@ export function describeCheck(c: Omit<UpdateCheck, 'message' | 'note'>): { messa
   }
   if (c.conflicts.length) {
     return {
-      message: 'This vehicle has local changes to files the update also changes, so it will not fast-forward.',
+      message: 'This gateway has local changes to files the update also changes, so it will not fast-forward.',
       note: `Both sides changed: ${c.conflicts.join(', ')}. Sort that out over SSH — updating would either fail or throw those changes away.`,
     };
   }
@@ -288,8 +288,8 @@ export function describeCheck(c: Omit<UpdateCheck, 'message' | 'note'>): { messa
   const notes: string[] = [];
   // Local changes that the update does not touch are worth mentioning, but they are
   // not a reason to refuse — git would have fast-forwarded right past them.
-  if (c.tree.dirty.length) notes.push(`this vehicle has local changes to ${c.tree.dirty.join(', ')}, which this update does not touch — they stay as they are`);
-  if (c.tree.generated.length) notes.push(`${c.tree.generated.join(', ')} was regenerated by the vehicle and will be discarded (it is written again on the next start)`);
+  if (c.tree.dirty.length) notes.push(`this gateway has local changes to ${c.tree.dirty.join(', ')}, which this update does not touch — they stay as they are`);
+  if (c.tree.generated.length) notes.push(`${c.tree.generated.join(', ')} was regenerated by the gateway and will be discarded (it is written again on the next start)`);
   if (c.impact.deps) notes.push('dependencies changed, so they are installed as part of the update (this needs data and a few minutes)');
   if (c.impact.provisioning)
     notes.push('the installer/systemd files changed — those are only applied by a full `sudo bash provisioning/install.sh`, so run that when you are back at a keyboard');

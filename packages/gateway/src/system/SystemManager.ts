@@ -16,7 +16,7 @@ export interface DetectResult {
   notes: string[];
 }
 
-/** One native driver module and whether this vehicle actually has it. */
+/** One native driver module and whether this gateway actually has it. */
 /**
  * Result of starting the onboarding hotspot. Carries the radio state so the setup
  * UI can offer the one-click repair, and the key the AP actually ended up with —
@@ -49,7 +49,7 @@ export interface HwDepStatus {
 
 /**
  * Result of installing a native driver module. Carries the npm log tail on
- * purpose: this runs on a vehicle the operator may only reach from a phone, so
+ * purpose: this runs on a gateway the operator may only reach from a phone, so
  * "it failed" without the reason would send them looking for a terminal again.
  */
 export interface HwDepInstallResult extends ActionResult {
@@ -57,7 +57,7 @@ export interface HwDepInstallResult extends ActionResult {
   output: string;
   /** Concrete next step when it failed. */
   fix?: string;
-  /** The module is only picked up after the vehicle service restarts. */
+  /** The module is only picked up after the gateway service restarts. */
   restartRequired?: boolean;
 }
 
@@ -143,7 +143,7 @@ export interface WifiNetwork {
  * The onboarding hotspot. An **open** AP by default: the captive portal then puts
  * the setup page in front of the operator with nothing to type, and a shared
  * default password published in the README protected nothing anyway. Set a
- * password here once the vehicle leaves the bench.
+ * password here once the gateway leaves the bench.
  */
 export interface HotspotConfig {
   ssid: string;
@@ -152,11 +152,11 @@ export interface HotspotConfig {
   /**
    * When the onboarding hotspot starts at boot:
    *  - always : whenever the WiFi radio is free — **the default since v1.41.0**. A
-   *             vehicle you can always walk up to beats one that is only reachable
+   *             gateway you can always walk up to beats one that is only reachable
    *             while its uplink works; set a hotspot password once and the permanent
    *             AP costs nothing.
    *  - auto   : only when the Pi has no uplink at all (the pre-v1.41.0 behaviour)
-   *  - off    : never (you always reach the vehicle some other way)
+   *  - off    : never (you always reach the gateway some other way)
    * "always" cannot override physics: with one radio the Pi is either an access
    * point or a WiFi client, so an active WiFi client connection always wins.
    */
@@ -172,7 +172,7 @@ export const HOTSPOT_DEFAULTS: HotspotConfig = { ssid: 'YonderGate-setup', passw
  * testable; `onboard.sh` mirrors it in shell.
  *
  * `wifiIsClient` is the hard stop: one radio can't serve an AP and stay joined to
- * a network, and tearing down the WiFi link would cut the vehicle off the LAN.
+ * a network, and tearing down the WiFi link would cut the gateway off the LAN.
  */
 export function shouldStartHotspot(
   mode: HotspotMode | undefined,
@@ -180,7 +180,7 @@ export function shouldStartHotspot(
   wifiIsClient: boolean,
 ): { start: boolean; reason: string } {
   // An unset mode means "never configured", and that now follows the shipped default
-  // (always) — including vehicles whose config predates the setting.
+  // (always) — including gateways whose config predates the setting.
   const m = mode ?? HOTSPOT_DEFAULTS.mode ?? 'always';
   if (m === 'off') return { start: false, reason: 'hotspot disabled in the config' };
   if (wifiIsClient) return { start: false, reason: 'wlan0 is joined to a WiFi network (one radio)' };
@@ -235,7 +235,7 @@ export interface ActionResult {
 }
 
 /**
- * Remote access = how the vehicle stays reachable behind CGNAT/LTE. One method is
+ * Remote access = how the gateway stays reachable behind CGNAT/LTE. One method is
  * active at a time. Mesh VPNs (Tailscale, ZeroTier) need no VPS; WireGuard connects
  * the Pi as a peer to a WireGuard server you already run — e.g. a FritzBox, whose
  * exported `.conf` you upload here.
@@ -294,7 +294,7 @@ export interface SystemManager {
   lteSetPin(change: LtePinChange): Promise<ActionResult>;
   /** Raw modem diagnostics (mmcli) for troubleshooting a non-plug-and-play stick. */
   lteDiagnostics(): Promise<{ ok: boolean; output: string }>;
-  /** Current uplink signal (LTE preferred, else WiFi) for the OSD link health. */
+  /** Current uplink signal (LTE preferred, else WiFi) for the status page link health. */
   linkSignal(): Promise<LinkSignal>;
   /** Probe attached hardware (I²C devices, modem, cameras) to suggest a config. */
   detectHardware(): Promise<DetectResult>;
@@ -303,7 +303,7 @@ export interface SystemManager {
   /**
    * Join a WiFi network. On a single-radio Pi this tears down the onboarding
    * hotspot, so the caller loses the connection it asked over; on failure the
-   * hotspot is brought back up so the vehicle can't lock itself out.
+   * hotspot is brought back up so the gateway can't lock itself out.
    */
   wifiConnect(ssid: string, password: string | null): Promise<ActionResult>;
   /** (Re)start the onboarding hotspot with the given settings. */
@@ -332,7 +332,7 @@ export interface SystemManager {
   hwDeps(): Promise<HwDepStatus[]>;
   /** Install one allowlisted native driver module via npm (slow: it compiles). */
   hwDepInstall(name: HwDepName): Promise<HwDepInstallResult>;
-  /** Restart the vehicle service itself, so a freshly installed driver is picked up. */
+  /** Restart the gateway service itself, so a freshly installed driver is picked up. */
   restartService(): Promise<ActionResult>;
   /** Everything reachable on the site's networks. `active` adds a ping sweep. */
   scanNetwork(opts?: { active?: boolean }): Promise<ScanResult>;

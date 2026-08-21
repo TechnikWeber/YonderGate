@@ -1,5 +1,5 @@
 /**
- * Pure helpers around telemetry channels — shared by the vehicle (which does the
+ * Pure helpers around telemetry channels — shared by the gateway (which does the
  * battery maths) and the ground (which warns and logs on the same channel).
  */
 import type { TelemetryMessage, TelemetryReading } from './types/telemetry';
@@ -14,7 +14,7 @@ export function primaryIndex(channels: { primary?: boolean }[]): number {
   return i >= 0 ? i : 0;
 }
 
-/** The pack-voltage reading the vehicle counted with, or null. */
+/** The pack-voltage reading the gateway counted with, or null. */
 export function primaryVoltage(t: TelemetryMessage | null | undefined): TelemetryReading | null {
   if (!t?.voltages?.length) return null;
   return t.voltages[t.primaryVoltage ?? 0] ?? t.voltages[0] ?? null;
@@ -27,7 +27,7 @@ export function primaryCurrent(t: TelemetryMessage | null | undefined): Telemetr
 }
 
 /**
- * Stable key for one telemetry reading, used to remember per-channel OSD
+ * Stable key for one telemetry reading, used to remember per-channel status page
  * visibility. The label is what the operator sees and edits, so it is the key;
  * the index keeps unlabelled channels apart.
  */

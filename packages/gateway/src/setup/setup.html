@@ -49,7 +49,7 @@
       .btn[data-busy] { cursor: progress; }
       .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
       .head a { text-decoration: none; }
-      /* Same shape as the ground app's masthead version, so the two read as one product. */
+      /* Same shape as the setup page's masthead version, so the two read as one product. */
       .ver { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 400; }
       /* Thin divider between groups of status rows (LTE / remote access / WiFi). */
       .sep { border-top: 1px solid var(--line); margin: 8px 0 4px; }
@@ -90,8 +90,8 @@
     <div class="wrap">
       <div class="head">
         <h1>YonderGate <span class="ver" id="ver">…</span></h1>
-        <!-- Shown only when the ground app is actually built on this vehicle. The
-             ground app has the mirror image of this link, so you can get back. -->
+        <!-- Shown only when the setup page is actually built on this gateway. The
+             setup page has the mirror image of this link, so you can get back. -->
         <a class="btn tiny" id="ground-link" href="/" style="display:none">Control ↗</a>
       </div>
 
@@ -144,7 +144,7 @@
           <button class="btn primary" onclick="run(this, () => lteConnect())">Connect</button>
           <button class="btn" onclick="run(this, () => post('/api/lte/disconnect'))">Disconnect</button>
         </div>
-        <p class="msg">Most data SIMs need only the APN. Add a PIN if your SIM is locked, and username/password only if your carrier requires APN auth. PIN/password are stored on the vehicle and never shown again.</p>
+        <p class="msg">Most data SIMs need only the APN. Add a PIN if your SIM is locked, and username/password only if your carrier requires APN auth. PIN/password are stored on the gateway and never shown again.</p>
         <div class="msg" id="lte-msg"></div>
 
         <div class="eyebrow2" style="margin-top:12px">SIM PIN management</div>
@@ -176,7 +176,7 @@
           <button class="btn" onclick="run(this, () => loadHilink())">Refresh</button>
           <a class="btn" id="hilink-open" href="#" target="_blank" rel="noopener" style="display:none">Open the stick's UI ↗</a>
         </div>
-        <p class="msg">The stick's own network (192.168.8.0/24) is reachable only from the Pi. With a port set, the vehicle passes the stick's configuration page through, so you can open it from the hotspot, the LAN or the VPN instead of putting a keyboard on the vehicle — <b>APN, SIM PIN and network mode live in the stick</b>. If an API secret is set, open it once as <span class="mono">…:PORT/?secret=YOUR_SECRET</span>; the vehicle then remembers it in a cookie. Leave the port empty to keep the stick's admin page off the network.</p>
+        <p class="msg">The stick's own network (192.168.8.0/24) is reachable only from the Pi. With a port set, the gateway passes the stick's configuration page through, so you can open it from the hotspot, the LAN or the VPN instead of putting a keyboard on the gateway — <b>APN, SIM PIN and network mode live in the stick</b>. If an API secret is set, open it once as <span class="mono">…:PORT/?secret=YOUR_SECRET</span>; the gateway then remembers it in a cookie. Leave the port empty to keep the stick's admin page off the network.</p>
         <div class="msg" id="hilink-msg"></div>
       </section>
 
@@ -217,7 +217,7 @@
         <div class="btns">
           <button class="btn primary" onclick="run(this, () => connectWifi())">Connect</button>
         </div>
-        <p class="msg">The Pi has one radio: joining a network <b>closes the setup hotspot</b>, so this page will stop responding. Rejoin your own WiFi and open <span class="mono">http://yondergate.local:8080/setup</span>. If the password is wrong, the vehicle brings the hotspot back up.</p>
+        <p class="msg">The Pi has one radio: joining a network <b>closes the setup hotspot</b>, so this page will stop responding. Rejoin your own WiFi and open <span class="mono">http://yondergate.local:8080/setup</span>. If the password is wrong, the gateway brings the hotspot back up.</p>
         <div class="msg" id="wifi-msg"></div>
 
         <div class="eyebrow2" style="margin-top:12px">Setup hotspot</div>
@@ -237,7 +237,7 @@
           <button class="btn" onclick="run(this, () => saveHotspot({ start: true }))">Save &amp; start now</button>
           <button class="btn" onclick="run(this, () => saveHotspot({ stop: true }))">Stop hotspot</button>
         </div>
-        <p class="msg">The hotspot is <b>open by default</b> so the captive portal can put this page in front of you with nothing to type — set a password (min. 8 characters) once the vehicle leaves the bench, and an <b>API secret</b> above if the network isn't yours. Since v1.41.0 it runs in <b>always</b>: it comes up whenever the WiFi radio is free, next to Ethernet or LTE, so you can always reach the vehicle. It can never run while the Pi is <i>joined</i> to a WiFi network — one radio can't do both.</p>
+        <p class="msg">The hotspot is <b>open by default</b> so the captive portal can put this page in front of you with nothing to type — set a password (min. 8 characters) once the gateway leaves the bench, and an <b>API secret</b> above if the network isn't yours. Since v1.41.0 it runs in <b>always</b>: it comes up whenever the WiFi radio is free, next to Ethernet or LTE, so you can always reach the gateway. It can never run while the Pi is <i>joined</i> to a WiFi network — one radio can't do both.</p>
         <div class="msg" id="ap-msg"></div>
       </section>
 
@@ -264,7 +264,7 @@
           <label>WireGuard .conf (e.g. exported by your FritzBox)
             <input id="wgFile" type="file" accept=".conf,text/plain" onchange="loadWgFile(event)" />
           </label>
-          <p class="msg" id="wg-file-msg">Upload the .conf file; it's stored on the vehicle and applied with wg-quick.</p>
+          <p class="msg" id="wg-file-msg">Upload the .conf file; it's stored on the gateway and applied with wg-quick.</p>
         </div>
         <div class="btns">
           <button class="btn primary" onclick="run(this, () => remoteUp())">Bring up</button>
@@ -294,7 +294,7 @@
 
       <section class="panel">
         <div class="eyebrow">Security (optional)</div>
-        <p class="msg">Optional shared secret. When set, saving settings here and the control link both require it — in the ground app, enter it in the “secret” field next to the address; here you'll be prompted. <b>Off by default</b>, so first-time connect and setup need nothing.</p>
+        <p class="msg">Optional shared secret. When set, saving settings here and the control link both require it — in the setup page, enter it in the “secret” site next to the address; here you'll be prompted. <b>Off by default</b>, so first-time connect and setup need nothing.</p>
         <label>API secret<input id="apiSecret" type="password" placeholder="leave empty = off" autocomplete="new-password" /></label>
         <div class="btns">
           <button class="btn" onclick="run(this, () => generateSecret())">Generate</button>
@@ -311,8 +311,12 @@
         <div class="btns">
           <button class="btn" onclick="run(this, () => addCamera())">+ Add camera</button>
           <button class="btn primary" onclick="run(this, () => saveCameras())">Save &amp; apply</button>
+          <button class="btn" onclick="run(this, () => refreshCams())">Refresh preview</button>
         </div>
         <div class="msg" id="cam-msg"></div>
+        <div class="eyebrow2" style="margin-top:12px">Live view</div>
+        <div id="cam-preview"><div class="msg">Save a camera, then Refresh preview.</div></div>
+        <p class="msg">Streams are served by <b>go2rtc</b> on the video base URL above (default port 1984), not by this page — the gateway only writes its configuration. A still image means the camera works; <b>Open stream ↗</b> gives you the live player. Locally: <span class="mono">npm run dev:video</span>.</p>
       </section>
 
       <section class="panel">
@@ -337,7 +341,7 @@
         <div class="eyebrow2">Temperature channels</div>
         <div id="temp-list"></div>
         <div class="btns"><button class="btn" onclick="run(this, () => addTemp())">+ Temperature</button></div>
-        <p class="msg">Optional. Shown in the OSD below voltage/current; each value can be hidden per ground device under FPV › ⚙ › <i>Sensor values</i>. Give short labels (<code>T1</code>, <code>Motor</code>, <code>ESC</code>) — they are only shown once a kind has more than one channel.</p>
+        <p class="msg">Optional. Shown in the status page below voltage/current; each value can be hidden per ground device under video › ⚙ › <i>Sensor values</i>. Give short labels (<code>T1</code>, <code>Motor</code>, <code>ESC</code>) — they are only shown once a kind has more than one channel.</p>
         <div class="grid2">
           <label>Battery capacity (mAh)<input id="capacity" type="number" placeholder="e.g. 2200" /></label>
           <label>Capacity display
@@ -390,8 +394,8 @@
           <label>Branch<input id="updBranch" placeholder="main" /></label>
         </div>
         <div class="btns"><button class="btn" onclick="run(this, () => saveUpdateSource())">Save source</button></div>
-        <p class="msg">Defaults to this vehicle's own <span class="mono">origin</span> / <span class="mono">main</span>. Point it at a fork or a branch by entering a git remote name or a full URL (e.g. <span class="mono">https://github.com/you/YonderGate.git</span>) — useful for testing your own build on the vehicle.</p>
-        <p class="msg">Does what an SSH session would: <span class="mono">git pull --ff-only</span>, installs changed dependencies, rebuilds the control app when it changed, then restarts the vehicle service — so you can update from a field with nothing but this page. The vehicle needs <b>internet</b> for it. If a step fails, it stops there and keeps running the version you have.</p>
+        <p class="msg">Defaults to this gateway's own <span class="mono">origin</span> / <span class="mono">main</span>. Point it at a fork or a branch by entering a git remote name or a full URL (e.g. <span class="mono">https://github.com/you/YonderGate.git</span>) — useful for testing your own build on the gateway.</p>
+        <p class="msg">Does what an SSH session would: <span class="mono">git pull --ff-only</span>, installs changed dependencies, rebuilds the control app when it changed, then restarts the gateway service — so you can update from a site with nothing but this page. The gateway needs <b>internet</b> for it. If a step fails, it stops there and keeps running the version you have.</p>
         <div class="msg" id="upd-msg"></div>
         <div class="log" id="upd-log" style="display:none"></div>
       </section>
@@ -399,14 +403,14 @@
       <section class="panel">
         <div class="eyebrow">System</div>
         <div class="btns">
-          <button class="btn bad" onclick="run(this, () => reboot())">Reboot vehicle</button>
+          <button class="btn bad" onclick="run(this, () => reboot())">Reboot gateway</button>
           <button class="btn bad" onclick="run(this, () => factoryReset())">Factory reset</button>
         </div>
-        <p class="msg">Factory reset clears all saved vehicle settings (incl. the API secret) — restart to apply defaults.</p>
+        <p class="msg">Factory reset clears all saved gateway settings (incl. the API secret) — restart to apply defaults.</p>
         <div class="msg" id="sys-msg"></div>
       </section>
 
-      <div class="foot">YonderGate setup · configure headless, then connect from the ground app</div>
+      <div class="foot">YonderGate setup · configure headless, then connect from the setup page</div>
     </div>
 
     <script>
@@ -486,12 +490,12 @@
         // Mirrors "ground · vX.Y.Z" in the control app — same place, same shape, so
         // it is obvious at a glance whether the two halves are on the same version.
         $('ver').textContent = s.version ? `gateway · v${s.version}` : '';
-        // A HiLink stick fills the LTE row but cannot be steered from this panel.
+        // A HiLink stick fills the LTE row but is not configurable from this panel.
         const hl = $('lte-hilink-note');
         const isHilink = !!(s.lte && s.lte.kind === 'hilink');
         if (isHilink) {
           hl.style.display = 'block';
-          hl.innerHTML = 'This vehicle\'s uplink is a <b>HiLink stick</b> — it dials itself, so the fields here do nothing for it. APN, SIM PIN and network mode are set in the stick; see <b>LTE stick (HiLink)</b> below.';
+          hl.innerHTML = 'This gateway\'s uplink is a <b>HiLink stick</b> — it dials itself, so the fields here do nothing for it. APN, SIM PIN and network mode are set in the stick; see <b>LTE stick (HiLink)</b> below.';
         } else {
           hl.style.display = 'none';
         }
@@ -516,14 +520,14 @@
           sep +
           row('WiFi', `${wifi.mode}${wifi.ssid ? ' · ' + wifi.ssid : ''}`) +
           // Every address in one place: LTE (WAN), the tailnet, and now the WiFi one —
-          // which is the one you actually type when the vehicle is on your LAN.
+          // which is the one you actually type when the gateway is on your LAN.
           (wifi.ip ? row('· IP', wifi.ip) : '');
         // Keep this line honest: it used to hold whatever the last button press wrote,
         // so a stale "Starting…" could sit under a status row that already said Running.
         if (ts.loginUrl) {
           $('ts-msg').innerHTML = `Login: <a href="${ts.loginUrl}" target="_blank" rel="noreferrer">${ts.loginUrl}</a>`;
         } else if (remoteKindNow === 'tailscale' && ts.running) {
-          $('ts-msg').innerHTML = `Up as <b class="mono">yondergate</b>${ts.ip ? ` · <span class="mono">${esc(ts.ip)}</span>` : ''} — reach the vehicle at <span class="mono">http://yondergate:${location.port || 8080}/</span>`;
+          $('ts-msg').innerHTML = `Up as <b class="mono">yondergate</b>${ts.ip ? ` · <span class="mono">${esc(ts.ip)}</span>` : ''} — reach the gateway at <span class="mono">http://yondergate:${location.port || 8080}/</span>`;
         }
       }
 
@@ -551,7 +555,7 @@
           hwDeps = r.deps || [];
           renderHwDeps();
         } catch {
-          $('hwdeps').innerHTML = '<div class="msg">Could not read the module status (is the vehicle service running?).</div>';
+          $('hwdeps').innerHTML = '<div class="msg">Could not read the module status (is the gateway service running?).</div>';
         }
       }
       function renderHwDeps() {
@@ -574,7 +578,7 @@
         } catch (e) {
           // Lost connection mid-install (service restarted, WiFi blip): the install
           // itself may well have succeeded, so don't claim it failed.
-          r = { ok: false, message: 'Lost contact with the vehicle during the install.', fix: 'Reload this page — the status below shows whether it made it through.', output: String(e) };
+          r = { ok: false, message: 'Lost contact with the gateway during the install.', fix: 'Reload this page — the status below shows whether it made it through.', output: String(e) };
         }
         if (r.ok) {
           $('hw-msg').innerHTML = `<b style="color:var(--go)">✓ ${esc(r.message)}</b> <button class="btn tiny" onclick="run(this, () => restartService())">Restart service now</button>`;
@@ -586,12 +590,12 @@
       }
 
       async function restartService() {
-        $('hw-msg').textContent = 'Restarting the vehicle service…';
+        $('hw-msg').textContent = 'Restarting the gateway service…';
         try {
           const r = await post('/api/restart', {});
           $('hw-msg').textContent = r.message || 'Restart requested.';
         } catch {
-          $('hw-msg').textContent = 'Restart requested — the vehicle dropped the connection, which is expected.';
+          $('hw-msg').textContent = 'Restart requested — the gateway dropped the connection, which is expected.';
         }
         setTimeout(() => { loadHwDeps(); refresh(); }, 6000);
       }
@@ -654,7 +658,7 @@
         const el = $('apiSecret');
         el.type = 'text'; // it has to be readable once — it is never shown again
         el.value = secret;
-        $('sec-gen').innerHTML = '<b>Copy this now</b> — it is stored on the vehicle and never shown again. Then press “Apply secret”.';
+        $('sec-gen').innerHTML = '<b>Copy this now</b> — it is stored on the gateway and never shown again. Then press “Apply secret”.';
       }
 
       async function applySecret() {
@@ -663,7 +667,7 @@
         const r = await post('/api/config', { apiSecret: v });
         apiSecret = v; sessionStorage.setItem('ygw_secret', v); // stay authed after setting
         $('apiSecret').value = '';
-        $('sec-msg').textContent = 'Secret set — the ground app must now use it too.';
+        $('sec-msg').textContent = 'Secret set — the setup page must now use it too.';
         void r;
         updateSecState(true);
       }
@@ -702,6 +706,29 @@
         $('ltePin').value = ''; $('ltePass').value = '';
         refresh();
       }
+      // ---- camera preview ----
+      // The gateway generates go2rtc's config but does not serve video itself, so the
+      // preview points straight at go2rtc: a still frame to prove the camera works,
+      // and its own player for the live stream.
+      function videoBase() {
+        const v = ($('videoBaseUrl').value || '').trim().replace(/\/$/, '');
+        return v || `http://${location.hostname}:1984`;
+      }
+      function refreshCams() {
+        const base = videoBase();
+        const names = (cams || []).map((c) => c.name);
+        $('cam-preview').innerHTML = names.length
+          ? names.map((n) => `<div class="item">
+              <div class="hw-row"><b class="mono">${esc(n)}</b>
+                <span class="hw-right"><a class="btn tiny" href="${esc(base)}/stream.html?src=${encodeURIComponent(n)}" target="_blank" rel="noopener">Open stream ↗</a></span>
+              </div>
+              <img style="width:100%;border-radius:8px;border:1px solid var(--line)"
+                   src="${esc(base)}/api/frame.jpeg?src=${encodeURIComponent(n)}&t=${Date.now()}"
+                   onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'msg',textContent:'No frame from ${esc(n)} — is go2rtc running on ${esc(base)}?'}))" />
+            </div>`).join('')
+          : '<div class="msg">No cameras configured.</div>';
+      }
+
       // ---- the site's network ----
       let scanned = null;
       let publishedPorts = {};
@@ -872,7 +899,7 @@
           const st = w.wifi || {};
           $('wifi-status').textContent =
             st.mode === 'ap'
-              ? `Hotspot mode · ${st.ssid || '—'} · ${st.ip || ''} — pick your network below to put the vehicle on your WiFi.`
+              ? `Hotspot mode · ${st.ssid || '—'} · ${st.ip || ''} — pick your network below to put the gateway on your WiFi.`
               : `${st.mode === 'client' ? 'Connected' : 'WiFi'} · ${st.ssid || '—'}${st.ip ? ' · ' + st.ip : ''}`;
           $('apSsid').value = (w.hotspot && w.hotspot.ssid) || '';
           $('apMode').value = (w.hotspot && w.hotspot.mode) || 'auto';
@@ -1023,14 +1050,14 @@
         refresh();
       }
       async function reboot() {
-        if (!confirm('Reboot the vehicle now?')) return;
+        if (!confirm('Reboot the gateway now?')) return;
         const r = await post('/api/reboot');
         $('sys-msg').textContent = r.message || '';
       }
       async function factoryReset() {
-        if (!confirm('Factory reset: clear ALL saved vehicle settings (name, driver, cameras, telemetry, LTE APN, API secret)? Restart is needed to apply.')) return;
+        if (!confirm('Factory reset: clear ALL saved gateway settings (name, driver, cameras, telemetry, LTE APN, API secret)? Restart is needed to apply.')) return;
         const r = await post('/api/factory-reset');
-        // The secret was cleared on the vehicle — forget ours too so the UI isn't stuck on 401.
+        // The secret was cleared on the gateway — forget ours too so the UI isn't stuck on 401.
         apiSecret = ''; sessionStorage.removeItem('ygw_secret');
         $('sys-msg').textContent = r.message || 'Factory reset done.';
       }
@@ -1179,7 +1206,7 @@
       function vSet(i, k, val) { volts[i][k] = val; }
       function cSet(i, k, val) { currs[i][k] = val; }
       function tSet(i, k, val) { temps[i][k] = val; }
-      // The field is labelled hex: "0x48" and a bare "48" both mean 0x48.
+      // The site is labelled hex: "0x48" and a bare "48" both mean 0x48.
       function tSetAddr(i, val) {
         const raw = String(val).trim();
         const n = /^0x/i.test(raw) ? Number(raw) : parseInt(raw, 16);
@@ -1241,7 +1268,7 @@
       }
 
       // ---- Software update ----
-      // Check first, apply second: in the field you want to see what you are about to
+      // Check first, apply second: in the site you want to see what you are about to
       // change before you change it.
       async function checkUpdate() {
         $('upd-log').style.display = 'none';
@@ -1293,7 +1320,7 @@
           r = await post('/api/update', {});
         } catch {
           // The service restarts at the end, so losing the connection here is normal.
-          r = { ok: true, message: 'The vehicle stopped answering — that is expected while it restarts.', restarting: true, steps: [] };
+          r = { ok: true, message: 'The gateway stopped answering — that is expected while it restarts.', restarting: true, steps: [] };
         }
         const steps = (r.steps || []).map((st) => `${st.ok ? '✓' : '✗'} ${esc(st.label)}`).join('<br>');
         $('upd-msg').innerHTML =

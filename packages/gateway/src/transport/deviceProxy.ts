@@ -52,7 +52,7 @@ export interface DeviceProxyHandle {
 export function startDeviceProxy(opts: {
   port: number;
   host: string;
-  /** API secret, or null when the vehicle runs without one. */
+  /** API secret, or null when the gateway runs without one. */
   secret: string | null;
   /** The device's HTTP port. */
   targetPort?: number;
@@ -66,7 +66,7 @@ export function startDeviceProxy(opts: {
 
     if (auth === 'denied') {
       res.writeHead(401, { 'content-type': 'text/plain; charset=utf-8' });
-      res.end('This vehicle has an API secret. Open this page once as  …/?secret=YOUR_SECRET\n');
+      res.end('This gateway has an API secret. Open this page once as  …/?secret=YOUR_SECRET\n');
       return;
     }
     if (auth === 'set-cookie') {

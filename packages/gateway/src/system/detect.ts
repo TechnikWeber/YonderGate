@@ -28,7 +28,7 @@ export interface I2cSuggestion {
 export function suggestI2c(addresses: number[]): I2cSuggestion[] {
   const hex = (n: number) => '0x' + n.toString(16).padStart(2, '0');
   const hintFor = (a: number): string => {
-    if (a === 0x40) return 'PCA9685 servo/ESC driver — or INA2xx current sensor (219/226/228/237/238)';
+    if (a === 0x40) return 'INA2xx current sensor (219/226/228/237/238) — or a PCA9685';
     if (a >= 0x48 && a <= 0x4b) return 'ADS1015/1115 ADC (voltage) — or INA2xx';
     if (a >= 0x41 && a <= 0x4f) return 'INA2xx current sensor (219/226/228/237/238/3221)';
     if (a === 0x36) return 'MAX17043 battery fuel gauge';

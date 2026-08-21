@@ -210,16 +210,16 @@ export function wifiCountryArgs(cc: string): string[] {
 /** NetworkManager's dnsmasq drop-in directory, read for *shared* connections only. */
 export const CAPTIVE_CONF_PATH = '/etc/NetworkManager/dnsmasq-shared.d/yondergate-captive.conf';
 
-/** Resolve every name to the vehicle — this is what makes a phone show the portal. */
+/** Resolve every name to the gateway — this is what makes a phone show the portal. */
 export function captivePortalConf(address = HOTSPOT_ADDRESS): string {
   return `address=/#/${address}\n`;
 }
 
 /**
- * Hijack DNS only when the vehicle has no uplink of its own.
+ * Hijack DNS only when the gateway has no uplink of its own.
  *
  * With an uplink the hotspot shares real internet (Ethernet on the bench, LTE in the
- * field), and pointing every name at the Pi would break the internet for everyone
+ * site), and pointing every name at the Pi would break the internet for everyone
  * connected — while the portal it triggers is pointless, because those clients are
  * online. Without an uplink it is the whole trick that opens the page unprompted.
  */
@@ -252,7 +252,7 @@ export function explainWifiFailure(out: string, radio?: WifiRadioStatus | null):
   if (radio && radio.device === 'missing') {
     return {
       cause: 'this Pi has no WiFi interface (wlan0 does not exist)',
-      fix: 'A Pi without WiFi (or with the interface disabled in config.txt) cannot serve a hotspot. Reach the vehicle over Ethernet or LTE.',
+      fix: 'A Pi without WiFi (or with the interface disabled in config.txt) cannot serve a hotspot. Reach the gateway over Ethernet or LTE.',
       fixableHere: false,
     };
   }
@@ -285,7 +285,7 @@ export function explainWifiFailure(out: string, radio?: WifiRadioStatus | null):
   if (/Secrets were required|no secrets provided|802-1x|invalid password|key-mgmt/i.test(log)) {
     return {
       cause: 'the password was rejected',
-      fix: 'A WPA2 key needs at least 8 characters. Leave the field empty for an open hotspot.',
+      fix: 'A WPA2 key needs at least 8 characters. Leave the site empty for an open hotspot.',
       fixableHere: false,
     };
   }

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Download go2rtc (once) and run it with the YonderGate config so you can see the
-# FPV test pattern + OSD in the ground app during development. Needs ffmpeg.
+# Download go2rtc (once) and run it against the config the gateway generates, so the
+# camera panel shows a live test pattern during development. Needs ffmpeg.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-BIN="./bin/go2rtc"
-CFG="./docker/go2rtc.yaml"
+BIN="./.runtime/go2rtc"
+CFG="./.runtime/go2rtc.yaml"   # written by the gateway from the camera list
 
 if ! command -v ffmpeg >/dev/null; then
   echo "ffmpeg is required. On Fedora: sudo dnf install -y ffmpeg (see note below)."
@@ -33,7 +33,7 @@ PICKED=$(echo "$ENCODERS" | grep -oE 'libx264|libopenh264|h264_v4l2m2m|h264_omx|
 echo "H.264 encoder available: $PICKED"
 
 if [ ! -x "$BIN" ]; then
-  mkdir -p bin
+  mkdir -p .runtime
   case "$(uname -m)" in
     x86_64) GOARCH=amd64 ;;
     aarch64|arm64) GOARCH=arm64 ;;

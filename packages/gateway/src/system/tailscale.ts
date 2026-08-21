@@ -15,7 +15,7 @@ export interface TailscaleStatusInfo {
   running: boolean;
   /** Pending login URL, or null when no login is in progress. */
   authUrl: string | null;
-  /** The vehicle's own IPv4 in the tailnet. */
+  /** The gateway's own IPv4 in the tailnet. */
   ip: string | null;
 }
 

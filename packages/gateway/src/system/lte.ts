@@ -29,7 +29,7 @@ export function isValidPin(pin: string): boolean {
 }
 
 export function parseModemInfo(text: string): ModemInfo {
-  // The modem "state:" field, excluding "power state:" via a negative lookbehind.
+  // The modem "state:" site, excluding "power state:" via a negative lookbehind.
   const state = text.match(/(?<!power )state:\s*'?([\w-]+)/i)?.[1]?.toLowerCase() ?? 'unknown';
   const operator = text.match(/operator name:\s*'?([^'\n]+?)'?\s*$/im)?.[1]?.trim() || null;
   const signalStr = text.match(/signal quality:\s*'?(\d+)/i)?.[1];

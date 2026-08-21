@@ -8,7 +8,7 @@
 # The hotspot is OPEN by default: the captive portal then puts the setup page in
 # front of you with nothing to type, and a default password published in a public
 # README protected nothing anyway. Set one in Setup › WiFi › Setup hotspot (and an
-# API secret) before the vehicle leaves the bench.
+# API secret) before the gateway leaves the bench.
 set -uo pipefail
 
 CONFIG="${YGW_CONFIG:-/opt/yondergate/yondergate-config.json}"
@@ -42,7 +42,7 @@ sleep 25
 
 have_route() { ip route | grep -q '^default'; }
 # Is wlan0 joined to a normal network (i.e. NOT our own Hotspot profile)? One radio
-# can't serve an AP and stay joined, and tearing that link down would cut the vehicle
+# can't serve an AP and stay joined, and tearing that link down would cut the gateway
 # off the LAN — so a WiFi client connection always wins over "always".
 wifi_is_client() {
   nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null |
@@ -89,7 +89,7 @@ fi
 # Build the profile explicitly. `nmcli device wifi hotspot` ALWAYS secures the AP:
 # "If not provided, nmcli will generate a password" — so the OPEN onboarding hotspot
 # this script promises was never open, and nobody could join it. Mirrors
-# hotspotCommands() in vehicle/system/wifi.ts.
+# hotspotCommands() in gateway/system/wifi.ts.
 nmcli connection delete Hotspot >/dev/null 2>&1 || true
 if ! nmcli connection add type wifi ifname "$IFACE" con-name Hotspot autoconnect no ssid "$SSID" \
     802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared ipv4.addresses 192.168.4.1/24; then
@@ -108,10 +108,10 @@ fi
 
 # Captive portal: make NetworkManager's dnsmasq resolve EVERY name to the Pi, so
 # phones detect a captive portal and open the control/setup page by themselves.
-# ONLY without an uplink: with one (Ethernet on the bench, LTE in the field) the
+# ONLY without an uplink: with one (Ethernet on the bench, LTE in the site) the
 # hotspot shares real internet, and hijacking DNS would break it for every client
 # while the portal would be pointless. Written BEFORE the profile comes up, so
-# dnsmasq starts with it. Mirrors shouldHijackDns() in vehicle/system/wifi.ts.
+# dnsmasq starts with it. Mirrors shouldHijackDns() in gateway/system/wifi.ts.
 NMDIR=/etc/NetworkManager/dnsmasq-shared.d
 CAPTIVE="$NMDIR/yondergate-captive.conf"
 if have_route; then

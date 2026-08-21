@@ -1,6 +1,6 @@
 /**
  * Pure link-signal helpers — no I/O, unit-tested. Turn `iw dev <if> link` output
- * into a dBm value and a 0..100 quality percentage, so the OSD can show one
+ * into a dBm value and a 0..100 quality percentage, so the status page can show one
  * uniform "link health" number regardless of LTE vs WiFi.
  */
 

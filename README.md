@@ -31,7 +31,9 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot.
 - **Sensors**: voltage, current and temperature over I²C (INA2xx, ADS1115, and the
   usual temperature parts), or simulated when no hardware is attached.
-- **Cameras** via go2rtc, configured graphically.
+- **Cameras** via go2rtc, configured graphically, with a still-frame preview and a
+  link to the live player right in the page. `npm run dev:video` runs the whole
+  thing locally against a simulated camera.
 - **Update from the page**: check what is coming in, then pull and restart —
   designed for a site you reach only over LTE.
 - **Optional API secret** guarding every mutating call and the proxied device UIs.
@@ -75,7 +77,7 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [ ] A sensible page for a solar site: battery voltage, charge/discharge, temperature
       history rather than just current values
 - [ ] Alert when the battery goes below a threshold (push? e-mail? Tailscale-only?)
-- [ ] Camera snapshots on the status page
+- [x] Camera preview on the setup page (still frame + link to go2rtc's player)
 
 **Operations**
 - [ ] Decide the license before this gets contributors (see docs/CONCEPT.md)

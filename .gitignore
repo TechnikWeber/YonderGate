@@ -9,3 +9,5 @@ bin/
 # Written by the running vehicle service, not source
 yondergate-config.json
 packages/*/yondergate-config.json
+# Generated at runtime (go2rtc config, downloaded helpers)
+.runtime/

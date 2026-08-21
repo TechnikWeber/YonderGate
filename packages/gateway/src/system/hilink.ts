@@ -8,7 +8,7 @@
  * small XML API on its web UI, so that is where we read it from.
  *
  * Design rules:
- *  - **Never identify the stick by interface name.** A vehicle on a FritzBox LAN has
+ *  - **Never identify the stick by interface name.** A gateway on a FritzBox LAN has
  *    eth0 and the stick on eth1 (or the other way round after a reboot); guessing by
  *    name would eventually report the LAN as "LTE" or dial through the wrong link.
  *    The routing table is asked instead: whichever interface routes to the stick's
@@ -112,7 +112,7 @@ export function dbmValue(raw: string | undefined): number | null {
 }
 
 /**
- * Signal as a percentage for the OSD. RSRP is the honest measure on LTE
+ * Signal as a percentage for the status page. RSRP is the honest measure on LTE
  * (−140 dBm = unusable … −75 dBm = excellent); the stick's own 0–5 bar icon is the
  * fallback, because some firmwares leave RSRP empty.
  */
@@ -237,8 +237,8 @@ export async function readHilink(get: HilinkGet, iface: string | null): Promise<
 }
 
 /**
- * Present a HiLink stick as the vehicle's LTE status. Without this the status panel
- * says "no modem" while the vehicle is happily online over that very stick — the APN
+ * Present a HiLink stick as the gateway's LTE status. Without this the status panel
+ * says "no modem" while the gateway is happily online over that very stick — the APN
  * stays null on purpose, because it lives inside the stick and we cannot set it.
  */
 export function hilinkAsLte(h: HilinkStatus): LteStatus {
@@ -258,9 +258,9 @@ export function hilinkAsLte(h: HilinkStatus): LteStatus {
 }
 
 /**
- * Label for the OSD link block. "LTE 72%" on 4G — repeating "4G (LTE)" after it adds
+ * Label for the status page link block. "LTE 72%" on 4G — repeating "4G (LTE)" after it adds
  * nothing — but a **2G/3G fallback is spelled out**, because that is the moment video
- * stops working and the pilot needs to know why.
+ * stops working and the operator needs to know why.
  */
 export function hilinkOsdLabel(h: HilinkStatus): string {
   const pct = h.signalPercent != null ? ` ${h.signalPercent}%` : '';

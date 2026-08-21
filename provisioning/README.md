@@ -1,6 +1,6 @@
-# YonderGate vehicle provisioning (Raspberry Pi, headless)
+# YonderGate gateway provisioning (Raspberry Pi, headless)
 
-Turns a Raspberry Pi into a headless YonderGate vehicle: control service, go2rtc
+Turns a Raspberry Pi into a headless YonderGate gateway: control service, go2rtc
 video, LTE, and Tailscale for remote access — configured from a phone/laptop via
 a local web page, no screen or keyboard needed.
 
@@ -45,10 +45,10 @@ go2rtc, does `npm install`, and enables three services:
   setup page appears; otherwise open `http://192.168.4.1:8080/setup`.
   From there, **Setup › WiFi** scans for networks and joins one — the hotspot closes as
   soon as the Pi is on your WiFi. Set a hotspot password (and an API secret) in the same
-  panel before the vehicle leaves the bench.
+  panel before the gateway leaves the bench.
 
-On the setup page you can set the vehicle name, output driver (sim / pca9685 /
-gpio-pwm / sbus), cameras, watchdog, throttle channels, connect LTE (enter your
+On the setup page you can set the gateway name, output driver (sim / pca9685 /
+gpio-pwm / sbus), cameras, watchdog, load channels, connect LTE (enter your
 carrier APN), and bring up Tailscale.
 
 ## 4. LTE
@@ -58,15 +58,15 @@ page and press Connect. The APN is saved and auto-connects on future boots.
 
 ## 5. Tailscale (remote access over LTE)
 
-Mobile carriers use CGNAT, so the vehicle has no public inbound IP. Tailscale puts
-the vehicle and your ground PC/phone on the same private network so they can reach
+Mobile carriers use CGNAT, so the gateway has no public inbound IP. Tailscale puts
+the gateway and your ground PC/phone on the same private network so they can reach
 each other anywhere.
 
 - On the setup page, press **Bring up**. Without an auth key you get a login URL —
   open it and approve the device in your tailnet.
 - Or paste a pre-generated **auth key** for hands-off setup.
 
-Then, from the ground app, connect to the vehicle's Tailscale IP (shown on the
+Then, from the setup page, connect to the gateway's Tailscale IP (shown on the
 setup page), e.g. `ws://100.x.y.z:8080`. Video works the same way via
 `http://100.x.y.z:1984`.
 
@@ -89,7 +89,7 @@ npm install serialport   -w @yondergate/gateway   # SBUS
 ## 7. Running as a non-root user (optional hardening)
 
 The shipped `yondergate.service` runs as **`User=root`** (pigpio needs root
-for DMA PWM). If you instead run it as a **non-root user**, the vehicle's privileged
+for DMA PWM). If you instead run it as a **non-root user**, the gateway's privileged
 helpers — SIM-PIN unlock (`mmcli`), WireGuard (`wg`/`wg-quick`), ZeroTier
 (`zerotier-cli`), placing the WireGuard conf (`install`) and the reboot button —
 need passwordless sudo. A ready-made, minimal policy ships in
@@ -110,7 +110,7 @@ file for the security note about `install`.
 
 ## Building a ready-made image (optional)
 
-For flashing many vehicles, bake the above into a `.img` with
+For flashing many gateways, bake the above into a `.img` with
 [`rpi-image-gen`](https://github.com/RPi-Distro/rpi-image-gen) or `pi-gen`, adding
 this repo to `/opt/yondergate` and running `install.sh` in a customization stage.
 For a single build, the flash-then-`install.sh` path above is simplest.

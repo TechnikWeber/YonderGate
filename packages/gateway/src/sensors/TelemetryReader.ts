@@ -42,7 +42,7 @@ const W1_DIR = '/sys/bus/w1/devices';
 
 /**
  * SimReader: plausible battery telemetry with no hardware. A pack voltage that
- * sags under load and a wandering current draw, so the OSD, coulomb counting and
+ * sags under load and a wandering current draw, so the status page, coulomb counting and
  * percentage all animate realistically for development.
  */
 export class SimReader implements TelemetryReader {
@@ -98,7 +98,7 @@ export class SimReader implements TelemetryReader {
       this.accMah = C.accumulateMah(this.accMah, currents[iC] ?? 0, dt);
       this.accWh = C.accumulateWh(this.accWh, voltages[iV] ?? 0, currents[iC] ?? 0, dt);
     }
-    // Temperatures: a warm-up curve that follows the load, so the OSD shows
+    // Temperatures: a warm-up curve that follows the load, so the status page shows
     // something plausible instead of a constant. Each channel gets its own offset.
     const load = current / 25;
     const temperatures = (this.cfg.temperatures ?? []).map(

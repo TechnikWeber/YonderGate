@@ -424,12 +424,12 @@ async function main() {
 
 
   // ---- native driver modules: allowlist, npm args, failure diagnosis ----
-  // These sentences are the whole user-facing failure story on a vehicle that may
+  // These sentences are the whole user-facing failure story on a gateway that may
   // only be reachable from a phone, so they are pinned here.
   const { isHwDep, npmInstallArgs, explainNpmFailure, errorExcerpt, lastLines, HW_DEPS } = await import('../packages/gateway/src/system/hwDeps');
   ok('allowlist has exactly the one module we need', HW_DEPS.length === 1 && isHwDep('i2c-bus'));
   ok('allowlist rejects everything else', !isHwDep('rimraf') && !isHwDep('pigpio') && !isHwDep('i2c-bus; rm -rf /') && !isHwDep('') && !isHwDep(42));
-  ok('npm args target the vehicle workspace', npmInstallArgs('i2c-bus').join(' ') === 'install i2c-bus -w @yondergate/gateway --no-audit --no-fund --foreground-scripts');
+  ok('npm args target the gateway workspace', npmInstallArgs('i2c-bus').join(' ') === 'install i2c-bus -w @yondergate/gateway --no-audit --no-fund --foreground-scripts');
   // Without --foreground-scripts npm hides the build output of an optional dependency,
   // which is where the reason for a failed install lives.
   ok('npm args show the build output', npmInstallArgs('i2c-bus').includes('--foreground-scripts'));
@@ -503,33 +503,33 @@ async function main() {
   // in the service was one more thing to forget on release day.
   const { readVersion } = await import('../packages/gateway/src/config');
   const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
-  ok('the vehicle reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
-  ok('no hardcoded version left in the vehicle banner', !/YonderGate vehicle service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
+  ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
+  ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
 
   // ---- generated video config lives outside the checkout ----
   // It used to be written into docker/go2rtc.yaml inside the repo, which left every
-  // running vehicle with a modified checkout and blocked `git pull --ff-only`. The two
-  // units must agree on the runtime path, or the vehicle writes a config go2rtc never
+  // running gateway with a modified checkout and blocked `git pull --ff-only`. The two
+  // units must agree on the runtime path, or the gateway writes a config go2rtc never
   // reads — a failure that is invisible until the cameras stay dark.
   const go2rtcUnit = readFileSync('provisioning/systemd/go2rtc.service', 'utf8');
   const vehicleUnit = readFileSync('provisioning/systemd/yondergate.service', 'utf8');
   const unitPath = go2rtcUnit.match(/-config\s+(\S+)/)?.[1] ?? '';
   const envPath = vehicleUnit.match(/YGW_GO2RTC_CONFIG=(\S+)/)?.[1] ?? '';
   ok('go2rtc reads a runtime path, not the checkout', unitPath === '/var/lib/yondergate/go2rtc.yaml', unitPath);
-  ok('the vehicle writes exactly that path', envPath === unitPath, `${envPath} vs ${unitPath}`);
+  ok('the gateway writes exactly that path', envPath === unitPath, `${envPath} vs ${unitPath}`);
   ok('the installer creates the directory', readFileSync('provisioning/install.sh', 'utf8').includes('install -d -m 0755 /var/lib/yondergate'));
 
-  // ---- self-update: what the vehicle would do, and in which order ----
+  // ---- self-update: what the gateway would do, and in which order ----
   const U = await import('../packages/gateway/src/system/update');
   ok('clean tree recognised', U.parseWorkingTree('').clean === true);
   const dirty = U.parseWorkingTree(' M packages/gateway/src/index.ts\n?? scratch.txt');
   ok('local changes are listed', !dirty.clean && dirty.dirty.includes('packages/gateway/src/index.ts'));
-  // Untracked files never block a fast-forward, and every running vehicle has some
-  // (its own config, logs) — counting them made an ordinary vehicle "dirty".
+  // Untracked files never block a fast-forward, and every running gateway has some
+  // (its own config, logs) — counting them made an ordinary gateway "dirty".
   ok('untracked files do not block', dirty.dirty.every((f) => f !== 'scratch.txt'));
-  ok('a vehicle with only untracked files is clean', U.parseWorkingTree('?? yondergate-config.json\n?? npm-debug.log').clean === true);
-  // docker/go2rtc.yaml is tracked AND rewritten by the vehicle at every start, so it
-  // is modified on every real vehicle — it must not be mistaken for someone's work.
+  ok('a gateway with only untracked files is clean', U.parseWorkingTree('?? yondergate-config.json\n?? npm-debug.log').clean === true);
+  // docker/go2rtc.yaml is tracked AND rewritten by the gateway at every start, so it
+  // is modified on every real gateway — it must not be mistaken for someone's work.
   const gen = U.parseWorkingTree(' M docker/go2rtc.yaml');
   ok('a generated file does not block the update', gen.clean === true && gen.generated.includes('docker/go2rtc.yaml'));
   ok('but it is still noticed', gen.dirty.length === 0 && U.GENERATED_PATHS.includes('docker/go2rtc.yaml'));
@@ -555,11 +555,11 @@ async function main() {
   ok('the exception is a global-config file instead', sdc.includes('[safe]'));
   // The repo root comes from a URL and carries a trailing slash; git compares the
   // value literally, so both spellings go in — and `*`, which is harmless because
-  // this file reaches git only through the vehicle's own GIT_CONFIG_GLOBAL.
+  // this file reaches git only through the gateway's own GIT_CONFIG_GLOBAL.
   ok('trailing slash and bare path both listed', sdc.includes('directory = /opt/yondergate\n') && sdc.includes('directory = /opt/yondergate/\n'));
   ok('wildcard as the last resort', sdc.includes('directory = *'));
 
-  // The update source is a field, so a fork or a branch needs no code change.
+  // The update source is a site, so a fork or a branch needs no code change.
   ok('a remote name is a source', U.isGitSource('origin') && U.isGitSource('upstream'));
   ok('an https URL is a source', U.isGitSource('https://github.com/you/YonderGate.git'));
   ok('nonsense is rejected', !U.isGitSource('') && !U.isGitSource('two words') && !U.isGitSource(42));
@@ -595,13 +595,13 @@ async function main() {
   ok('a local change the update ignores does not block', !untouched.message.includes('will not fast-forward'));
   ok('but it is mentioned', (untouched.note || '').includes('notes.txt'));
   // A failed check must repeat git's own reason. Reporting "needs internet" for a
-  // permission problem sent a vehicle WITH internet on a wild goose chase.
+  // permission problem sent a gateway WITH internet on a wild goose chase.
   const dubious = U.explainGitFailure("fatal: detected dubious ownership in repository at '/opt/yondergate'");
   ok('dubious ownership is recognised, not called a network fault', dubious.cause.includes('belongs to a different user') && dubious.selfFixable === true);
   ok('no DNS is its own case', U.explainGitFailure('fatal: unable to access ...: Could not resolve host: github.com').cause.includes('resolve'));
   ok('unreachable remote is its own case', U.explainGitFailure('fatal: unable to access ...: Failed to connect to github.com port 443').cause.includes('reach'));
   ok('a VPN is not proof of internet', U.explainGitFailure('Failed to connect').fix.includes('Tailscale'));
-  // Verbatim strings from a real git (with LC_ALL=C, which the vehicle forces —
+  // Verbatim strings from a real git (with LC_ALL=C, which the gateway forces —
   // a localised git says "Schwerwiegend: Kein Git-Repository" and matches nothing).
   ok('a zip install is told it cannot update', U.explainGitFailure('fatal: not a git repository (or any parent up to mount point /)').cause.includes('not installed from git'));
   ok('real "could not resolve host" wording', U.explainGitFailure("fatal: unable to access 'https://github.com/x.git/': Could not resolve host: github.com").cause.includes('resolve'));
@@ -689,7 +689,7 @@ async function main() {
   ok('osd label spells out a 3G fallback', H.hilinkOsdLabel({ ...hi, networkType: '3G (HSPA+)' }) === '3G (HSPA+) 72%');
   ok('osd label survives a missing percent', H.hilinkOsdLabel({ ...hi, signalPercent: null }) === 'LTE');
 
-  // The status panel said "no modem" while the vehicle was online through the stick.
+  // The status panel said "no modem" while the gateway was online through the stick.
   const asLte = H.hilinkAsLte(hi);
   ok('stick fills the LTE status row', asLte.present && asLte.connected && asLte.kind === 'hilink');
   ok('stick model is marked as HiLink', (asLte.modemModel || '').includes('HiLink'));
@@ -741,7 +741,7 @@ async function main() {
   ok('ready wlan0 detected', W.parseWifiDeviceState('wlan0:wifi:disconnected') === 'ready');
   ok('a Pi without wlan0', W.parseWifiDeviceState('eth0:ethernet:connected') === 'missing');
   // Serving the hotspot and being joined to a network both read as "connected" —
-  // the status row must not call the vehicle's own AP a client connection.
+  // the status row must not call the gateway's own AP a client connection.
   ok('own hotspot is reported as ap', W.parseWifiMode('wlan0:connected:Hotspot') === 'ap');
   ok('a joined network is a client', W.parseWifiMode('wlan0:connected:Weber-Home') === 'client');
   ok('disconnected wifi is unknown', W.parseWifiMode('wlan0:disconnected:') === 'unknown');
@@ -753,10 +753,10 @@ async function main() {
   ok('country code validated', W.isCountryCode('DE') && !W.isCountryCode('D') && !W.isCountryCode('DE; reboot'));
   ok('country args are fixed and upper-cased', W.wifiCountryArgs('de').join(' ') === 'nonint do_wifi_country DE');
 
-  // Captive portal: only when the vehicle has nothing to share.
+  // Captive portal: only when the gateway has nothing to share.
   ok('no uplink → hijack DNS', W.shouldHijackDns(false) === true);
   ok('uplink present → leave DNS alone', W.shouldHijackDns(true) === false);
-  ok('captive conf points every name at the vehicle', W.captivePortalConf() === 'address=/#/192.168.4.1\n');
+  ok('captive conf points every name at the gateway', W.captivePortalConf() === 'address=/#/192.168.4.1\n');
   ok('captive conf lives where NM reads it for shared connections', W.CAPTIVE_CONF_PATH.includes('/NetworkManager/dnsmasq-shared.d/'));
 
   const blockedRadio = { device: 'unavailable' as const, softBlocked: true, hardBlocked: false, country: null, suggestedCountry: 'DE' };
@@ -776,7 +776,7 @@ async function main() {
   const { shouldStartHotspot } = await import('../packages/gateway/src/system/SystemManager');
   ok('auto: no uplink → start', shouldStartHotspot('auto', false, false).start === true);
   ok('auto: uplink → skip', shouldStartHotspot('auto', true, false).start === false);
-  // The shipped default is "always" since v1.41.0 — a vehicle you can always walk up
+  // The shipped default is "always" since v1.41.0 — a gateway you can always walk up
   // to beats one that is only reachable while its uplink works.
   ok('default is always', HOTSPOT_DEFAULTS.mode === 'always');
   ok('unset mode follows the shipped default', shouldStartHotspot(undefined, true, false).start === true);

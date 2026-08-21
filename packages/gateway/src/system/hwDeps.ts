@@ -3,13 +3,13 @@
  *
  * They are `optionalDependencies` of @yondergate/gateway and stay out of the base
  * install on purpose: they compile on the Pi, need extra apt packages, and most
- * vehicles use exactly one of them — a failing build must not take the whole
+ * gateways use exactly one of them — a failing build must not take the whole
  * provisioning down (`install.sh` runs `npm install --omit=optional`).
  *
- * That used to mean "open a terminal", which is exactly wrong for a vehicle you
+ * That used to mean "open a terminal", which is exactly wrong for a gateway you
  * reach over its own hotspot with nothing but a phone. So the setup UI installs
  * them, and everything here is pure so the allowlist and — more importantly —
- * the failure diagnosis are unit-tested rather than discovered in the field.
+ * the failure diagnosis are unit-tested rather than discovered in the site.
  */
 
 export type HwDepName = 'i2c-bus';
@@ -25,7 +25,7 @@ export interface HwDepInfo {
 /**
  * The allowlist. It is the only thing that ever reaches `npm install`, so an
  * operator (or anyone who reaches the API) can't turn the endpoint into
- * "install arbitrary package on my vehicle".
+ * "install arbitrary package on my gateway".
  */
 export const HW_DEPS: readonly HwDepInfo[] = [
   {
@@ -50,7 +50,7 @@ export function hwDepInfo(name: HwDepName): HwDepInfo | undefined {
  */
 export function npmInstallArgs(name: HwDepName, workspace = '@yondergate/gateway'): string[] {
   // --foreground-scripts is not cosmetic: these modules are optionalDependencies of
-  // the vehicle package, so npm hides node-gyp's output, drops the module when the
+  // the gateway package, so npm hides node-gyp's output, drops the module when the
   // build fails and still exits 0 with "up to date". Without this flag the operator
   // gets a success message and no driver. (The caller checks resolution too.)
   return ['install', name, '-w', workspace, '--no-audit', '--no-fund', '--foreground-scripts'];
@@ -87,7 +87,7 @@ export interface NpmFailure {
 /**
  * Translate an npm/node-gyp failure into something an operator can act on. The
  * raw log is still shown, but "gyp ERR! stack Error: not found: make" is not an
- * error message a person should have to decode while standing in a field.
+ * error message a person should have to decode while standing on site.
  *
  * Ordered most-specific first: a build that fails for a missing library must not
  * be reported as the generic "compiler missing".
@@ -120,7 +120,7 @@ export function explainNpmFailure(
     return { cause: 'the SD card is full', fix: 'Free some space (`df -h`, then e.g. `sudo apt clean`) and try again.' };
   }
 
-  // Network before everything else: on an isolated vehicle this is the common one,
+  // Network before everything else: on an isolated gateway this is the common one,
   // and a failed download produces confusing follow-up errors.
   if (
     /\b(ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|ENETUNREACH)\b/.test(log) ||
@@ -128,14 +128,14 @@ export function explainNpmFailure(
   ) {
     return {
       cause: 'the Pi could not reach the npm registry (no internet)',
-      fix: 'The vehicle needs internet for this — join a WiFi network in Setup › WiFi, or bring up LTE, then try again. On its own hotspot without an uplink it cannot download anything.',
+      fix: 'The gateway needs internet for this — join a WiFi network in Setup › WiFi, or bring up LTE, then try again. On its own hotspot without an uplink it cannot download anything.',
     };
   }
 
   if (/\b(EACCES|EPERM)\b/.test(log) || /permission denied/i.test(log)) {
     return {
       cause: 'npm was not allowed to write into the install directory',
-      fix: 'The vehicle service must own its checkout: `sudo chown -R $(whoami) /opt/yondergate` — or run the install over SSH with sudo.',
+      fix: 'The gateway service must own its checkout: `sudo chown -R $(whoami) /opt/yondergate` — or run the install over SSH with sudo.',
     };
   }
 

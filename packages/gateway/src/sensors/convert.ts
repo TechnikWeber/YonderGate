@@ -364,14 +364,14 @@ export function voltagePercent(
 }
 
 /**
- * Resolve the battery percentage and report which method produced it, so the OSD can
+ * Resolve the battery percentage and report which method produced it, so the status page can
  * label it clearly. Modes:
  *  - coulomb : consumed-mAh vs capacity (assumes a full pack at start)
  *  - voltage : the full/empty voltage curve only
  *  - clamp   : the LOWER of the two — voltage can pull it down (safe: an empty pack
  *              can't hide behind a wrong coulomb start) but never inflate it
  * Each mode falls back to whichever value actually exists. Under heavy load the pack
- * voltage sags, so voltage/clamp read a bit conservatively mid-throttle — on purpose.
+ * voltage sags, so voltage/clamp read a bit conservatively mid-load — on purpose.
  */
 export function computeBatteryPercent(
   mode: BatteryPercentSource,

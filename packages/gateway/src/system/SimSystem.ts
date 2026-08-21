@@ -96,7 +96,7 @@ export class SimSystem implements SystemManager {
   /** Kept only so the sim honours the same interface as the real system. */
   setHilinkHost(_host: string): void {}
 
-  /** A plausible stick, so the panel and the OSD label can be seen without hardware. */
+  /** A plausible stick, so the panel and the status page label can be seen without hardware. */
   async hilinkStatus(_opts: { force?: boolean } = {}): Promise<HilinkStatus> {
     return {
       present: true,
@@ -259,7 +259,7 @@ export class SimSystem implements SystemManager {
   async detectHardware() {
     return {
       i2c: [
-        { address: '0x40', hint: 'PCA9685 servo/ESC driver — or INA2xx current sensor (219/226/228/237/238)' },
+        { address: '0x40', hint: 'INA2xx current sensor (219/226/228/237/238) — or a PCA9685' },
         { address: '0x41', hint: 'INA2xx current sensor (219/226/228/237/238/3221)' },
       ],
       modemPresent: this.lte.present,
@@ -287,14 +287,14 @@ export class SimSystem implements SystemManager {
     this.installedDeps.add(name);
     return {
       ok: true,
-      message: `${name} installed (simulated) — restart the vehicle service to use it.`,
+      message: `${name} installed (simulated) — restart the gateway service to use it.`,
       output: `added 1 package in 12s (simulated)`,
       restartRequired: true,
     };
   }
 
   async restartService(): Promise<ActionResult> {
-    return { ok: true, message: 'Vehicle service restart requested (simulated — no-op).' };
+    return { ok: true, message: 'Gateway service restart requested (simulated — no-op).' };
   }
 
   /** A pretend update, so the panel and both outcomes can be tried without a Pi. */
@@ -353,7 +353,7 @@ export class SimSystem implements SystemManager {
   }
 
   async updateCheck(_src?: unknown): Promise<UpdateCheck> {
-    const impact = classifyChanges(this.simBehind ? ['packages/vehicle/src/index.ts', 'packages/ground/src/App.tsx'] : []);
+    const impact = classifyChanges(this.simBehind ? ['packages/gateway/src/index.ts', 'packages/ground/src/App.tsx'] : []);
     const base = {
       ok: true,
       current: '1.0.0-sim',

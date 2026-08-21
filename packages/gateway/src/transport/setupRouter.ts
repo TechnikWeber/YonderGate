@@ -110,7 +110,7 @@ export async function handleSetup(
   }
 
   // ---- native driver modules (i2c-bus / pigpio / serialport) ----
-  // The whole point is that a vehicle you only reach from a phone never forces
+  // The whole point is that a gateway you only reach from a phone never forces
   // the operator into an SSH session; see hwDeps.ts.
   if (url === '/api/hw-deps' && method === 'GET') {
     json(res, 200, { deps: await ctx.system.hwDeps() });
@@ -129,7 +129,7 @@ export async function handleSetup(
     const r = await ctx.system.hwDepInstall(body.pkg);
     if (r.ok) {
       // Remember what is ACTUALLY installed, not just what was asked for: npm reifies
-      // the whole vehicle package, so its sibling optional modules come along. Recording
+      // the whole gateway package, so its sibling optional modules come along. Recording
       // only the requested one would have `install.sh` prune the others on the next
       // update — a driver that silently disappears is exactly what we set out to avoid.
       const known = new Set(loadPersisted(ctx.config.configPath).hardwareDeps ?? []);
@@ -142,7 +142,7 @@ export async function handleSetup(
     return true;
   }
 
-  // ---- self-update (git pull + rebuild + restart, from the field) ----
+  // ---- self-update (git pull + rebuild + restart, from the site) ----
   if (url === '/api/update' && method === 'GET') {
     json(res, 200, { ...(await ctx.system.updateCheck(ctx.config.update)), source: ctx.config.update });
     return true;
@@ -155,7 +155,7 @@ export async function handleSetup(
   }
 
   // Where updates come from. Default is the checkout's own origin/main; a fork or a
-  // branch is a field, not a code change.
+  // branch is a site, not a code change.
   if (url === '/api/update/source' && method === 'POST') {
     const body = (await readBody(req)) as { source?: unknown; branch?: unknown };
     const source = body.source === undefined || body.source === '' ? UPDATE_SOURCE_DEFAULT.source : body.source;
@@ -399,7 +399,7 @@ export async function handleSetup(
     if (body.proxyPort !== undefined) {
       const p = body.proxyPort === null || body.proxyPort === '' ? null : Number(body.proxyPort);
       // Privileged ports are out (we may not be root forever) and so is the control
-      // port itself — taking that one down would cut the vehicle off mid-flight.
+      // port itself — taking that one down would cut the gateway off while it runs.
       if (p !== null && (!Number.isInteger(p) || p < 1024 || p > 65535 || p === ctx.config.port)) {
         json(res, 400, { ok: false, message: `Pick a free port between 1024 and 65535 (not ${ctx.config.port}, that is the control port), or leave it empty to switch the proxy off.` });
         return true;
@@ -414,7 +414,7 @@ export async function handleSetup(
     json(res, 200, {
       ok: true,
       message: proxyPort
-        ? `Saved. The stick's web UI is reachable at http://<this vehicle>:${proxyPort}/`
+        ? `Saved. The stick's web UI is reachable at http://<this gateway>:${proxyPort}/`
         : 'Saved. The stick\'s web UI is not exposed.',
       config: hilink,
     });
@@ -517,7 +517,7 @@ export async function handleSetup(
     // Drop the secret live so the operator isn't locked out after a reset; the rest
     // (driver, telemetry, cameras) reverts to defaults on the next restart.
     ctx.config.apiSecret = null;
-    json(res, 200, { ok: true, message: 'Factory reset — restart the vehicle to apply defaults.' });
+    json(res, 200, { ok: true, message: 'Factory reset — restart the gateway to apply defaults.' });
     return true;
   }
 

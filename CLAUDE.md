@@ -65,4 +65,4 @@ keep it current when you finish something. The two that matter most right now:
    implemented and unit-tested, but sweeps, `tailscale set` and `sysctl` can only be
    proven on the Pi. Say so rather than implying they work.
 2. **Sensor page for a solar site** — the numbers are the reason to open the page at
-   all, and right now they are shown exactly as inherited from a model vehicle.
+   all, and right now they are shown exactly as inherited from a model gateway.

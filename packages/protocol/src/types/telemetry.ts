@@ -1,8 +1,8 @@
 /**
  * Telemetry return channel: voltage/current sensors, coulomb-counted capacity and
- * battery percentage, streamed from the vehicle to the ground for the OSD.
+ * battery percentage, streamed from the gateway to the ground for the status page.
  *
- * Sensor reads happen on the vehicle (only it has the hardware / does the precise
+ * Sensor reads happen on the gateway (only it has the hardware / does the precise
  * time integration). The ground just displays what arrives. A sim source produces
  * plausible values when no sensor is present.
  */
@@ -13,7 +13,7 @@ export interface TelemetryReading {
 }
 
 /**
- * Which method drives the battery PERCENTAGE (top-right OSD):
+ * Which method drives the battery PERCENTAGE (top-right status page):
  *  - coulomb : consumed-mAh vs capacity (assumes a full pack at start)
  *  - voltage : from the configured full/empty pack-voltage curve
  *  - clamp   : the lower of the two (safe: voltage can't inflate a wrong coulomb)
@@ -35,9 +35,9 @@ export interface TelemetryMessage {
   temperatures?: TelemetryReading[];
   /**
    * Index of the channel that drives the battery maths (%, mAh/Wh, low-battery
-   * warning, blackbox columns). The vehicle resolves it from the config's
+   * warning, blackbox columns). The gateway resolves it from the config's
    * `primary` flag; 0 when nothing is marked. Sent so the ground warns on the
-   * same pack voltage the vehicle counted with.
+   * same pack voltage the gateway counted with.
    */
   primaryVoltage?: number;
   primaryCurrent?: number;
@@ -49,11 +49,11 @@ export interface TelemetryMessage {
   capacityMah: number | null;
   /** Remaining battery percentage, or null if no capacity set. */
   batteryPercent: number | null;
-  /** Which method produced batteryPercent (for a clear OSD label), or null. */
+  /** Which method produced batteryPercent (for a clear status page label), or null. */
   batteryPercentSource?: BatteryPercentSource | null;
   /** Who counted mah/wh: the sensor's own accumulator or the Pi's integration. */
   chargeFrom?: 'sensor' | 'pi';
-  /** How the OSD should show capacity. */
+  /** How the status page should show capacity. */
   displayMode: 'consumed' | 'remaining';
 }
 
@@ -106,7 +106,7 @@ export type ChargeSource = 'auto' | 'sensor' | 'pi';
  *  - SPI amplifiers: max6675 / max31855 (type K), max31856 (more types),
  *                    max31865 (PT100/PT1000 RTD)
  *  - ads1115 / mcp3008: a plain ADC reading an NTC or RTD in a divider — the
- *                    `probe` field then says which element is wired up
+ *                    `probe` site then says which element is wired up
  */
 export type TemperatureSensorKind =
   | 'sim'
@@ -128,7 +128,7 @@ export type TemperatureSensorKind =
 export type TemperatureProbe = 'ntc' | 'pt100' | 'pt1000';
 
 export interface TemperatureChannelCfg {
-  label: string; // e.g. "Motor" or "T1" — shown in the OSD when >1 channel exists
+  label: string; // e.g. "Battery" or "T1" — shown in the status page when >1 channel exists
   kind: TemperatureSensorKind;
   bus?: number; // i2c bus
   address?: number; // i2c address

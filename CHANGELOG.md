@@ -2,6 +2,44 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.3.0
+**English**
+- **The RC wording is gone.** This box sits on a yacht, an allotment or a remote plot —
+  it does not steer anything, and calling it "the vehicle" in 130 places was inherited
+  clutter that would have shaped how the thing gets built. Comments, UI copy and docs now
+  say gateway, site and operator.
+- **You can see the cameras.** The camera panel shows a **still frame** per camera (proof
+  it works) and an **Open stream ↗** link to go2rtc's own player. The gateway generates
+  go2rtc's configuration but deliberately does not serve video itself — the page says so,
+  including which address it is pointing at when no frame arrives.
+- **`npm run dev:video` simulates the whole video path locally**: it fetches go2rtc once,
+  runs it against the config the gateway just wrote, and the default camera is an ffmpeg
+  test pattern — so the preview, the player and the WebRTC path can be tried without a
+  camera, a Pi, or a site.
+- **The generated go2rtc config left the checkout** — before it could repeat the mistake
+  it caused in YonderRC. In development it lands in `.runtime/` (git-ignored), on a real
+  box systemd points it at `/var/lib/yondergate/`. A file the service rewrites at every
+  start must never live in the repository, or `git pull --ff-only` stops working.
+
+**Deutsch**
+- **Die RC-Sprache ist raus.** Diese Kiste steht auf einer Yacht, in einem Schrebergarten
+  oder auf einem abgelegenen Grundstück — sie steuert nichts, und sie an 130 Stellen „das
+  Fahrzeug" zu nennen war geerbter Ballast, der geprägt hätte, wie das Ding weitergebaut
+  wird. Kommentare, Oberfläche und Doku sagen jetzt Gateway, Standort und Betreiber.
+- **Man sieht die Kameras.** Das Kamera-Panel zeigt pro Kamera ein **Standbild** (der
+  Beweis, dass sie läuft) und einen **Open stream ↗**-Link auf den Player von go2rtc. Das
+  Gateway erzeugt die go2rtc-Konfiguration, liefert das Video aber bewusst nicht selbst —
+  die Seite sagt das, samt der Adresse, an die sie sich wendet, wenn kein Bild kommt.
+- **`npm run dev:video` simuliert die ganze Videostrecke lokal**: holt go2rtc einmalig,
+  startet es mit der gerade geschriebenen Konfiguration, und die Standardkamera ist ein
+  ffmpeg-Testbild — Vorschau, Player und WebRTC lassen sich damit ohne Kamera, ohne Pi und
+  ohne Standort ausprobieren.
+- **Die generierte go2rtc-Konfiguration ist aus dem Checkout ausgezogen**, bevor sie den
+  Fehler aus YonderRC wiederholen konnte. In der Entwicklung landet sie in `.runtime/`
+  (git-ignoriert), auf einer echten Kiste zeigt systemd auf `/var/lib/yondergate/`. Eine
+  Datei, die der Dienst bei jedem Start neu schreibt, darf nie im Repository liegen —
+  sonst funktioniert `git pull --ff-only` irgendwann nicht mehr.
+
 ## v0.2.1
 **English**
 - **Fixed while running it for the first time: the VPN was offered as a network to

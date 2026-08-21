@@ -53,7 +53,7 @@ export interface GatewayConfig {
   /** Where the persistent config file lives. */
   configPath: string;
   /**
-   * The version this vehicle is running, read from the repo's package.json at
+   * The version this gateway is running, read from the repo's package.json at
    * startup. Read rather than hardcoded: it is shown in the banner, in the setup
    * page's header and next to the update check, and three copies of a version
    * string are three chances for them to disagree.
@@ -63,7 +63,7 @@ export interface GatewayConfig {
 
 /**
  * A HiLink stick is reached by IP, never by interface name — see system/hilink.ts.
- * `proxyPort` null = the stick's own web UI is NOT exposed through the vehicle.
+ * `proxyPort` null = the stick's own web UI is NOT exposed through the gateway.
  */
 export interface HilinkSettings {
   host: string;
@@ -71,7 +71,7 @@ export interface HilinkSettings {
 }
 
 // The proxy is ON by default: a HiLink stick that can't be configured is a stick you
-// have to unplug and carry to a laptop, and every other part of this vehicle is
+// have to unplug and carry to a laptop, and every other part of this gateway is
 // browser-reachable. It answers 401 when an API secret is set — see hilinkProxy.ts.
 export const HILINK_PROXY_PORT = 8081;
 export const HILINK_SETTINGS_DEFAULT: HilinkSettings = { host: HILINK_DEFAULT_HOST, proxyPort: HILINK_PROXY_PORT };
@@ -96,7 +96,7 @@ export interface PersistentConfig {
    * Native driver modules installed from the setup UI. Only a record: they live in
    * node_modules, which `install.sh --omit=optional` prunes on every update — the
    * installer reads this list back and reinstalls them, so an update can't quietly
-   * turn a configured vehicle back into a simulator.
+   * turn a configured gateway back into a simulator.
    */
   hardwareDeps?: HwDepName[];
 }
@@ -176,9 +176,12 @@ export function loadConfig(): GatewayConfig {
       chargeSource: 'auto',
     },
     cameras: p.cameras ?? [{ name: 'test', type: 'sim', width: 1280, height: 720, fps: 25 }],
+    // Generated from the camera list, so it never belongs in the checkout: a file
+    // the service rewrites at every start leaves the repo permanently modified and
+    // blocks `git pull --ff-only`. systemd points this at /var/lib on a real box.
     go2rtcConfigPath:
       process.env.YGW_GO2RTC_CONFIG ??
-      fileURLToPath(new URL('../../../docker/go2rtc.yaml', import.meta.url)),
+      fileURLToPath(new URL('../../../.runtime/go2rtc.yaml', import.meta.url)),
     version: readVersion(),
     h264Encoder: 'libx264',
 

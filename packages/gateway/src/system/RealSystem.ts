@@ -105,7 +105,7 @@ const WIFI_IFACE = 'wlan0';
  * Every command we parse runs in the C locale. git, nmcli and friends translate
  * their messages, and a Pi with a German locale would answer "Schwerwiegend: Kein
  * Git-Repository" — which no pattern here matches. Forcing it keeps the output the
- * one this code was written against, on any vehicle.
+ * one this code was written against, on any gateway.
  */
 const C_LOCALE = { ...process.env, LC_ALL: 'C', LANG: 'C' };
 
@@ -193,11 +193,11 @@ function readFileSafe(path: string): string {
   }
 }
 
-/** The repo checkout (…/packages/vehicle/src/system → repo root), where npm must run. */
+/** The repo checkout (…/packages/gateway/src/system → repo root), where npm must run. */
 // resolve() strips the trailing slash the URL form leaves behind — git compares
 // safe.directory literally, so "/opt/yondergate/" is not "/opt/yondergate".
 const REPO_ROOT = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
-/** Resolves from the vehicle package, i.e. through the workspace's node_modules. */
+/** Resolves from the gateway package, i.e. through the workspace's node_modules. */
 const requireFrom = createRequire(import.meta.url);
 
 /**
@@ -339,7 +339,7 @@ export class RealSystem implements SystemManager {
   /**
    * Join a network. The Pi has one radio, so NetworkManager drops the hotspot the
    * moment it associates — the HTTP response usually never reaches the phone that
-   * asked. That's expected; what must not happen is a vehicle stuck with neither:
+   * asked. That's expected; what must not happen is a gateway stuck with neither:
    * on failure the hotspot is brought straight back up.
    */
   async wifiConnect(ssid: string, password: string | null): Promise<ActionResult> {
@@ -365,14 +365,14 @@ export class RealSystem implements SystemManager {
 
   /**
    * Read the HiLink stick. The interface is taken from the ROUTING TABLE (`ip route
-   * get <stick>`), never from an interface name: a vehicle with a LAN on eth0 and the
+   * get <stick>`), never from an interface name: a gateway with a LAN on eth0 and the
    * stick on eth1 must not have the two mixed up, and the names swap around across
    * reboots and USB ports.
    */
   private hilinkCache: { at: number; value: HilinkStatus } | null = null;
 
   /**
-   * Cached for a few seconds: the setup page polls status every 3 s and the OSD link
+   * Cached for a few seconds: the setup page polls status every 3 s and the status page link
    * every 5 s, and each read is five HTTP requests to the stick. `force` is for the
    * Refresh button, where the operator is waiting for a fresh answer.
    */
@@ -534,7 +534,7 @@ export class RealSystem implements SystemManager {
 
   /**
    * Install or remove the dnsmasq drop-in that makes every name resolve to the
-   * vehicle. Failure is not fatal: the hotspot still works, the page just doesn't
+   * gateway. Failure is not fatal: the hotspot still works, the page just doesn't
    * open on its own. Returns whether the portal is now active.
    */
   private applyCaptiveConf(enabled: boolean): boolean {
@@ -646,13 +646,13 @@ export class RealSystem implements SystemManager {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 700));
       const st = parseTailscaleStatus((await sh('tailscale status --json')).out);
-      if (st.authUrl) return { ok: true, message: 'Open this link to authorise the vehicle:', loginUrl: st.authUrl };
+      if (st.authUrl) return { ok: true, message: 'Open this link to authorise the gateway:', loginUrl: st.authUrl };
       if (st.running) return { ok: true, message: 'Tailscale is up.' };
     }
     return {
       ok: false,
       message:
-        'Tailscale produced no login link within 14s. Check that the vehicle has internet, ' +
+        'Tailscale produced no login link within 14s. Check that the gateway has internet, ' +
         'then try again — or run `sudo tailscale up --hostname=yondergate` over SSH, which prints the link directly.',
     };
   }
@@ -746,7 +746,7 @@ export class RealSystem implements SystemManager {
       return { kind: 'lte' as const, quality: lte.signal, label: `LTE ${lte.signal}%` };
     }
     // A HiLink stick never shows up in ModemManager, so ask it directly before
-    // falling back to WiFi — otherwise a vehicle on LTE shows no link signal at all.
+    // falling back to WiFi — otherwise a gateway on LTE shows no link signal at all.
     const hi = await this.hilinkStatus();
     if (hi.present && hi.connected && hi.signalPercent != null) {
       return { kind: 'lte' as const, quality: hi.signalPercent, label: hilinkOsdLabel(hi) };
@@ -823,14 +823,14 @@ export class RealSystem implements SystemManager {
     const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
 
     // npm's exit code is NOT the truth here. These modules are optionalDependencies
-    // of the vehicle package, so when the native build fails npm quietly removes the
+    // of the gateway package, so when the native build fails npm quietly removes the
     // package again, prints "up to date" and exits 0 — reporting that as success is
     // exactly the silent fallback-to-sim this feature exists to prevent. What counts
     // is whether the module can be resolved afterwards.
     const deps = await this.hwDeps();
     const after = deps.find((d) => d.name === name);
     if (r.ok && after?.installed) {
-      // npm reifies the WHOLE vehicle package, and its siblings are optional
+      // npm reifies the WHOLE gateway package, and its siblings are optional
       // dependencies of it — so asking for one builds the others too. That can't be
       // avoided (`--omit=optional` skips the requested one as well), so say it plainly
       // instead of leaving the operator wondering why the log shows another module.
@@ -838,7 +838,7 @@ export class RealSystem implements SystemManager {
       return {
         ok: true,
         message:
-          `${name}${after.version ? ` ${after.version}` : ''} installed in ${secs}s — restart the vehicle service to use it.` +
+          `${name}${after.version ? ` ${after.version}` : ''} installed in ${secs}s — restart the gateway service to use it.` +
           (extra.length
             ? ` npm also built ${extra.join(' and ')}: they are optional dependencies of the same package, so npm always reifies them together. Harmless — nothing uses them unless you select that driver.`
             : ''),
@@ -868,7 +868,7 @@ export class RealSystem implements SystemManager {
     setTimeout(() => {
       void sh('sudo systemctl restart yondergate.service');
     }, 700).unref();
-    return { ok: true, message: 'Restarting the vehicle service — this page comes back on its own in a few seconds.' };
+    return { ok: true, message: 'Restarting the gateway service — this page comes back on its own in a few seconds.' };
   }
 
 
@@ -978,7 +978,7 @@ export class RealSystem implements SystemManager {
 
   /**
    * What an update would change. Fetches from the remote and compares — it never
-   * modifies the checkout, so pressing this in the field is free.
+   * modifies the checkout, so pressing this in the site is free.
    */
   async updateCheck(src: UpdateSource = UPDATE_SOURCE_DEFAULT): Promise<UpdateCheck> {
     const g = gitEnv(REPO_ROOT);
@@ -996,9 +996,9 @@ export class RealSystem implements SystemManager {
     const tree = parseWorkingTree((await git(['status', '--porcelain'])).out);
 
     if (!fetched.ok) {
-      // Say what the vehicle already tried, so a persistent failure is diagnosable
+      // Say what the gateway already tried, so a persistent failure is diagnosable
       // instead of costing another round trip.
-      const tried = `\n\n(The vehicle ${g.note}, and git still refused. Please report this together with \`git --version\`.)`;
+      const tried = `\n\n(The gateway ${g.note}, and git still refused. Please report this together with \`git --version\`.)`;
       const raw = errorExcerpt(fetched.out, 8) || 'git produced no output.';
       const detail = /dubious ownership/i.test(fetched.out) ? raw + tried : raw;
       const base = { ok: false, current, available: null, behind: 0, commits: [], impact: classifyChanges([]), tree, conflicts: [], detail };
@@ -1049,7 +1049,7 @@ export class RealSystem implements SystemManager {
       if (!r.ok) {
         return {
           ok: false,
-          message: `Update stopped at: ${step.label.toLowerCase()}. The vehicle was NOT restarted and keeps running the previous version.`,
+          message: `Update stopped at: ${step.label.toLowerCase()}. The gateway was NOT restarted and keeps running the previous version.`,
           output: logs.join('\n\n'),
           steps,
         };
