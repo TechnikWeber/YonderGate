@@ -16,6 +16,9 @@ import { applyCameras } from '../video/cameraManager.js';
  * it provisions itself, watches a few sensors and hands you a way through to the
  * devices behind it. Everything a browser needs is HTTP.
  */
+/** Last time a browser talked to this box; the watchdog checks it before rebooting. */
+export const activity: { lastRequestAt: number | null } = { lastRequestAt: null };
+
 export function startHttpServer(
   config: GatewayConfig,
   system: SystemManager,
@@ -66,6 +69,7 @@ export function startHttpServer(
   };
 
   const server = createServer((req, res) => {
+    activity.lastRequestAt = Date.now();
     void handleSetup(req, res, ctx).then((handled) => {
       if (handled) return;
       // Everything else is the setup page: this box has exactly one UI.

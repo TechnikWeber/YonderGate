@@ -6,7 +6,7 @@ import { AlertService } from './system/AlertService.js';
 import { WatchdogService } from './system/WatchdogService.js';
 import { applyCameras, detectH264Encoder } from './video/cameraManager.js';
 import { startCaptivePortal } from './transport/captivePortal.js';
-import { startHttpServer } from './transport/httpServer.js';
+import { activity, startHttpServer } from './transport/httpServer.js';
 
 async function main() {
   const config = loadConfig();
@@ -45,7 +45,7 @@ async function main() {
   alerts.start();
 
   // Nobody is there to notice a link that is up but carries nothing.
-  const watchdog = new WatchdogService(config, system, alerts);
+  const watchdog = new WatchdogService(config, system, alerts, activity);
   watchdog.start();
   console.log(
     `  watchdog  : ${config.watchdog.enabled ? `probing ${config.watchdog.target} every ${config.watchdog.intervalMinutes} min` : 'off'}` +

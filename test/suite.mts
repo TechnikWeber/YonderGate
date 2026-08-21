@@ -159,6 +159,30 @@ async function main() {
   ok('a box that just booted does not reboot again', loop.due === false && loop.reason.includes('just booted'));
   ok('and it can be switched off', WD.dueForReboot(sunday4, { ...WD.REBOOT_DEFAULTS, enabled: false }, 86_400).due === false);
 
+  // ---- the reboot loop this nearly had ----
+  // The failure counter lives in memory, so a reboot resets it: medium gone → eight
+  // failed probes → reboot → counter at zero → forty minutes later, reboot again,
+  // forever. The budget is written to disk precisely so a reboot cannot clear it.
+  const T = 10_000_000;
+  let budget = { ...WD.REBOOT_BUDGET_EMPTY };
+  ok('the first reboot is allowed', WD.canReboot(budget, T).allowed === true);
+  budget = WD.recordReboot(budget, T);
+  ok('and is remembered', budget.count === 1 && budget.lastRebootAt === T);
+  const soon = WD.canReboot(budget, T + 40 * 60_000);
+  ok('another one forty minutes later is refused', soon.allowed === false && soon.reason.includes('not again'));
+  budget = WD.recordReboot(budget, T + WD.REBOOT_MIN_INTERVAL_MS);
+  const spent = WD.canReboot(budget, T + 2 * WD.REBOOT_MIN_INTERVAL_MS);
+  ok('two in a day is the limit', spent.allowed === false && budget.count === 2);
+  // And the message says the useful thing rather than "denied".
+  ok('and it says why more would be pointless', spent.reason.includes('the medium is probably gone'));
+  ok('a new day restores the budget', WD.canReboot(budget, T + WD.REBOOT_WINDOW_MS + WD.REBOOT_MIN_INTERVAL_MS).allowed === true);
+
+  // A missing uplink does not break local access, so it must not kick out whoever
+  // is standing there with the page open.
+  ok('someone on the page counts as present', WD.someoneIsHere(T, T + 60_000) === true);
+  ok('and stops counting after the grace', WD.someoneIsHere(T, T + WD.LOCAL_ACTIVITY_GRACE_MS) === false);
+  ok('nobody ever there is not present', WD.someoneIsHere(null, T) === false);
+
   // ---- switching things off and on from far away ----
   const PW = await import('../packages/gateway/src/system/power');
   const shelly = { id: 'sw:cam', label: 'Cam plug', kind: 'shelly' as const, host: '192.168.4.60', channel: 0, cycleSeconds: 8 };

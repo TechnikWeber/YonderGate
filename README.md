@@ -35,8 +35,10 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **It gets itself back online.** A watchdog probes whether traffic still reaches the
   outside — the only honest test, since an LTE session can be "up" and carry nothing —
   and escalates cheapest-first: bring Tailscale up, restart the network stack (which
-  redials LTE), reboot as a last resort. Plus an optional weekly reboot, guarded so a
-  box that just booted cannot loop.
+  redials LTE), reboot as a last resort. **It cannot loop**: the reboot budget lives on
+  disk (two a day, six hours apart), so a restart cannot reset it, and when a medium is
+  simply gone the box stops reaching for the hammer and says so. A reboot is also skipped
+  while somebody has the page open. Plus an optional weekly reboot.
 - **It speaks up when something is wrong** (ntfy push): the battery under a
   threshold, a saved device gone quiet, the supply sagging, the SIM's allowance at
   80 %. Every alert waits until the condition has held, then stays quiet for six

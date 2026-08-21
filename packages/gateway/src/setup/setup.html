@@ -476,6 +476,7 @@
         <div class="btns"><button class="btn" onclick="run(this, () => addRule())">Add rule</button></div>
 
         <div class="eyebrow2" style="margin-top:14px">Staying online by itself</div>
+        <div id="wd-state"></div>
         <label class="chk"><input type="checkbox" id="wdEnabled" /> <span><b>Watchdog</b> — probe the uplink and recover when traffic stops reaching the outside</span></label>
         <div class="grid3">
           <label>Ping this address<input id="wdTarget" placeholder="1.1.1.1" /></label>
@@ -536,6 +537,7 @@
         <p class="msg" id="hw-msg">The software watchdog above assumes this service is still running. If the kernel itself wedges, nothing in user space gets a turn and the box is gone until someone drives there — that is the case this covers.</p>
 
         <p class="msg">The recovery goes cheapest-first: bring Tailscale up again, then restart the network stack (which redials LTE), and only then reboot. Each step needs its own run of failed probes, so a half-minute outage never gets near a restart. The probe target is an <b>address</b> on purpose — a hostname would make a broken DNS look like a dead link. A box that has just booted will not reboot again inside the same window.</p>
+        <p class="msg">And it will not loop: the reboot budget is written to <b>disk</b>, so a restart cannot clear it — <b>at most two reboots a day, six hours apart</b>. When a medium is simply gone (a dead SIM, an unplugged stick, a router that is off), further reboots cannot conjure it back, so the box stops trying and says so instead. The cheaper steps keep running, and a reboot is also skipped while somebody has this page open — a missing uplink does not break local access.</p>
         <div class="msg" id="wd-msg"></div>
 
       </section>
@@ -1037,6 +1039,14 @@
         renderSwitches(d.switches, d.devices);
         $('hwWatchdog').checked = (d.hardwareWatchdogSeconds || 0) > 0;
         if (d.watchdog) {
+          // Show the limits, not just the switch: "may reboot" without "twice a day
+          // at most" would read as a promise to keep trying forever.
+          $('wd-state').innerHTML = d.watchdog.enabled
+            ? `<div class="row"><span class="k">failed probes in a row</span><span class="v ${d.watchdog.failures ? 'warn' : 'go'}">${d.watchdog.failures}</span></div>` +
+              `<div class="row"><span class="k">reboots today</span><span class="v">${d.watchdog.rebootsToday || 0}${d.watchdog.lastRebootAt ? ' · last ' + new Date(d.watchdog.lastRebootAt).toLocaleString() : ''}</span></div>` +
+              `<div class="row"><span class="k">reboot budget</span><span class="v">${esc(d.watchdog.rebootAllowed || '')}</span></div>` +
+              (d.watchdog.lastAction ? `<div class="msg">${esc(d.watchdog.lastAction)}</div>` : '')
+            : '';
           $('wdEnabled').checked = !!d.watchdog.enabled;
           if (!$('wdTarget').value) $('wdTarget').value = d.watchdog.target || '';
           $('wdInterval').value = d.watchdog.intervalMinutes;

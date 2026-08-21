@@ -2,6 +2,49 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.10.0
+**English**
+- **Fixed: the watchdog could have rebooted the box forever.** The failure counter lived
+  in memory, so a reboot reset it — medium gone (a dead SIM, an unplugged stick, a router
+  that is off) → eight failed probes → reboot → counter back to zero → forty minutes
+  later, reboot again, and again, indefinitely. Nothing gets fixed, the card wears out,
+  and anyone standing at the site watches the box die under them every forty minutes.
+  Caught by the owner asking whether that could happen, before it ever ran on hardware.
+- **The reboot budget is now written to disk** — the one piece of state a reboot must not
+  clear. **At most two reboots a day, six hours apart.** The cheaper steps keep running:
+  Tailscale and the network stack are still restarted on every escalation. Only the big
+  hammer is rationed, and when the budget is spent the box says the useful thing —
+  *"already rebooted 2× today and it did not help — the medium is probably gone, and
+  another reboot will not conjure it back"*.
+- **A reboot is skipped while somebody has the page open.** The uplink being down does
+  not break local access: the hotspot, the LAN and the page all still work. Rebooting
+  then would kick out the person who is standing there trying to fix it — including the
+  weekly maintenance reboot.
+- The panel now shows the limits rather than just the switch: failed probes, reboots
+  today, and what the budget currently allows.
+
+**Deutsch**
+- **Behoben: der Watchdog hätte die Kiste endlos neu starten können.** Der Fehlerzähler
+  lag im Arbeitsspeicher, ein Neustart setzte ihn also zurück — Medium weg (totes SIM,
+  abgezogener Stick, ausgeschalteter Router) → acht fehlgeschlagene Prüfungen → Neustart
+  → Zähler bei null → vierzig Minuten später wieder, und wieder, ohne Ende. Nichts wird
+  repariert, die Karte verschleißt, und wer am Standort steht, sieht die Kiste alle
+  vierzig Minuten unter sich wegsterben. Vom Besitzer erfragt, bevor das je auf Hardware
+  lief.
+- **Das Neustart-Budget steht jetzt auf der Platte** — der eine Zustand, den ein Neustart
+  nicht löschen darf. **Höchstens zwei Neustarts pro Tag, sechs Stunden auseinander.** Die
+  billigeren Stufen laufen weiter: Tailscale und Netzwerk-Stack werden bei jeder
+  Eskalation weiterhin neu gestartet. Rationiert ist nur der große Hammer, und ist das
+  Budget aufgebraucht, sagt die Kiste das Nützliche — *„heute schon 2× neu gestartet, es
+  hat nicht geholfen — das Medium ist vermutlich weg, und ein weiterer Neustart zaubert
+  es nicht herbei"*.
+- **Kein Neustart, solange jemand die Seite offen hat.** Ein fehlender Uplink macht den
+  lokalen Zugang nicht kaputt: Hotspot, LAN und diese Seite funktionieren weiter. Ein
+  Neustart würde genau die Person hinauswerfen, die davorsteht und es reparieren will —
+  das gilt auch für den wöchentlichen Wartungsneustart.
+- Das Panel zeigt jetzt die Grenzen statt nur den Schalter: fehlgeschlagene Prüfungen,
+  Neustarts heute und was das Budget gerade erlaubt.
+
 ## v0.9.1
 **English**
 - **Fixed within minutes of shipping it: an impossible GPIO pin was accepted.** The

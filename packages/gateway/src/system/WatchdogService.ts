@@ -1,7 +1,18 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { GatewayConfig } from '../config.js';
 import type { SystemManager } from './index.js';
 import type { AlertService } from './AlertService.js';
-import { describeAction, dueForReboot, nextWatchdogAction } from './watchdog.js';
+import {
+  canReboot,
+  describeAction,
+  dueForReboot,
+  nextWatchdogAction,
+  recordReboot,
+  someoneIsHere,
+  REBOOT_BUDGET_EMPTY,
+  type RebootBudget,
+} from './watchdog.js';
 
 /**
  * Runs the probe, escalates, and says what it did.
@@ -15,12 +26,19 @@ export class WatchdogService {
   private failures = 0;
   private timer: NodeJS.Timeout | null = null;
   private rebootTimer: NodeJS.Timeout | null = null;
+  private budget: RebootBudget = { ...REBOOT_BUDGET_EMPTY };
+  private readonly budgetPath: string;
 
   constructor(
     private readonly config: GatewayConfig,
     private readonly system: SystemManager,
     private readonly alerts: AlertService,
-  ) {}
+    /** When the page was last used, so a reboot cannot kick out whoever is on it. */
+    private readonly activity: { lastRequestAt: number | null } = { lastRequestAt: null },
+  ) {
+    this.budgetPath = join(config.stateDir, 'watchdog.json');
+    this.loadBudget();
+  }
 
   start(): void {
     this.timer = setInterval(() => void this.probe(), Math.max(1, this.config.watchdog.intervalMinutes) * 60_000);
@@ -35,9 +53,24 @@ export class WatchdogService {
     if (this.rebootTimer) clearInterval(this.rebootTimer);
   }
 
-  /** State for the page: how many probes in a row have failed. */
-  snapshot(): { failures: number; lastCheck: string | null; lastAction: string | null } {
-    return { failures: this.failures, lastCheck: this.lastCheck, lastAction: this.lastAction };
+  /** State for the page: probes failed, and what the reboot budget allows. */
+  snapshot(): {
+    failures: number;
+    lastCheck: string | null;
+    lastAction: string | null;
+    rebootsToday: number;
+    lastRebootAt: string | null;
+    rebootAllowed: string;
+  } {
+    const budget = canReboot(this.budget, Date.now());
+    return {
+      failures: this.failures,
+      lastCheck: this.lastCheck,
+      lastAction: this.lastAction,
+      rebootsToday: this.budget.count,
+      lastRebootAt: this.budget.lastRebootAt ? new Date(this.budget.lastRebootAt).toISOString() : null,
+      rebootAllowed: budget.reason,
+    };
   }
 
   private lastCheck: string | null = null;
@@ -58,6 +91,22 @@ export class WatchdogService {
       console.log(`[watchdog] probe ${this.failures} failed`);
       return;
     }
+    if (action === 'reboot') {
+      const blocked = this.rebootBlockedReason(Date.now());
+      if (blocked) {
+        // The ladder below still ran; we simply do not reach for the big hammer.
+        console.warn(`[watchdog] would reboot, but ${blocked}`);
+        this.lastAction = `${new Date().toISOString()} — reboot skipped: ${blocked}`;
+        void this.alerts.notify({
+          id: 'watchdog:reboot-skipped',
+          title: 'Uplink still down',
+          message: `The gateway would reboot, but ${blocked}. Local access is unaffected.`,
+          priority: 'default',
+          tags: ['warning'],
+        });
+        return;
+      }
+    }
     const what = describeAction(action, this.failures, this.config.watchdog);
     console.warn(`[watchdog] ${what}`);
     this.lastAction = `${new Date().toISOString()} — ${what}`;
@@ -70,15 +119,56 @@ export class WatchdogService {
       priority: action === 'reboot' ? 'high' : 'default',
       tags: ['satellite'],
     });
+    if (action === 'reboot') this.noteReboot();
     await this.system.recover(action);
+  }
+
+  /** Why a reboot must not happen now, or null when it may. */
+  private rebootBlockedReason(now: number): string | null {
+    if (someoneIsHere(this.activity.lastRequestAt, now)) {
+      return 'someone is using this page right now — the uplink being down does not break local access';
+    }
+    const budget = canReboot(this.budget, now);
+    return budget.allowed ? null : budget.reason;
+  }
+
+  private noteReboot(): void {
+    this.budget = recordReboot(this.budget, Date.now());
+    this.saveBudget();
+  }
+
+  private loadBudget(): void {
+    try {
+      if (existsSync(this.budgetPath)) this.budget = JSON.parse(readFileSync(this.budgetPath, 'utf8')) as RebootBudget;
+    } catch {
+      /* a lost budget file means one extra reboot at worst */
+    }
+  }
+
+  private saveBudget(): void {
+    try {
+      mkdirSync(this.config.stateDir, { recursive: true });
+      // Written BEFORE the reboot: a budget that only survives in memory is no
+      // budget at all, and that was exactly the loop this prevents.
+      writeFileSync(this.budgetPath, JSON.stringify(this.budget, null, 2));
+    } catch (err) {
+      console.warn(`[watchdog] could not record the reboot: ${(err as Error).message}`);
+    }
   }
 
   private async maybeReboot(): Promise<void> {
     const health = await this.system.health();
     const due = dueForReboot(new Date(), this.config.reboot, health.uptimeS);
     if (!due.due) return;
+    // The weekly reboot is deliberate maintenance, but it still yields to someone
+    // working on the box.
+    if (someoneIsHere(this.activity.lastRequestAt, Date.now())) {
+      console.log('[reboot] skipping the weekly reboot — someone is using the page');
+      return;
+    }
     console.warn(`[reboot] ${due.reason}`);
     this.lastAction = `${new Date().toISOString()} — ${due.reason}`;
+    this.noteReboot();
     await this.system.reboot();
   }
 }

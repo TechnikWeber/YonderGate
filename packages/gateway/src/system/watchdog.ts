@@ -145,3 +145,75 @@ export function parseRuntimeWatchdog(out: string): number | null {
   if (/min$/.test(v)) return Math.round(num * 60);
   return Math.round(num);
 }
+
+/**
+ * How often the box may reboot itself — and why this has to survive the reboot.
+ *
+ * The failure counter lives in memory, so a reboot resets it. On its own that is a
+ * loop: medium gone (dead SIM, unplugged stick, router down) → eight failed probes
+ * → reboot → count starts at zero → forty minutes later, reboot again, forever.
+ * Nothing is fixed, the card is worn out, and anyone standing at the site sees the
+ * box die under them every forty minutes.
+ *
+ * So the budget is written to disk, which makes it the one piece of state a reboot
+ * must not clear. Two reboots a day, six hours apart: enough to rescue a wedged
+ * driver, far too few to loop. When the budget is spent the ladder still runs —
+ * Tailscale and the network stack are restarted as before — the box simply stops
+ * reaching for the big hammer and says so.
+ */
+export interface RebootBudget {
+  /** Start of the current 24 h window. */
+  windowStart: number;
+  /** Reboots taken inside it. */
+  count: number;
+  lastRebootAt: number | null;
+}
+
+export const REBOOT_BUDGET_EMPTY: RebootBudget = { windowStart: 0, count: 0, lastRebootAt: null };
+export const REBOOT_MIN_INTERVAL_MS = 6 * 3_600_000;
+export const REBOOT_MAX_PER_WINDOW = 2;
+export const REBOOT_WINDOW_MS = 24 * 3_600_000;
+
+export function canReboot(
+  budget: RebootBudget,
+  now: number,
+  opts: { minIntervalMs?: number; maxPerWindow?: number; windowMs?: number } = {},
+): { allowed: boolean; reason: string } {
+  const minInterval = opts.minIntervalMs ?? REBOOT_MIN_INTERVAL_MS;
+  const maxPer = opts.maxPerWindow ?? REBOOT_MAX_PER_WINDOW;
+  const windowMs = opts.windowMs ?? REBOOT_WINDOW_MS;
+
+  if (budget.lastRebootAt !== null && now - budget.lastRebootAt < minInterval) {
+    const mins = Math.ceil((minInterval - (now - budget.lastRebootAt)) / 60_000);
+    return { allowed: false, reason: `rebooted ${Math.round((now - budget.lastRebootAt) / 60_000)} minutes ago — not again for another ${mins}` };
+  }
+  const inWindow = now - budget.windowStart < windowMs ? budget.count : 0;
+  if (inWindow >= maxPer) {
+    return {
+      allowed: false,
+      reason: `already rebooted ${inWindow}× today and it did not help — the medium is probably gone, and another reboot will not conjure it back`,
+    };
+  }
+  return { allowed: true, reason: 'within the reboot budget' };
+}
+
+export function recordReboot(budget: RebootBudget, now: number, windowMs = REBOOT_WINDOW_MS): RebootBudget {
+  const fresh = now - budget.windowStart >= windowMs;
+  return {
+    windowStart: fresh ? now : budget.windowStart,
+    count: (fresh ? 0 : budget.count) + 1,
+    lastRebootAt: now,
+  };
+}
+
+/**
+ * Somebody is on the page right now. The uplink being down does not make the local
+ * side broken — the hotspot, the LAN and this very page still work — so rebooting
+ * because the *internet* is missing would kick out the person who is standing there
+ * trying to fix it.
+ */
+export const LOCAL_ACTIVITY_GRACE_MS = 10 * 60_000;
+
+export function someoneIsHere(lastRequestAt: number | null, now: number, graceMs = LOCAL_ACTIVITY_GRACE_MS): boolean {
+  return lastRequestAt !== null && now - lastRequestAt < graceMs;
+}
