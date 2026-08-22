@@ -11,6 +11,7 @@ import type { ProxyCfg } from './transport/deviceProxy.js';
 import type { KnownDevice } from './system/discovery.js';
 import type { AlertRule } from './system/alerts.js';
 import { REBOOT_DEFAULTS, WATCHDOG_DEFAULTS, type RebootSchedule, type WatchdogConfig } from './system/watchdog.js';
+import { UPLINK_DEFAULTS, type UplinkConfig } from './system/uplink.js';
 import type { PowerSwitch } from './system/power.js';
 import { defaultRules } from './system/alerts.js';
 import { HOTSPOT_DEFAULTS } from './system/SystemManager.js';
@@ -74,6 +75,11 @@ export interface GatewayConfig {
   watchdog: WatchdogConfig;
   /** The weekly reboot — a crutch, but a cheap one on an unattended box. */
   reboot: RebootSchedule;
+  /**
+   * Whether the tunnel is up all the time or only in a window. The mode that saves
+   * the most mobile data is also the one that can lock you out; see system/uplink.ts.
+   */
+  uplink: UplinkConfig;
   /** Things this gateway can switch off and on again. */
   switches: PowerSwitch[];
   /** Path of the generated go2rtc config. */
@@ -157,6 +163,7 @@ export interface PersistentConfig {
   ntpServers?: string[];
   watchdog?: Partial<WatchdogConfig>;
   reboot?: Partial<RebootSchedule>;
+  uplink?: Partial<UplinkConfig>;
   switches?: PowerSwitch[];
   telemetry?: TelemetryConfig;
   cameras?: CameraCfg[];
@@ -260,6 +267,7 @@ export function loadConfig(): GatewayConfig {
     ntpServers: p.ntpServers ?? [],
     watchdog: { ...WATCHDOG_DEFAULTS, ...(p.watchdog ?? {}) },
     reboot: { ...REBOOT_DEFAULTS, ...(p.reboot ?? {}) },
+    uplink: { ...UPLINK_DEFAULTS, ...(p.uplink ?? {}) },
     switches: p.switches ?? [],
     // Generated from the camera list, so it never belongs in the checkout: a file
     // the service rewrites at every start leaves the repo permanently modified and

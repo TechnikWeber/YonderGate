@@ -7,7 +7,10 @@ import * as C from '../packages/gateway/src/sensors/convert';
 import { TelemetryService } from '../packages/gateway/src/sensors/TelemetryService';
 import { cameraSource, scaleCamera } from '../packages/gateway/src/video/cameraManager';
 import type { TelemetryConfig, CameraCfg } from '@yondergate/protocol';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createServer } from 'node:http';
 
 let pass = 0;
 let fail = 0;
@@ -820,6 +823,189 @@ async function main() {
   const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
   ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
   ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
+
+  // ---- when the tunnel is allowed to be up ----
+  // The mode that saves the most data is also the one that can lock you out of a box
+  // in a field, so most of these are about the ways it must refuse to do that.
+  const UP = await import('../packages/gateway/src/system/uplink');
+  const win = { ...UP.UPLINK_DEFAULTS, mode: 'window' as const }; // Sundays 14:00, 15 min
+  const sun = (h: number, m: number) => new Date(2026, 7, 23, h, m); // 2026-08-23 is a Sunday
+  const mon = (h: number, m: number) => new Date(2026, 7, 24, h, m);
+
+  ok('inside the window', UP.inWindow(sun(14, 5), win));
+  ok('the last minute still counts', UP.inWindow(sun(14, 14), win));
+  ok('one minute before is not open yet', !UP.inWindow(sun(13, 59), win));
+  ok('it closes on time', !UP.inWindow(sun(14, 15), win));
+  ok('the wrong day is closed', !UP.inWindow(mon(14, 5), win));
+
+  // A window that runs past midnight must not silently close at 00:00 — the second
+  // half of it belongs to a date whose weekday no longer matches.
+  const late = { ...win, hour: 23, minute: 50, durationMinutes: 30 };
+  ok('a window over midnight stays open before midnight', UP.inWindow(sun(23, 55), late));
+  ok('and after it', UP.inWindow(mon(0, 10), late));
+  ok('and closes at the right time', !UP.inWindow(mon(0, 25), late));
+
+  ok('the next window is the coming Sunday', UP.nextWindowStart(mon(9, 0), win).getDay() === 0);
+  ok('an open window points at the next one, not itself',
+    UP.nextWindowStart(sun(14, 5), win).getTime() === new Date(2026, 7, 30, 14, 0).getTime());
+  ok('the window reads as people write it', UP.describeWindow(win) === 'Sundays 14:00–14:15', UP.describeWindow(win));
+  ok('a window over midnight reads correctly', UP.describeWindow(late) === 'Sundays 23:50–00:20', UP.describeWindow(late));
+
+  const base = { cfg: win, startedAt: new Date(2026, 7, 20).getTime(), someoneIsHere: false };
+  ok('always-live is always up', UP.shouldBeUp({ ...base, cfg: UP.UPLINK_DEFAULTS, now: mon(9, 0) }).up);
+  ok('outside the window it comes down', !UP.shouldBeUp({ ...base, now: mon(9, 0) }).up);
+  ok('inside the window it is up', UP.shouldBeUp({ ...base, now: sun(14, 5) }).up);
+  // Three refusals to strand the operator:
+  ok('a fresh restart stays reachable',
+    UP.shouldBeUp({ ...base, now: mon(9, 0), startedAt: mon(8, 55).getTime() }).up);
+  ok('and says for how long',
+    UP.shouldBeUp({ ...base, now: mon(9, 0), startedAt: mon(8, 55).getTime() }).reason.includes('another 5 min'));
+  ok('somebody on the page keeps it up',
+    UP.shouldBeUp({ ...base, now: mon(9, 0), someoneIsHere: true }).up);
+  ok('opening it by hand keeps it up',
+    UP.shouldBeUp({ ...base, now: mon(9, 0), openUntil: mon(9, 30).getTime() }).up);
+  ok('and an expired hand-open does not',
+    !UP.shouldBeUp({ ...base, now: mon(9, 31), openUntil: mon(9, 30).getTime() }).up);
+  ok('the reason names the next window', UP.shouldBeUp({ ...base, now: mon(9, 0) }).reason.includes('Sundays 14:00'));
+
+  // A phone on the hotspot probing for a captive portal must not read as "somebody is
+  // here" — that would hold the tunnel open all week and quietly undo the mode.
+  ok('the page polling counts as presence', UP.countsAsPresence('/api/system'));
+  ok('so does any other api call', UP.countsAsPresence('/api/health'));
+  ok('a captive-portal probe does not', !UP.countsAsPresence('/generate_204'));
+  ok('nor does loading the page itself', !UP.countsAsPresence('/setup'));
+  ok('nor a bare request', !UP.countsAsPresence('/') && !UP.countsAsPresence(undefined));
+
+  // Buffering: a week of a flapping sensor must not eat the disk, and must not arrive
+  // as forty notifications the second the window opens.
+  const mkAlert = (id: string, title: string, priority: 'default' | 'high' = 'default') =>
+    ({ id, title, message: `${title} body`, priority, tags: [] });
+  let buf: import('../packages/gateway/src/system/uplink').BufferedAlert[] = [];
+  for (let i = 0; i < 250; i += 1) buf = UP.addBuffered(buf, mkAlert('v:low', 'Voltage low'), mon(1, 0).getTime() + i);
+  ok('the buffer is capped', buf.length === UP.MAX_BUFFERED, String(buf.length));
+  ok('the newest are the ones kept', buf[buf.length - 1].at === mon(1, 0).getTime() + 249);
+
+  ok('nothing buffered means nothing to send', UP.digestBuffered([]) === null);
+  let two = UP.addBuffered([], mkAlert('v:low', 'Voltage low'), mon(1, 0).getTime());
+  two = UP.addBuffered(two, mkAlert('v:low', 'Voltage low'), mon(5, 0).getTime());
+  two = UP.addBuffered(two, mkAlert('dev:gone', 'Camera gone', 'high'), mon(6, 0).getTime());
+  const digest = UP.digestBuffered(two, 'Hütte')!;
+  ok('one message for everything', digest.id === 'uplink:digest');
+  ok('grouped by what went wrong, with a count', digest.message.includes('2× between'), digest.message);
+  ok('a one-off keeps its timestamp instead of a count', digest.message.includes('Camera gone — '));
+  ok('the site is named', digest.title.includes('Hütte'));
+  ok('one urgent thing makes the digest urgent', digest.priority === 'high');
+  ok('two things are counted as two', digest.title.startsWith('2 things'), digest.title);
+
+  // ---- holding alerts until the window opens ----
+  // The pure parts are above; this is the thin IO around them, and it is worth a real
+  // test because it is where the promise of the feature actually lives: an alert that
+  // happens on Tuesday has to survive until Sunday, including a reboot in between.
+  {
+    const AS = await import('../packages/gateway/src/system/AlertService');
+    const dir = mkdtempSync(join(tmpdir(), 'ygw-alerts-'));
+    const received: string[] = [];
+    const srv = createServer((rq, rs) => {
+      let body = '';
+      rq.on('data', (c) => { body += c; });
+      rq.on('end', () => { received.push(body); rs.writeHead(200); rs.end('ok'); });
+    });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
+    const port = (srv.address() as { port: number }).port;
+    const cfg = {
+      siteName: 'Hütte',
+      stateDir: dir,
+      alerts: { enabled: true, ntfyUrl: `http://127.0.0.1:${port}/ygw`, ntfyToken: null, rules: [] },
+      data: { capGb: 0 },
+    } as unknown as Parameters<typeof AS.AlertService.prototype.constructor>[0];
+    const mkService = () =>
+      new AS.AlertService(cfg as never, {} as never, {} as never);
+
+    const alerts = mkService();
+    let holding = true;
+    alerts.setHoldGate(() => holding);
+    const a = (id: string, title: string, priority: 'default' | 'high' = 'default') =>
+      ({ id, title, message: `${title} body`, priority, tags: [] });
+
+    await alerts.notify(a('v:low', 'Voltage low'));
+    await alerts.notify(a('v:low', 'Voltage low'));
+    await alerts.notify(a('cam:gone', 'Camera gone', 'high'));
+    ok('nothing goes out while the window is shut', received.length === 0, String(received.length));
+    ok('they are counted for the page', alerts.bufferedCount() === 3, String(alerts.bufferedCount()));
+    // The whole point of writing them down: the box may well reboot before Sunday.
+    ok('they are on disk, not just in RAM', existsSync(join(dir, 'alert-buffer.json')));
+    const afterReboot = mkService();
+    afterReboot.setHoldGate(() => holding);
+    ok('a restart does not lose them', afterReboot.bufferedCount() === 3, String(afterReboot.bufferedCount()));
+
+    // A test message is the operator standing there asking "does this work" — it must
+    // not be filed away until Sunday.
+    await afterReboot.test();
+    ok('a test message goes out anyway', received.length === 1, String(received.length));
+
+    holding = false;
+    const flushed = await afterReboot.flushBuffered();
+    ok('the window sends what was held', flushed.ok && received.length === 2, JSON.stringify(flushed));
+    ok('as one message, not three', received.filter((r) => r.includes('2× between')).length === 1, received[1]);
+    ok('the buffer is empty afterwards', afterReboot.bufferedCount() === 0);
+    ok('and stays empty across a restart', mkService().bufferedCount() === 0);
+    ok('once open, alerts go straight out', (await afterReboot.notify(a('v:low', 'Voltage low'))).ok && received.length === 3);
+
+    // ntfy blinking must not throw away the one message of the week.
+    holding = true;
+    await afterReboot.notify(a('v:low', 'Voltage low'));
+    await new Promise<void>((r) => srv.close(() => r()));
+    holding = false;
+    const failedFlush = await afterReboot.flushBuffered();
+    ok('a failed flush keeps the alerts', !failedFlush.ok && afterReboot.bufferedCount() === 1, JSON.stringify(failedFlush));
+  }
+
+  // ---- the service that acts on all that ----
+  // The pure decision is tested above; this checks that the two side effects actually
+  // happen, in the right order: the tunnel first, the held alerts only once it is up.
+  {
+    const US = await import('../packages/gateway/src/system/UplinkService');
+    const calls: string[] = [];
+    // remoteUp/remoteDown, not the Tailscale calls: the window has to work for
+    // whichever of the three remote-access methods the owner picked.
+    const sys = {
+      remoteUp: async () => { calls.push('up'); return { ok: true, message: 'up' }; },
+      remoteDown: async () => { calls.push('down'); return { ok: true, message: 'down' }; },
+    };
+    let flushes = 0;
+    const alertStub = { bufferedCount: () => 2, flushBuffered: async () => { flushes += 1; calls.push('flush'); return { ok: true, message: '' }; } };
+    const cfg = { uplink: { ...UP.UPLINK_DEFAULTS, mode: 'window' as const, bootGraceMinutes: 0 }, remoteAccess: { kind: 'tailscale' } };
+    const act = { lastApiAt: null as number | null };
+    const svc = new US.UplinkService(cfg as never, sys as never, alertStub as never, act);
+    const settle = () => new Promise<void>((r) => setTimeout(r, 20));
+
+    svc.start(3_600_000);
+    await settle();
+    ok('outside the window the tunnel is taken down', calls.join(',') === 'down', calls.join(','));
+    ok('and alerts are held', svc.holdsAlerts());
+
+    svc.openFor(30);
+    await settle();
+    ok('opening it by hand brings the tunnel up', calls.join(',') === 'down,up,flush', calls.join(','));
+    ok('the held alerts go out only after it is up', calls.indexOf('flush') > calls.indexOf('up'));
+    ok('and are no longer held', !svc.holdsAlerts());
+    ok('the page can see what is going on', svc.snapshot().up && svc.snapshot().buffered === 2);
+
+    svc.closeNow();
+    await settle();
+    ok('closing it by hand puts the schedule back in charge', calls.join(',') === 'down,up,flush,down', calls.join(','));
+    ok('nothing is flushed twice', flushes === 1);
+
+    // 'always' must not touch a tunnel the operator brought up by hand.
+    const always = new US.UplinkService({ uplink: UP.UPLINK_DEFAULTS, remoteAccess: { kind: 'tailscale' } } as never, sys as never, alertStub as never, act);
+    const before = calls.length;
+    always.start(3_600_000);
+    await settle();
+    ok('always-live never moves the tunnel', calls.length === before, calls.slice(before).join(','));
+    ok('and never holds an alert', !always.holdsAlerts());
+    svc.stop();
+    always.stop();
+  }
 
   // ---- the page on a metered link ----
   // This gateway is reached over LTE on a tariff bought for alerts, not for browsing.

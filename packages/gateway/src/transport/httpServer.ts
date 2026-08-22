@@ -5,6 +5,8 @@ import type { TelemetryService } from '../sensors/TelemetryService.js';
 import type { HistoryService } from '../sensors/HistoryService.js';
 import type { AlertService } from '../system/AlertService.js';
 import type { WatchdogService } from '../system/WatchdogService.js';
+import type { UplinkService } from '../system/UplinkService.js';
+import { countsAsPresence } from '../system/uplink.js';
 import { handleSetup, type SetupContext } from './setupRouter.js';
 import { startDeviceProxy, type DeviceProxyHandle } from './deviceProxy.js';
 import { applyCameras } from '../video/cameraManager.js';
@@ -16,8 +18,19 @@ import { applyCameras } from '../video/cameraManager.js';
  * it provisions itself, watches a few sensors and hands you a way through to the
  * devices behind it. Everything a browser needs is HTTP.
  */
-/** Last time a browser talked to this box; the watchdog checks it before rebooting. */
-export const activity: { lastRequestAt: number | null } = { lastRequestAt: null };
+/**
+ * Last time a browser talked to this box.
+ *
+ * Two clocks, because the two users of this want different things. `lastRequestAt` is
+ * "anything at all touched the HTTP port" — right for the watchdog, where a false
+ * positive only means it does not reboot. `lastApiAt` is "the setup page is open and
+ * visible", which is what the uplink window needs: a captive-portal probe from a phone
+ * on the hotspot must not be enough to hold the tunnel open all week.
+ */
+export const activity: { lastRequestAt: number | null; lastApiAt: number | null } = {
+  lastRequestAt: null,
+  lastApiAt: null,
+};
 
 export function startHttpServer(
   config: GatewayConfig,
@@ -26,6 +39,7 @@ export function startHttpServer(
   history: HistoryService,
   alerts: AlertService,
   watchdog: WatchdogService,
+  uplink: UplinkService,
 ): Server {
   // Every device the gateway publishes: the LTE stick's own UI, plus whatever the
   // operator added from the device list. Restarted as one fleet, because a changed
@@ -62,6 +76,7 @@ export function startHttpServer(
     history,
     alerts,
     watchdog,
+    uplink,
     applyCameras: (cams) => applyCameras(cams, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder),
     applyHilink: applyProxies,
     applyProxies,
@@ -70,6 +85,7 @@ export function startHttpServer(
 
   const server = createServer((req, res) => {
     activity.lastRequestAt = Date.now();
+    if (countsAsPresence(req.url)) activity.lastApiAt = Date.now();
     void handleSetup(req, res, ctx).then((handled) => {
       if (handled) return;
       // Everything else is the setup page: this box has exactly one UI.

@@ -83,32 +83,37 @@ Zwei gemessene Gewinne, beide in diesem Repository:
 
 ## Drei Bauformen und was sie kosten
 
-**A — Tailscale immer oben (was die Box heute tut).** In Sekunden erreichbar, nichts zu
-bedenken, und der Standby kostet, was Tailscales Keepalives eben kosten. Richtig für einen
-Tarif mit Monatskontingent.
+**A — Immer live (Standard).** In Sekunden erreichbar, nichts zu bedenken, und der Standby
+kostet, was die Keepalives des Tunnels eben kosten. Richtig für einen Tarif mit
+Monatskontingent.
 
-**B — Nur Alarme, geweckt per SMS (nicht implementiert; die interessante Variante).** Im
-Standby hält die Box gar keinen Tunnel: sie schickt einen ntfy-Alarm, wenn etwas nicht
-stimmt — ein direkter HTTPS-POST, ein paar kB, ohne VPN — und verbraucht sonst **überhaupt
-keine Daten**. Zum Reinkommen schickst du der SIM eine SMS; das Gateway liest sie am Modem
-aus (`mmcli` oder die HiLink-SMS-API — SMS läuft über den Signalisierungskanal und kostet
-kein Datenvolumen), holt Tailscale für eine festgelegte Zahl Minuten hoch und legt es
-wieder ab. Das ist echter Beinahe-Null-Standby mit Zugriff auf Abruf, und es braucht einen
-Tarif mit SMS.
+**C — Zeitfenster (seit v0.12.6, Setup › Remote access).** Der Tunnel bleibt unten und
+Alarme werden **auf Platte gepuffert**; wenn das Fenster aufgeht, kommen sie als eine
+gruppierte Nachricht an, und die Box ist bis zum Schließen voll live. Standard **sonntags
+14:00–14:15**, Tag, Uhrzeit und Länge sind einstellbar. Was es kostet, weiß man vorher;
+was man aufgibt, ist zu erfahren, dass etwas kaputt ist, bevor das Fenster aufgeht.
 
-Es braucht auch Sorgfalt, weil man sich damit eine Box bauen kann, die man nicht mehr
-erreicht: Der Weckpfad braucht einen **Fallback, der nicht von ihm abhängt** — ein
-Zeitfenster (unten), das ohnehin aufgeht, eine Absender-Whitelist plus ein Secret im
-Nachrichtentext, damit keine falsche Nummer deinen Tunnel öffnet, und den vorhandenen
-Watchdog darunter, der weiterläuft.
+Es ist so gebaut, dass es nicht der Grund sein kann, warum niemand mehr an die Box kommt:
+der Tunnel bleibt nach **jedem Neustart** zehn Minuten oben, er wird nie abgebaut, während
+jemand die Seite offen hat, und *Open now for 30 min* übersteuert ihn von der Seite aus.
+Die gehaltenen Alarme liegen in `/var/lib/yondergate/alert-buffer.json` — ein Neustart am
+Mittwoch verliert also den Alarm vom Dienstag nicht, und ein fehlgeschlagenes Zustellen
+behält sie für den nächsten Versuch.
 
-**C — Feste Zeitfenster.** Tailscale kommt dreimal am Tag für zehn Minuten hoch. Braucht
-keine SMS, kostet einen bekannten Betrag, und man wartet aufs nächste Fenster. Allein die
-schwächste Variante — aber der richtige *Fallback* unter B: mit C darunter kostet ein
-kaputter SMS-Pfad ein paar Stunden statt einer Fahrt zum Standort.
+**B — Geweckt per SMS (nicht implementiert; das, was den Gedanken zu Ende bringt).**
+Standby wie bei C, aber statt bis Sonntag zu warten, schickst du der SIM eine SMS: das
+Gateway liest sie am Modem aus (`mmcli` oder die HiLink-SMS-API — SMS läuft über den
+Signalisierungskanal und kostet kein Datenvolumen) und öffnet den Tunnel für eine
+festgelegte Zahl Minuten. Damit wird aus „einmal die Woche live" ein „live, wann immer du
+fragst", ohne Standby-Kosten.
 
-**B mit C darunter ist die Bauform, die zu deiner Anforderung passt.** Sie ist noch nicht
-gebaut; ausgeliefert wird A.
+Es braucht Sorgfalt, weil man sich damit eine Box bauen kann, die man nicht mehr erreicht:
+eine Absender-Whitelist plus ein Secret im Nachrichtentext, damit keine falsche Nummer den
+Tunnel öffnet — und das Fenster aus C darunter, damit ein still kaputter Weckpfad ein paar
+Tage kostet statt einer Fahrt zum Standort.
+
+**C wird ausgeliefert, B ist der nächste Schritt**; das Fenster ist bereits der Fallback,
+den B brauchen wird.
 
 ## Tarifwahl
 

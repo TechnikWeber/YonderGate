@@ -4,6 +4,8 @@ import { TelemetryService } from './sensors/TelemetryService.js';
 import { HistoryService } from './sensors/HistoryService.js';
 import { AlertService } from './system/AlertService.js';
 import { WatchdogService } from './system/WatchdogService.js';
+import { UplinkService } from './system/UplinkService.js';
+import { describeWindow } from './system/uplink.js';
 import { applyCameras, detectH264Encoder } from './video/cameraManager.js';
 import { startCaptivePortal } from './transport/captivePortal.js';
 import { activity, startHttpServer } from './transport/httpServer.js';
@@ -44,8 +46,17 @@ async function main() {
   const alerts = new AlertService(config, system, telemetry);
   alerts.start();
 
+  // Whether the tunnel is up all the time or only in a window — and, when it is a
+  // window, what happens to the alerts in between.
+  const uplink = new UplinkService(config, system, alerts, activity);
+  alerts.setHoldGate(() => uplink.holdsAlerts());
+  uplink.start();
+  console.log(
+    `  uplink    : ${config.uplink.mode === 'always' ? 'always live' : `window · ${describeWindow(config.uplink)}`}`,
+  );
+
   // Nobody is there to notice a link that is up but carries nothing.
-  const watchdog = new WatchdogService(config, system, alerts, activity);
+  const watchdog = new WatchdogService(config, system, alerts, activity, () => uplink.snapshot().up);
   watchdog.start();
   console.log(
     `  watchdog  : ${config.watchdog.enabled ? `probing ${config.watchdog.target} every ${config.watchdog.intervalMinutes} min` : 'off'}` +
@@ -58,7 +69,7 @@ async function main() {
     (e) => console.error('[video] initial camera generation failed:', (e as Error).message),
   );
 
-  startHttpServer(config, system, telemetry, history, alerts, watchdog);
+  startHttpServer(config, system, telemetry, history, alerts, watchdog, uplink);
   console.log(`  setup UI  : http://<gateway>:${config.port}/setup  (system: ${config.systemKind})`);
 
   // Captive portal for AP-mode onboarding (binds :80; skipped if not permitted).

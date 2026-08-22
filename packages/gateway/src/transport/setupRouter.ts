@@ -8,6 +8,8 @@ import type { TelemetryService } from '../sensors/TelemetryService.js';
 import type { HistoryService } from '../sensors/HistoryService.js';
 import type { AlertService } from '../system/AlertService.js';
 import type { WatchdogService } from '../system/WatchdogService.js';
+import type { UplinkService } from '../system/UplinkService.js';
+import { isUplinkMode, describeWindow } from '../system/uplink.js';
 import { isProbeTarget, dayName } from '../system/watchdog.js';
 import { switchId, validateSwitch, SWITCH_DEFAULT_CYCLE_S, type PowerSwitch } from '../system/power.js';
 import { isNtfyUrl, maskNtfyUrl, unmaskNtfyUrl } from '../system/alerts.js';
@@ -45,6 +47,7 @@ export interface SetupContext {
   history: HistoryService;
   alerts: AlertService;
   watchdog: WatchdogService;
+  uplink: UplinkService;
   applyCameras: (cams: CameraCfg[]) => Promise<void>;
   /** Re-read config.hilink: point the reader at the stick and (re)start its proxy. */
   applyHilink?: () => void;
@@ -416,6 +419,7 @@ export async function handleSetup(
       },
       watchdog: { ...ctx.config.watchdog, ...ctx.watchdog.snapshot() },
       reboot: ctx.config.reboot,
+      uplink: { ...ctx.config.uplink, ...ctx.uplink.snapshot() },
       switches: ctx.config.switches,
       hardwareWatchdogSeconds: await ctx.system.hardwareWatchdogSeconds(),
       devices: ctx.config.devices,
@@ -614,6 +618,48 @@ export async function handleSetup(
   if (url === '/api/hardware-watchdog' && method === 'POST') {
     const body = (await readBody(req)) as { enabled?: unknown };
     json(res, 200, await ctx.system.setHardwareWatchdog(body.enabled === true));
+    return true;
+  }
+
+  if (url === '/api/uplink' && method === 'POST') {
+    const body = (await readBody(req)) as {
+      mode?: unknown; weekday?: unknown; hour?: unknown; minute?: unknown;
+      durationMinutes?: unknown; bootGraceMinutes?: unknown;
+    };
+    const mode = isUplinkMode(body.mode) ? body.mode : ctx.config.uplink.mode;
+    const uplink = {
+      mode,
+      weekday: clampInt(body.weekday, ctx.config.uplink.weekday, 0, 6),
+      hour: clampInt(body.hour, ctx.config.uplink.hour, 0, 23),
+      minute: clampInt(body.minute, ctx.config.uplink.minute, 0, 59),
+      // At least five minutes: a window too short to log in through is a box you
+      // cannot reach, which is the one outcome this feature must never produce.
+      durationMinutes: clampInt(body.durationMinutes, ctx.config.uplink.durationMinutes, 5, 24 * 60),
+      bootGraceMinutes: clampInt(body.bootGraceMinutes, ctx.config.uplink.bootGraceMinutes, 0, 120),
+    };
+    savePersisted(ctx.config.configPath, { uplink });
+    ctx.config.uplink = uplink;
+    json(res, 200, {
+      ok: true,
+      message:
+        mode === 'always'
+          ? 'Saved — the tunnel stays up and alerts go out as they happen.'
+          : `Saved — live ${describeWindow(uplink)}. Alerts in between are held and arrive as one message when it opens.`,
+      uplink: { ...uplink, ...ctx.uplink.snapshot() },
+    });
+    return true;
+  }
+
+  if (url === '/api/uplink/open' && method === 'POST') {
+    const body = (await readBody(req)) as { minutes?: unknown };
+    const r = ctx.uplink.openFor(clampInt(body.minutes, 30, 1, 24 * 60));
+    json(res, 200, { ...r, uplink: { ...ctx.config.uplink, ...ctx.uplink.snapshot() } });
+    return true;
+  }
+
+  if (url === '/api/uplink/close' && method === 'POST') {
+    const r = ctx.uplink.closeNow();
+    json(res, 200, { ...r, uplink: { ...ctx.config.uplink, ...ctx.uplink.snapshot() } });
     return true;
   }
 

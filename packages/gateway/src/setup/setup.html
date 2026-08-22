@@ -375,6 +375,31 @@
           <button class="btn" onclick="run(this, () => remoteDown())">Stop</button>
         </div>
         <div class="msg" id="ts-msg"></div>
+
+        <div class="eyebrow2" style="margin-top:16px">When the tunnel is up</div>
+        <label class="chk"><input type="radio" name="uplinkMode" value="always" id="upAlways" onchange="renderUplink()" /> <span><b>Always live</b> — reachable in seconds, alerts go out the moment they happen. The tunnel's keepalives run around the clock, and on a small SIM they are the largest item on the bill.</span></label>
+        <label class="chk"><input type="radio" name="uplinkMode" value="window" id="upWindow" onchange="renderUplink()" /> <span><b>Only in a window</b> — the tunnel stays down and alerts are held on disk. When the window opens they arrive as one message and the box is fully live for as long as it lasts.</span></label>
+        <div id="uplink-fields" style="display:none">
+          <div class="grid2">
+            <label>Day
+              <select id="upWeekday">
+                <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
+                <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </label>
+            <label>Starts at<input id="upTime" type="time" value="14:00" /></label>
+            <label>For (min)<input id="upDuration" type="number" min="5" max="1440" value="15" /></label>
+            <label>Stay up after a restart (min)<input id="upGrace" type="number" min="0" max="120" value="10" /></label>
+          </div>
+          <p class="msg">It cannot lock you out on its own: the tunnel also stays up for a while after every restart, it is never taken down while somebody has this page open, and the button below opens it by hand. Alerts wait on disk, so a reboot in between does not lose them — but they do wait, which is the trade you are making.</p>
+          <div class="btns">
+            <button class="btn" onclick="run(this, () => uplinkOpen(30))">Open now for 30 min</button>
+            <button class="btn" onclick="run(this, () => uplinkClose())">Back to the schedule</button>
+          </div>
+        </div>
+        <div class="btns"><button class="btn primary" onclick="run(this, () => saveUplink())">Save mode</button></div>
+        <div class="msg" id="up-state"></div>
       </section>
 
       <section class="panel">
@@ -1013,6 +1038,63 @@
           + (mb > 2 ? ' — worth raising to 15–30 min on a small tariff.' : '.');
       }
 
+      // ---- when the tunnel is up ----
+      // The state line is redrawn from a local clock rather than by asking the gateway:
+      // a countdown that costs a request every second would be a strange thing to put in
+      // the feature whose whole point is not spending mobile data.
+      let uplinkState = null;
+      function renderUplink() {
+        const windowed = $('upWindow').checked;
+        $('uplink-fields').style.display = windowed ? '' : 'none';
+        drawUplinkState();
+      }
+      function inWords(ms) {
+        if (ms < 0) return 'now';
+        const m = Math.round(ms / 60000);
+        if (m < 60) return `in ${m} min`;
+        const h = Math.floor(m / 60);
+        if (h < 48) return `in ${h} h ${m % 60} min`;
+        return `in ${Math.floor(h / 24)} d ${h % 24} h`;
+      }
+      function drawUplinkState() {
+        const u = uplinkState;
+        if (!u) { $('up-state').textContent = ''; return; }
+        if (u.mode === 'always') {
+          $('up-state').innerHTML = 'The tunnel is managed by hand — <b>Bring up</b> and <b>Stop</b> above are the only things that move it.';
+          return;
+        }
+        const next = u.nextWindowAt ? new Date(u.nextWindowAt) : null;
+        const held = u.buffered
+          ? `<b style="color:var(--warn)">${u.buffered} alert${u.buffered === 1 ? '' : 's'} waiting</b> — they go out as one message when it opens.`
+          : 'Nothing is waiting.';
+        $('up-state').innerHTML =
+          `Right now: <b style="color:var(${u.up ? '--go' : '--muted'})">${u.up ? 'live' : 'closed'}</b> — ${esc(u.reason || '')}.<br>` +
+          (next ? `Next window ${esc(next.toLocaleString())} (${inWords(next.getTime() - Date.now())}), ${esc(u.window || '')}.<br>` : '') +
+          held;
+      }
+      async function saveUplink() {
+        const [hh, mm] = ($('upTime').value || '14:00').split(':');
+        const r = await post('/api/uplink', {
+          mode: $('upWindow').checked ? 'window' : 'always',
+          weekday: Number($('upWeekday').value),
+          hour: Number(hh), minute: Number(mm),
+          durationMinutes: Number($('upDuration').value) || 15,
+          bootGraceMinutes: Number($('upGrace').value),
+        });
+        if (r.uplink) { uplinkState = r.uplink; drawUplinkState(); }
+        return r;
+      }
+      async function uplinkOpen(minutes) {
+        const r = await post('/api/uplink/open', { minutes });
+        if (r.uplink) { uplinkState = r.uplink; drawUplinkState(); }
+        return r;
+      }
+      async function uplinkClose() {
+        const r = await post('/api/uplink/close', {});
+        if (r.uplink) { uplinkState = r.uplink; drawUplinkState(); }
+        return r;
+      }
+
       // ---- alert rules, watchdog, scheduled reboot ----
       let healthData = null;
 
@@ -1123,6 +1205,16 @@
         renderRuleTargets();
         renderSwitches(d.switches, d.devices);
         $('hwWatchdog').checked = (d.hardwareWatchdogSeconds || 0) > 0;
+        if (d.uplink) {
+          uplinkState = d.uplink;
+          $('upAlways').checked = d.uplink.mode !== 'window';
+          $('upWindow').checked = d.uplink.mode === 'window';
+          $('upWeekday').value = String(d.uplink.weekday);
+          $('upTime').value = String(d.uplink.hour).padStart(2, '0') + ':' + String(d.uplink.minute).padStart(2, '0');
+          $('upDuration').value = d.uplink.durationMinutes;
+          $('upGrace').value = d.uplink.bootGraceMinutes;
+          renderUplink();
+        }
         if (d.watchdog) {
           // Show the limits, not just the switch: "may reboot" without "twice a day
           // at most" would read as a promise to keep trying forever.
@@ -2022,6 +2114,7 @@
       loadWifi();
       refresh();
       poll(refresh, 3000);
+      poll(drawUplinkState, 30000);
       pollsRun(!document.hidden);
     </script>
   </body>

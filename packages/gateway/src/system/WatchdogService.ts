@@ -35,6 +35,13 @@ export class WatchdogService {
     private readonly alerts: AlertService,
     /** When the page was last used, so a reboot cannot kick out whoever is on it. */
     private readonly activity: { lastRequestAt: number | null } = { lastRequestAt: null },
+    /**
+     * Should the tunnel be up at all right now? In window mode outside the window it
+     * must not be, and step 1 of the ladder — `tailscale up` — would otherwise undo
+     * the whole point of the mode every time a probe failed. Defaults to yes, so a
+     * gateway with no window configured behaves exactly as before.
+     */
+    private readonly tunnelWanted: () => boolean = () => true,
   ) {
     this.budgetPath = join(config.stateDir, 'watchdog.json');
     this.loadBudget();
@@ -86,7 +93,13 @@ export class WatchdogService {
       return;
     }
     this.failures += 1;
-    const action = nextWatchdogAction(this.failures, this.config.watchdog);
+    let action = nextWatchdogAction(this.failures, this.config.watchdog);
+    if (action === 'tailscale' && !this.tunnelWanted()) {
+      // Not a failure of the ladder: the tunnel is *supposed* to be down. Skip this
+      // rung and let the count carry on to the ones that still make sense.
+      console.log('[watchdog] skipping the tailscale step — the uplink window is closed');
+      action = 'none';
+    }
     if (action === 'none') {
       console.log(`[watchdog] probe ${this.failures} failed`);
       return;

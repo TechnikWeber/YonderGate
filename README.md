@@ -31,7 +31,12 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **LTE**: ModemManager modems (APN, SIM PIN, network mode, roaming, diagnostics)
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
-- **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot.
+- **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot — either
+  **always live**, or **only in a window** (default Sundays 14:00–14:15). In window mode
+  the tunnel stays down and alerts are held on disk, then arrive as one message when it
+  opens and the box is fully live until it closes. It cannot lock you out: it stays up
+  for ten minutes after every restart, never drops while somebody has the page open, and
+  there is an *open it now* button. See [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md).
 - **It can switch things off and on**: a Shelly, a Tasmota plug, any URL, or a relay
   on the GPIO — manually, or automatically when the device behind that switch stops
   answering. It is the only thing here that can *act* on a fault rather than report it.
@@ -269,10 +274,13 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [ ] **Measure what Tailscale costs while idle.** The largest continuous item in the data
       budget and the only one still guessed at; the counter to measure it with is already
       in the page
-- [ ] **SMS wake**, so standby can cost *no* data: no tunnel until a text arrives (`mmcli`
-      / the HiLink SMS API), then Tailscale up for N minutes. Needs a sender whitelist, a
-      secret in the message, and a scheduled window underneath it — a wake path that can
-      fail silently is a box nobody can reach
+- [x] **Uplink window**: two modes on a radio button — always live, or live only in a
+      window (default Sundays 14:00–14:15), with alerts held on disk in between and
+      delivered as one grouped message when it opens
+- [ ] **SMS wake**, so you do not have to wait for the window: no tunnel until a text
+      arrives (`mmcli` / the HiLink SMS API), then up for N minutes. Needs a sender
+      whitelist and a secret in the message; the window above is already the fallback
+      underneath it — a wake path that can fail silently is a box nobody can reach
 - [x] Time on the page: current time, timezone, the servers actually in use, and a
       **DS3231 hardware clock enabled with a checkbox** rather than an SSH session
 - [x] Interface picker for the data counter, and a "used / left / days to go" line

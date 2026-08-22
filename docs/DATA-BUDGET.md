@@ -82,30 +82,34 @@ Two measured wins, both in this repository:
 
 ## Three shapes, and what each one costs you
 
-**A — Tailscale always up (what the box does today).** Reachable in seconds, nothing to
-think about, and the standby cost is whatever Tailscale's keepalives come to. Right for a
-tariff with a monthly allowance.
+**A — Always live (the default).** Reachable in seconds, nothing to think about, and the
+standby cost is whatever the tunnel's keepalives come to. Right for a tariff with a
+monthly allowance.
 
-**B — Alerts only, woken by SMS (not implemented; the interesting one).** In standby the
-box holds no tunnel at all: it sends an ntfy alert when something is wrong — a direct
-HTTPS POST, a few kB, no VPN involved — and otherwise uses **no data whatsoever**. To get
-in, you text the SIM; the gateway reads the message off the modem (`mmcli` or the HiLink
-SMS API — SMS travels on the signalling channel and costs no data at all), brings
-Tailscale up for a set number of minutes, and drops it again. That is genuinely near-zero
-standby with on-demand access, and it needs a tariff that includes SMS.
+**C — A window (shipped in v0.12.6, Setup › Remote access).** The tunnel stays down and
+alerts are **held on disk**; when the window opens they arrive as one grouped message and
+the box is fully live until it closes. Default **Sundays 14:00–14:15**, and day, time and
+length are settings. What it costs is known in advance, and what you give up is knowing
+about a problem before the window.
 
-It also needs care, because it can build a box you cannot reach: the wake path must have
-a **fallback that does not depend on it** — a scheduled window (below) that opens anyway,
-a sender whitelist plus a secret in the message text so a wrong number cannot open your
-tunnel, and the existing watchdog left in charge underneath.
+It is built so it cannot be the reason nobody can reach the box: the tunnel also stays up
+for ten minutes after **every restart**, it is never taken down while somebody has the
+page open, and *Open now for 30 min* overrides it from the page. The held alerts are
+written to `/var/lib/yondergate/alert-buffer.json`, so a reboot on Wednesday does not lose
+Tuesday's alert, and a flush that fails keeps them for the next attempt.
 
-**C — Scheduled windows.** Tailscale comes up for ten minutes, three times a day. No SMS
-needed, costs a known amount, and you wait for the next window. Weakest on its own, but
-it is the right *fallback* under B — with C underneath, a broken SMS path costs you a few
-hours, not a drive to the site.
+**B — Woken by SMS (not implemented; the one that finishes the idea).** Standby as in C,
+but instead of waiting for Sunday you text the SIM: the gateway reads the message off the
+modem (`mmcli` or the HiLink SMS API — SMS travels on the signalling channel and costs no
+data at all) and opens the tunnel for a set number of minutes. That turns "live once a
+week" into "live whenever you ask", at no standby cost.
 
-**B with C underneath is the design that matches what you asked for.** It is not built
-yet; A is what ships.
+It needs care, because it can build a box you cannot reach: a sender whitelist plus a
+secret in the message text, so a wrong number cannot open your tunnel — and the window
+from C left underneath it, so a wake path that silently breaks costs you a few days rather
+than a drive to the site.
+
+**C is what ships and B is the next step**; the window is already the fallback B will need.
 
 ## Choosing a tariff
 

@@ -2,6 +2,74 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.6
+**English**
+- **Two modes for the tunnel, on a radio button** (Setup › Remote access). **Always live**
+  is what the box has always done. **Only in a window** keeps it down and holds the alerts,
+  then opens everything at once: default **Sundays 14:00–14:15**, with day, start, length
+  and the post-restart grace all settable.
+- **The alerts are held on disk, not in RAM.** A window can be a week away and the box may
+  well reboot in between — an alert that only ever lived in memory would be exactly the one
+  you never hear about. They go to `/var/lib/yondergate/alert-buffer.json`, survive a
+  restart, and a flush that fails keeps them for the next attempt rather than dropping the
+  only message of the week.
+- **They arrive as one message, not forty.** A sensor that flapped for six days would
+  otherwise empty itself into your phone the second the window opens. Grouped by what went
+  wrong, with the count and the span: *"Voltage low — 12× between Mon 03:14 and Sat 21:00"*.
+  One urgent thing makes the whole digest urgent.
+- **It cannot be the reason nobody can reach the box.** That is the failure this feature
+  could obviously cause, so there are four ways out: the tunnel stays up for ten minutes
+  after **every restart** (you rebooted it — that is exactly when you want in), it is never
+  taken down while somebody has the page open, *Open now for 30 min* overrides the schedule,
+  and a failed bring-up is retried on the next tick instead of being swallowed.
+- **A captive-portal probe does not count as "somebody is here".** Every request to this
+  port used to; a phone on the hotspot checking for internet would then have held the tunnel
+  open around the clock and quietly undone the whole mode — the worst way for it to fail,
+  because the box looks configured and only the bill disagrees. Presence is now the setup
+  page's own polling, which already stops when the tab is hidden.
+- **It works for whichever VPN you picked** — the window drives `remoteUp`/`remoteDown`, not
+  Tailscale directly, so ZeroTier and WireGuard get the same behaviour. The watchdog also
+  learned to skip its `tailscale up` rung while the window is shut, instead of fighting the
+  mode every time a probe fails.
+- 593 tests (46 new): the schedule including a window that runs past midnight, every refusal
+  to strand the operator, the buffer surviving a simulated reboot, the digest grouping, and
+  the service actually calling down/up/flush in that order.
+
+**Deutsch**
+- **Zwei Modi für den Tunnel, per Radiobutton** (Setup › Remote access). **Always live** ist
+  das, was die Box immer getan hat. **Only in a window** lässt ihn unten und hält die
+  Alarme, dann geht alles auf einmal raus: Standard **sonntags 14:00–14:15**, Tag, Beginn,
+  Länge und die Nachlaufzeit nach einem Neustart sind einstellbar.
+- **Die Alarme liegen auf Platte, nicht im RAM.** Ein Fenster kann eine Woche entfernt sein,
+  und die Box startet in der Zwischenzeit womöglich neu — ein Alarm, der nur im Speicher
+  lebte, wäre genau der, von dem man nie erfährt. Sie liegen in
+  `/var/lib/yondergate/alert-buffer.json`, überstehen einen Neustart, und ein
+  fehlgeschlagenes Zustellen behält sie für den nächsten Versuch, statt die einzige
+  Nachricht der Woche wegzuwerfen.
+- **Sie kommen als eine Nachricht an, nicht als vierzig.** Ein Sensor, der sechs Tage
+  geflattert hat, würde sich sonst in der Sekunde des Fensters ins Handy entleeren.
+  Gruppiert nach dem, was kaputt war, mit Anzahl und Zeitraum: *„Voltage low — 12× zwischen
+  Mo 03:14 und Sa 21:00"*. Eine dringende Sache macht die ganze Zusammenfassung dringend.
+- **Es darf nicht der Grund sein, dass niemand mehr an die Box kommt.** Das ist der Fehler,
+  den dieses Feature offensichtlich verursachen kann, also gibt es vier Auswege: der Tunnel
+  bleibt nach **jedem Neustart** zehn Minuten oben (du hast neu gestartet — genau dann willst
+  du rein), er wird nie abgebaut, während jemand die Seite offen hat, *Open now for 30 min*
+  übersteuert den Zeitplan, und ein fehlgeschlagenes Hochfahren wird beim nächsten Takt
+  erneut versucht statt verschluckt.
+- **Ein Captive-Portal-Probe zählt nicht als „jemand ist da".** Bisher tat das jeder Request
+  auf diesen Port; ein Handy im Hotspot, das nach Internet sucht, hätte den Tunnel rund um
+  die Uhr offen gehalten und den Modus still ausgehebelt — die schlimmste Art zu scheitern,
+  weil die Box konfiguriert aussieht und nur die Rechnung widerspricht. Anwesenheit ist
+  jetzt das Polling der Setup-Seite selbst, das ohnehin stoppt, wenn der Tab verdeckt ist.
+- **Es funktioniert mit dem VPN, das du gewählt hast** — das Fenster steuert
+  `remoteUp`/`remoteDown` statt Tailscale direkt, ZeroTier und WireGuard verhalten sich also
+  gleich. Der Watchdog überspringt außerdem seine `tailscale up`-Sprosse, solange das Fenster
+  zu ist, statt den Modus bei jeder fehlgeschlagenen Probe zu bekämpfen.
+- 593 Tests (46 neue): der Zeitplan inklusive eines Fensters über Mitternacht, jede
+  Weigerung, den Betreiber auszusperren, der Puffer über einen simulierten Neustart hinweg,
+  die Gruppierung der Zusammenfassung, und dass der Dienst tatsächlich down/up/flush in
+  dieser Reihenfolge aufruft.
+
 ## v0.12.5
 **English**
 - **A data budget, because the SIM is the other thing this box runs on.** The requirement
