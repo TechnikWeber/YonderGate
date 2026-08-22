@@ -52,11 +52,14 @@ Vier Einschränkungen, alle beherrschbar, wenn man sie vor der Bestellung kennt:
 
 1. **512 MB RAM — und der kritische Moment ist `npm install`, nicht der Betrieb.** Der
    Dienst selbst ist klein; der Update-Pfad (`git pull` + `npm install`) läuft an die
-   Speichergrenze. Gib der Box **zram oder eine Swapdatei**, bevor das erste Update
-   läuft — der Installer richtet beides derzeit nicht ein:
+   Speichergrenze. **`install.sh` erledigt das**: auf jedem Board unter 1,5 GB richtet er
+   **zram** ein — komprimierter Swap im RAM, es wird also nichts zusätzlich auf die
+   SD-Karte geschrieben — mit 60 % und zstd, und einen größeren Pi lässt er in Ruhe.
+   Prüfen mit `swapon --show`: `/dev/zram0` soll eine höhere Priorität haben als die
+   Swapdatei auf der Karte. Von Hand, falls du den Installer nicht nutzt:
    ```bash
    sudo apt install -y zram-tools
-   echo -e 'ALGO=zstd\nPERCENT=60' | sudo tee -a /etc/default/zramswap
+   printf 'ALGO=zstd\nPERCENT=60\nPRIORITY=100\n' | sudo tee -a /etc/default/zramswap
    sudo systemctl restart zramswap
    ```
 2. **Ein Funkchip, nur 2,4 GHz.** Access Point *und* WLAN-Uplink gleichzeitig ist auf dem

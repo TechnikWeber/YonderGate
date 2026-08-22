@@ -1,6 +1,6 @@
 {
   "name": "@yondergate/gateway",
-  "version": "0.12.3",
+  "version": "0.12.4",
   "private": true,
   "type": "module",
   "description": "YonderGate service: provisioning, remote access, device discovery and the web UI on the Pi.",

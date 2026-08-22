@@ -16,6 +16,48 @@ apt-get update
 # gpiod = gpioset, for a relay on the GPIO header (Setup > power switches).
 apt-get install -y curl git ffmpeg network-manager modemmanager wireguard-tools usb-modeswitch i2c-tools gpiod
 
+echo "-- swap in RAM (zram) on small boards"
+# A 512 MB Pi (Zero 2 W, 3A+) runs the service fine — it measures ~54 MB — but `npm
+# install` during an update is another matter, and a box that runs out of memory
+# mid-update is a box someone has to drive to. zram gives it compressed swap in RAM:
+# no SD-card writes, which matters on a solar site where the power can vanish
+# mid-write. Pi OS's own dphys-swapfile stays as it is; zram registers at a higher
+# priority, so the kernel reaches for RAM before it reaches for the card.
+MEM_KB=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+# An empty or odd value must not abort provisioning under `set -e`: unknown means skip.
+case "$MEM_KB" in ''|*[!0-9]*) MEM_KB=0 ;; esac
+if [ "$MEM_KB" -gt 0 ] && [ "$MEM_KB" -lt 1572864 ]; then   # < 1.5 GB
+  if [ -e /sys/block/zram0 ] || grep -q '^/dev/zram' /proc/swaps 2>/dev/null; then
+    echo "   (zram is already set up — left alone)"
+  elif apt-get install -y zram-tools; then
+    # Debian's zram-tools sources /etc/default/zramswap, so our block wins over the
+    # commented defaults above it. Written between markers so re-running the installer
+    # replaces it instead of stacking another copy.
+    sed -i '/# >>> yondergate/,/# <<< yondergate/d' /etc/default/zramswap 2>/dev/null || true
+    cat >> /etc/default/zramswap <<'ZRAM'
+# >>> yondergate
+ALGO=zstd
+PERCENT=60
+PRIORITY=100
+# <<< yondergate
+ZRAM
+    systemctl restart zramswap.service 2>/dev/null ||
+      systemctl restart zramswap 2>/dev/null ||
+      echo "   (zramswap did not restart — it will come up at the next boot)"
+    echo "   ($((MEM_KB / 1024)) MB of RAM: zstd zram at 60 % enabled)"
+  else
+    # Naming the cause and the fix, as everywhere else: this is not fatal, but the
+    # operator should know why their next update might die.
+    echo "   (could not install zram-tools — not fatal, but on a $((MEM_KB / 1024)) MB board"
+    echo "    'npm install' during an update may run out of memory. Fix: apt install zram-tools,"
+    echo "    or add a swapfile. See docs/HARDWARE.md.)"
+  fi
+elif [ "$MEM_KB" -eq 0 ]; then
+  echo "   (skipped: could not read /proc/meminfo)"
+else
+  echo "   (skipped: $((MEM_KB / 1024)) MB of RAM is enough without it)"
+fi
+
 echo "-- Node.js 22"
 if ! command -v node >/dev/null || [ "$(node -v | cut -c2-3)" -lt 20 ]; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -

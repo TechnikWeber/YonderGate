@@ -272,6 +272,5 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [ ] Bilingual docs as in YonderRC — `docs/HARDWARE.de.md` is done, `README.de.md` is not
 - [x] A hardware guide: which Pi, which LTE stick, solar/charge controller wiring, and
       what the whole thing costs in watts — [docs/HARDWARE.md](docs/HARDWARE.md)
-- [ ] Power behaviour on brownout: described in the hardware guide, but **not verified** —
-      and the installer still sets up no zram/swap, which a 512 MB Zero 2 W wants before
-      its first `npm install`
+- [ ] Power behaviour on brownout: described in the hardware guide, but **not verified**
+      on hardware

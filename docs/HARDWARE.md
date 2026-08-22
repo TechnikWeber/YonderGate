@@ -51,11 +51,14 @@ Four constraints, all of them manageable if you know about them before you order
 
 1. **512 MB of RAM, and the risky moment is `npm install`, not runtime.** The service
    itself is small; the update path (`git pull` + `npm install`) is what can hit the
-   memory ceiling. Give the box **zram or a swapfile** before the first update — the
-   installer does not currently set either up:
+   memory ceiling. **`install.sh` handles this**: on any board under 1.5 GB it enables
+   **zram** — compressed swap in RAM, so nothing extra is written to the SD card — at
+   60 % with zstd, and it leaves a bigger Pi alone. Check it with `swapon --show`; you
+   want `/dev/zram0` at a higher priority than the card's swapfile. By hand, if you are
+   not using the installer:
    ```bash
    sudo apt install -y zram-tools
-   echo -e 'ALGO=zstd\nPERCENT=60' | sudo tee -a /etc/default/zramswap
+   printf 'ALGO=zstd\nPERCENT=60\nPRIORITY=100\n' | sudo tee -a /etc/default/zramswap
    sudo systemctl restart zramswap
    ```
 2. **One radio, 2.4 GHz only.** Access point *and* WiFi uplink at the same time is not

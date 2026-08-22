@@ -2,6 +2,50 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.4
+**English**
+- **The installer now gives a small board swap before the step that needs it.** A Zero 2 W
+  runs the service comfortably — it measures ~54 MB — but `npm install` during an *update*
+  is a different load, and a gateway that runs out of memory mid-update is one somebody has
+  to drive to. On any board under 1.5 GB, `install.sh` enables **zram**: zstd, 60 % of RAM,
+  priority 100.
+- **In RAM, deliberately, not a swapfile on the card.** This box lives on solar; the power
+  can vanish mid-write, and the SD card is the thing that dies. Pi OS's own dphys-swapfile
+  is left as it is — zram simply registers at a higher priority, so the kernel reaches for
+  RAM before it reaches for the card.
+- **It knows when to stay out of the way**: a Pi 4 or 5 is skipped with a line saying so,
+  an existing zram setup is left alone, an unreadable `/proc/meminfo` skips rather than
+  aborting provisioning, and a failed `apt-get` prints the cause and the fix instead of
+  killing the install — the update path is the last thing that may become fragile.
+- **Re-running the installer does not stack config**: the settings go into
+  `/etc/default/zramswap` between markers that the next run replaces.
+- Tests hold the two properties that actually matter (518 now): zram is set up **before**
+  the `npm install` it protects, and it is gated on a memory check rather than forced onto
+  every board. Docs updated — `docs/HARDWARE.md` and its German sibling described this as a
+  manual step and a gap; it is neither any more.
+
+**Deutsch**
+- **Der Installer gibt einem kleinen Board jetzt Swap, bevor der Schritt kommt, der ihn
+  braucht.** Ein Zero 2 W fährt den Dienst locker — er misst ~54 MB — aber `npm install`
+  bei einem *Update* ist eine andere Last, und ein Gateway, dem mitten im Update der
+  Speicher ausgeht, ist eines, zu dem jemand hinfahren muss. Auf jedem Board unter 1,5 GB
+  richtet `install.sh` **zram** ein: zstd, 60 % des RAM, Priorität 100.
+- **Bewusst im RAM, keine Swapdatei auf der Karte.** Diese Box hängt an Solar; der Strom
+  kann mitten im Schreibvorgang weg sein, und die SD-Karte ist das, was dabei stirbt. Die
+  dphys-swapfile von Pi OS bleibt, wie sie ist — zram meldet sich nur mit höherer
+  Priorität an, der Kernel greift also erst ins RAM und dann auf die Karte.
+- **Er weiß, wann er sich raushalten muss**: ein Pi 4 oder 5 wird mit einer Zeile
+  übersprungen, ein vorhandenes zram-Setup bleibt unangetastet, ein unlesbares
+  `/proc/meminfo` führt zum Überspringen statt zum Abbruch der Provisionierung, und ein
+  fehlgeschlagenes `apt-get` nennt Ursache und Abhilfe, statt die Installation zu killen —
+  ausgerechnet der Update-Pfad darf nicht fragil werden.
+- **Ein erneuter Lauf stapelt keine Konfiguration**: die Einstellungen stehen in
+  `/etc/default/zramswap` zwischen Markern, die der nächste Lauf ersetzt.
+- Tests sichern die zwei Eigenschaften, auf die es ankommt (jetzt 518): zram wird **vor**
+  dem `npm install` eingerichtet, das es schützt, und es hängt an einer Speicherprüfung
+  statt jedem Board übergestülpt zu werden. Doku nachgezogen — `docs/HARDWARE.md` und die
+  deutsche Fassung beschrieben das als Handarbeit und als Lücke; beides stimmt nicht mehr.
+
 ## v0.12.3
 **English**
 - **A hardware guide, because the first question about an off-grid box is "what do I buy

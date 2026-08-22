@@ -12,7 +12,7 @@ first boot is reachable. Pi 4 or Pi Zero 2 W are the sweet spot (they have the
 hardware H.264 encoder; the Pi 5 does not) — and on solar, the **Zero 2 W** is the
 one to pick: it costs about 2 W less, permanently. See
 [docs/HARDWARE.md](../docs/HARDWARE.md) for the full parts list, the power budget and
-the wiring, including the zram step a 512 MB board wants before its first update.
+the wiring.
 
 ## 2. Copy the repo and install
 
@@ -39,6 +39,11 @@ go2rtc, does `npm install`, and enables three services:
 - `yondergate` — the control service + setup UI on port 8080
 - `go2rtc` — the video server on port 1984
 - `yondergate-onboard` — WiFi hotspot fallback when the Pi is isolated
+
+On a board with less than 1.5 GB of RAM (Zero 2 W, 3A+) it also enables **zram** —
+compressed swap in RAM, nothing extra written to the card. The service needs ~54 MB; it
+is `npm install` during an *update* that runs a 512 MB box out of memory, and that is a
+box somebody has to drive to. A bigger Pi is left alone. `swapon --show` afterwards.
 
 ## 3. First boot / onboarding
 

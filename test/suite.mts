@@ -832,7 +832,21 @@ async function main() {
   const envPath = vehicleUnit.match(/YGW_GO2RTC_CONFIG=(\S+)/)?.[1] ?? '';
   ok('go2rtc reads a runtime path, not the checkout', unitPath === '/var/lib/yondergate/go2rtc.yaml', unitPath);
   ok('the gateway writes exactly that path', envPath === unitPath, `${envPath} vs ${unitPath}`);
-  ok('the installer creates the directory', readFileSync('provisioning/install.sh', 'utf8').includes('install -d -m 0755 /var/lib/yondergate'));
+  const installer = readFileSync('provisioning/install.sh', 'utf8');
+  ok('the installer creates the directory', installer.includes('install -d -m 0755 /var/lib/yondergate'));
+
+  // ---- zram on a 512 MB board ----
+  // The service is small (~54 MB), but `npm install` during an update is not, and a
+  // gateway that dies mid-update is one somebody has to drive to. Two things must hold:
+  // the swap has to exist *before* the install that needs it, and a box with plenty of
+  // RAM must not have zram forced on it.
+  ok('the installer sets up zram', installer.includes('apt-get install -y zram-tools'));
+  ok('zram is in RAM, not on the card', /PERCENT=\d+/.test(installer) && !/dphys-swapfile\s+setup/.test(installer));
+  ok('zram is guarded by a memory check', /MemTotal/.test(installer) && installer.includes('1572864'));
+  ok('zram comes before the npm install it protects',
+    installer.indexOf('zram-tools') < installer.indexOf('npm install --omit=optional'),
+    'swap must exist before the step that needs it');
+  ok('re-running the installer does not stack zram config', installer.includes(">>> yondergate") && installer.includes('/# >>> yondergate/,/# <<< yondergate/d'));
 
   // ---- self-update: what the gateway would do, and in which order ----
   const U = await import('../packages/gateway/src/system/update');
