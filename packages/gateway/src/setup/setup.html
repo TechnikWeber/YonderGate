@@ -494,11 +494,12 @@
         <label class="chk"><input type="checkbox" id="wdEnabled" /> <span><b>Watchdog</b> — probe the uplink and recover when traffic stops reaching the outside</span></label>
         <div class="grid3">
           <label>Ping this address<input id="wdTarget" placeholder="1.1.1.1" /></label>
-          <label>Every (min)<input id="wdInterval" type="number" value="5" /></label>
+          <label>Every (min)<input id="wdInterval" type="number" value="5" oninput="wdCost()" /></label>
           <div style="display:flex;align-items:flex-end;margin-bottom:10px">
             <label class="chk"><input type="checkbox" id="wdReboot" /> <span>may reboot as a last resort</span></label>
           </div>
         </div>
+        <p class="msg" id="wd-cost"></p>
         <label class="chk"><input type="checkbox" id="rbEnabled" /> <span><b>Weekly reboot</b> — a crutch, but a cheap one on a box nobody visits</span></label>
         <div class="grid2">
           <label>Day
@@ -999,6 +1000,19 @@
         loadHealth();
       }
 
+      // The probe is two pings — about 0.35 kB on the wire, there and back. Harmless on a
+      // flat rate and not harmless at all on an IoT SIM sold with 500 MB for its whole
+      // life, where five-minute probing is ~3 MB a month: more than the alerts this box
+      // exists to send. Showing the number next to the field is the cheapest way to make
+      // that a decision instead of a surprise. See docs/DATA-BUDGET.md.
+      function wdCost() {
+        const min = Math.max(1, Number($('wdInterval').value) || 5);
+        const mb = (0.35 * (43200 / min)) / 1024;
+        $('wd-cost').textContent =
+          `Each probe is ~0.35 kB, so every ${min} min costs about ${mb.toFixed(1)} MB a month of mobile data`
+          + (mb > 2 ? ' — worth raising to 15–30 min on a small tariff.' : '.');
+      }
+
       // ---- alert rules, watchdog, scheduled reboot ----
       let healthData = null;
 
@@ -1121,6 +1135,7 @@
           $('wdEnabled').checked = !!d.watchdog.enabled;
           if (!$('wdTarget').value) $('wdTarget').value = d.watchdog.target || '';
           $('wdInterval').value = d.watchdog.intervalMinutes;
+          wdCost();
           $('wdReboot').checked = (d.watchdog.afterReboot || 0) > 0;
         }
         if (d.reboot) {
@@ -1967,11 +1982,34 @@
         ).join('') : '<div class="msg">Add a camera first.</div>';
       }
 
+      // ---- polling, and what it costs on a metered link ----
+      // Measured: /api/system is ~0.45 kB, /api/health ~1.6 kB, /api/telemetry/live
+      // ~0.33 kB. At the intervals below, a page left open costs roughly 2 MB an hour —
+      // a tab forgotten overnight is ~17 MB, which on an IoT SIM sold with 500 MB for
+      // its whole lifetime is a real bite out of the contract. So: poll only while
+      // somebody is actually looking. Hiding the tab stops it; coming back refreshes
+      // immediately, so the numbers on screen are never quietly stale.
+      const polls = [];
+      function poll(fn, ms) { polls.push({ fn, ms, id: null }); }
+      function pollsRun(on) {
+        for (const p of polls) {
+          if (on && p.id === null) p.id = setInterval(p.fn, p.ms);
+          if (!on && p.id !== null) { clearInterval(p.id); p.id = null; }
+        }
+      }
+      document.addEventListener('visibilitychange', () => {
+        const visible = !document.hidden;
+        pollsRun(visible);
+        // Catch up at once rather than waiting out an interval.
+        if (visible) for (const p of polls) { try { p.fn(); } catch {} }
+      });
+
+      wdCost();
       loadConfig();
       loadHealth();
-      setInterval(loadHealth, 30000);
+      poll(loadHealth, 30000);
       loadSensorsNow();
-      setInterval(loadSensorsNow, 5000);
+      poll(loadSensorsNow, 5000);
       loadHistory('day');
       loadRoutes();
       loadProxies();
@@ -1983,7 +2021,8 @@
       loadRemote();
       loadWifi();
       refresh();
-      setInterval(refresh, 3000);
+      poll(refresh, 3000);
+      pollsRun(!document.hidden);
     </script>
   </body>
 </html>

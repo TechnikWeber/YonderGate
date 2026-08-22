@@ -34,6 +34,7 @@ import { isGitBranch, isGitSource, UPDATE_SOURCE_DEFAULT } from '../system/updat
 import { isCidr } from '../system/tailscale.js';
 import { nextListenPort, proxyId, validateProxy, type ProxyCfg } from './deviceProxy.js';
 import { deviceKey, updateKnown, type KnownDevice } from '../system/discovery.js';
+import { encodeBody, etagFor, etagMatches } from './metered.js';
 
 const SETUP_HTML = fileURLToPath(new URL('../setup/setup.html', import.meta.url));
 
@@ -72,9 +73,18 @@ function sensorKeysOf(m: unknown): { key: string; label: string }[] {
   return out;
 }
 
+/**
+ * Every JSON answer goes out through here, so compression is a property of the
+ * transport rather than something each endpoint has to remember. The page polls
+ * `/api/system` every three seconds while it is open; on a metered link those bytes
+ * add up faster than anything else the gateway does.
+ */
 function json(res: ServerResponse, code: number, body: unknown): void {
-  res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-  res.end(JSON.stringify(body));
+  // `res.req` rather than a parameter on all ninety-odd call sites: the request is
+  // already attached to the response, and an endpoint should not have to remember.
+  const enc = encodeBody(JSON.stringify(body), 'application/json', res.req?.headers['accept-encoding']);
+  res.writeHead(code, { ...enc.headers, 'access-control-allow-origin': '*' });
+  res.end(enc.body);
 }
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
@@ -115,9 +125,22 @@ export async function handleSetup(
 
   if (url === '/setup' && method === 'GET') {
     try {
+      // Still read per request — editing the page and reloading has to keep working,
+      // that is the whole reason there is no build step. What changed is what goes on
+      // the wire: an unchanged page costs a few hundred header bytes instead of 120 kB,
+      // and a changed one goes out gzipped at about a quarter of the size.
       const html = await readFile(SETUP_HTML, 'utf8');
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(html);
+      const etag = etagFor(html);
+      if (etagMatches(req.headers['if-none-match'], etag)) {
+        res.writeHead(304, { etag, 'cache-control': 'no-cache' });
+        res.end();
+        return true;
+      }
+      const enc = encodeBody(html, 'text/html; charset=utf-8', req.headers['accept-encoding']);
+      // `no-cache` means revalidate, not "do not store": the browser keeps the copy and
+      // asks whether it is still current, which is the cheap exchange we want here.
+      res.writeHead(200, { ...enc.headers, etag, 'cache-control': 'no-cache' });
+      res.end(enc.body);
     } catch {
       res.writeHead(500);
       res.end('setup page missing');

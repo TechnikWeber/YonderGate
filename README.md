@@ -8,8 +8,9 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 > sensors come from [YonderRC](https://github.com/TechnikWeber/YonderRC); device
 > discovery, subnet routing and per-device publishing are in. See
 > [docs/CONCEPT.md](docs/CONCEPT.md) for the goal, [docs/HARDWARE.md](docs/HARDWARE.md)
-> for what to buy and what it costs in watts, and the **TODO** below for what is
-> still missing. Nothing here has run on a real site yet — the hardware paths
+> for what to buy and what it costs in watts, [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md)
+> for what it costs in megabytes and which SIM to put in it, and the **TODO** below for
+> what is still missing. Nothing here has run on a real site yet — the hardware paths
 > (nmcli, ping sweeps, Tailscale routing) are only verifiable on the Pi itself.
 
 ## What works today
@@ -213,6 +214,11 @@ IP cameras rather than USB ones, and an INA228 in the battery line — about 2.5
 together. The reasoning, the power budget and the wiring are in
 [docs/HARDWARE.md](docs/HARDWARE.md) ([deutsch](docs/HARDWARE.de.md)).
 
+**Which SIM:** one that is not switched off for being quiet, and that includes SMS.
+[docs/DATA-BUDGET.md](docs/DATA-BUDGET.md) ([deutsch](docs/DATA-BUDGET.de.md)) measures
+what the box actually sends, and works through the tariff shapes — including the one
+where standby costs no data at all.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TechnikWeber/YonderGate/main/provisioning/bootstrap.sh | bash
 ```
@@ -257,6 +263,16 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [x] **Mobile data counter** with an allowance and a warning at 80 %
 - [ ] Alert when the **uplink itself** is gone — needs a way to notice after the fact,
       since a box with no link cannot send anything while it is down
+- [x] **Cheap on a metered link**: the page is gzipped (121.9 kB → 33.1 kB, measured) and
+      revalidated with an ETag, and it stops polling when the tab is not visible — an
+      open tab cost ~2 MB an hour. See [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md)
+- [ ] **Measure what Tailscale costs while idle.** The largest continuous item in the data
+      budget and the only one still guessed at; the counter to measure it with is already
+      in the page
+- [ ] **SMS wake**, so standby can cost *no* data: no tunnel until a text arrives (`mmcli`
+      / the HiLink SMS API), then Tailscale up for N minutes. Needs a sender whitelist, a
+      secret in the message, and a scheduled window underneath it — a wake path that can
+      fail silently is a box nobody can reach
 - [x] Time on the page: current time, timezone, the servers actually in use, and a
       **DS3231 hardware clock enabled with a checkbox** rather than an SSH session
 - [x] Interface picker for the data counter, and a "used / left / days to go" line

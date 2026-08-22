@@ -2,6 +2,73 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.5
+**English**
+- **A data budget, because the SIM is the other thing this box runs on.** The requirement
+  is modest — a message when something is wrong, plus the odd look at a camera or the
+  battery — and it deserves an honest answer:
+  [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md) measures where the bytes go and works through
+  which kind of tariff survives a box that is deliberately silent.
+- **It starts with the part that cannot be tuned away**: "reachable instantly" and "uses
+  no data while idle" are in tension, because a permanent tunnel is a permanent
+  conversation. Three shapes are laid out — Tailscale always up (what ships), **alerts
+  only with an SMS wake** (near-zero standby; SMS costs no data at all), and scheduled
+  windows as the fallback that keeps the SMS path from being able to strand you.
+- **Two measured wins, both shipped here.** The setup page went from **121.9 kB to
+  33.1 kB** on the wire (gzip) and an unchanged page now answers **304 with no body** at
+  all. Bodies under 512 bytes are left alone, where gzip is only noise, and the validator
+  is over the content — a `git pull` that restores an identical page must not cost 120 kB.
+- **The page stops polling when nobody is looking at it.** It polls system every 3 s,
+  sensors every 5 s, health every 30 s: about **2 MB an hour**, so a tab forgotten
+  overnight was ~17 MB — on an IoT SIM sold with 500 MB for its whole life, a real bite.
+  Hiding the tab stops every poll; coming back refreshes at once, so nothing is quietly
+  stale.
+- **The watchdog now says what it costs**, next to the field where you set it: two pings
+  every five minutes is ~3 MB a month, more than the alerting this box exists for, and the
+  line suggests 15–30 min when the number gets big. A decision instead of a surprise.
+- **`apt` is named as the item nobody budgets for** — daily package lists on a metered link
+  can dwarf everything the gateway does. It is a real trade-off against security updates,
+  so the installer still leaves it alone and the doc gives you the two commands.
+- **The sensors are generic again.** Voltage, current and temperature are readings, not a
+  solar feature: an off-grid battery is one thing to point them at, but the page must read
+  just as well on a bench supply. CLAUDE.md and docs/CONCEPT.md say so now, so the next
+  pass at that page does not build a solar dashboard.
+
+**Deutsch**
+- **Ein Datenbudget, weil die SIM das andere ist, wovon diese Box lebt.** Die Anforderung
+  ist bescheiden — eine Nachricht, wenn etwas nicht stimmt, plus der gelegentliche Blick
+  auf Kamera oder Batterie — und verdient eine ehrliche Antwort:
+  [docs/DATA-BUDGET.de.md](docs/DATA-BUDGET.de.md) misst, wohin die Bytes gehen, und geht
+  durch, welche Art Tarif eine bewusst stille Box überlebt.
+- **Es beginnt mit dem, was sich nicht wegtunen lässt**: „sofort erreichbar" und
+  „verbraucht im Leerlauf nichts" stehen im Widerspruch, denn ein dauerhafter Tunnel ist
+  ein dauerhaftes Gespräch. Drei Bauformen stehen drin — Tailscale immer oben (das, was
+  ausgeliefert wird), **nur Alarme mit SMS-Weckruf** (Beinahe-Null im Standby; SMS kostet
+  überhaupt kein Volumen) und feste Zeitfenster als Fallback, damit der SMS-Pfad einen
+  nicht aussperren kann.
+- **Zwei gemessene Gewinne, beide hier drin.** Die Setup-Seite ging von **121,9 kB auf
+  33,1 kB** über die Leitung (gzip), und eine unveränderte Seite antwortet jetzt mit
+  **304 ganz ohne Body**. Bodies unter 512 Byte bleiben unangetastet, dort ist gzip nur
+  Rauschen, und der Validator hängt am Inhalt — ein `git pull`, der eine identische Seite
+  wiederherstellt, darf keine 120 kB kosten.
+- **Die Seite pollt nicht mehr, wenn niemand hinsieht.** System alle 3 s, Sensoren alle
+  5 s, Health alle 30 s: etwa **2 MB pro Stunde**, ein über Nacht vergessener Tab also
+  ~17 MB — auf einer IoT-SIM mit 500 MB für ihr ganzes Leben ein echter Biss. Tab in den
+  Hintergrund stoppt jeden Poll; zurück im Vordergrund wird sofort aktualisiert.
+- **Der Watchdog sagt jetzt, was er kostet**, direkt neben dem Feld: zwei Pings alle fünf
+  Minuten sind ~3 MB im Monat, mehr als die Alarme, für die es diese Box gibt — und die
+  Zeile empfiehlt 15–30 min, wenn die Zahl groß wird. Eine Entscheidung statt einer
+  Überraschung.
+- **`apt` wird als der Posten benannt, den niemand einplant** — tägliche Paketlisten auf
+  einer getakteten Leitung können alles überdecken, was das Gateway tut. Das ist eine echte
+  Abwägung gegen Sicherheitsupdates, also lässt der Installer es weiter in Ruhe und die
+  Doku gibt die zwei Befehle.
+- **Die Sensoren sind wieder allgemein.** Spannung, Strom und Temperatur sind Messwerte,
+  kein Solar-Feature: eine Inselbatterie ist eines von mehreren Dingen, auf die man sie
+  richtet, aber die Seite muss an einem Labornetzteil genauso gut lesbar sein. CLAUDE.md
+  und docs/CONCEPT.md sagen das jetzt, damit der nächste Durchgang kein Solar-Dashboard
+  baut.
+
 ## v0.12.4
 **English**
 - **The installer now gives a small board swap before the step that needs it.** A Zero 2 W

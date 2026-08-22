@@ -5,8 +5,8 @@ Guidance for Claude (and humans) working in this repository.
 ## What this is
 An **off-grid site gateway** on a Raspberry Pi: Tailscale access to a remote place,
 its own WiFi AP for the devices there, discovery of those devices and a way through
-to them, plus solar-relevant sensor readings and cameras. `docs/CONCEPT.md` is the
-reference for the goal — read it before adding features.
+to them, plus generic sensor readings (voltage, current, temperature) and cameras.
+`docs/CONCEPT.md` is the reference for the goal — read it before adding features.
 
 Owner: Philipp Weber · GitHub: TechnikWeber/YonderGate · **Forked from YonderRC**
 (`git remote add yonderrc …` is configured, so fixes can be cherry-picked across
@@ -64,5 +64,9 @@ keep it current when you finish something. The two that matter most right now:
 1. **Nothing has run on a real site yet.** Discovery, subnet routes and forwarding are
    implemented and unit-tested, but sweeps, `tailscale set` and `sysctl` can only be
    proven on the Pi. Say so rather than implying they work.
-2. **Sensor page for a solar site** — the numbers are the reason to open the page at
-   all, and right now they are shown exactly as inherited from a model gateway.
+2. **Sensor page for a stationary box** — the numbers are the reason to open the page
+   at all, and right now they are shown exactly as inherited from a model gateway:
+   "x/x mAh remaining", "Reset mAh", a battery % built for a flight pack. Keep it
+   **generic** — voltage, current, temperature, over time. An off-grid battery is one
+   thing people will point it at, but the page must not be designed around that, or
+   around solar; it should read just as well on a bench supply or a mains PSU.

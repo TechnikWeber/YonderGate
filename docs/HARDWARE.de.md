@@ -1,9 +1,9 @@
 # YonderGate — Hardware-Leitfaden
 
 *Was man kauft, wie man es verdrahtet, und was es an Watt kostet. Geschrieben für den
-Fall, für den das Projekt gebaut ist: ein Solar-Grundstück ohne Netzstrom und ohne
-kabelgebundenes Internet, wo jedes Watt ein Panel und eine Batterie ist, die jemand
-hintragen musste.*
+Fall, für den das Projekt gebaut ist: ein Standort ohne Netzstrom und ohne kabelgebundenes
+Internet, versorgt aus einer Batterie — geladen mit dem, was da ist, meistens Solar — wo
+jedes Watt Hardware ist, die jemand hintragen musste.*
 
 > **Vorweg:** keine der Zahlen unten wurde an einer YonderGate-Box gemessen. Die
 > Software-Werte (Speicher, was transkodiert wird) stammen aus diesem Repository; die

@@ -42,9 +42,13 @@ Two mechanisms, and they are not equivalent:
   publishes a device's web UI on a port of its own. Works without touching the
   tailnet's routing, and is the fallback when subnet routes are not wanted.
 
-**Show the site's state.** Voltage, current, temperature — this is a solar
-installation, so those numbers *are* the reason to look. Static values on the page
-are enough; live is welcome but not required.
+**Show the site's state.** Voltage, current, temperature — those numbers *are* the
+reason to look. Static values on the page are enough; live is welcome but not required.
+
+*Clarified 2026-08-22:* they are **general sensor readings**, not a solar feature. This
+particular plot happens to run off a battery on solar, and you can certainly watch that
+with it — but the gateway is not designed for solar, must not grow solar-specific
+vocabulary (yield, strings, MPPT), and should read just as sensibly on a bench supply.
 
 **Cameras.** One or more, configured graphically as in YonderRC. Video is
 explicitly **not** the focus — being a good gateway is.

@@ -821,6 +821,44 @@ async function main() {
   ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
   ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
 
+  // ---- the page on a metered link ----
+  // This gateway is reached over LTE on a tariff bought for alerts, not for browsing.
+  // Two things pay for themselves there: not sending 120 kB of unchanged page, and not
+  // polling a tab nobody is looking at.
+  const M = await import('../packages/gateway/src/transport/metered');
+  ok('gzip is accepted when offered', M.acceptsGzip('gzip, deflate, br'));
+  ok('a client that refuses gzip is believed', !M.acceptsGzip('gzip;q=0, deflate'));
+  ok('no header means no gzip', !M.acceptsGzip(undefined));
+  ok('a wildcard counts', M.acceptsGzip('*'));
+  ok('tiny bodies are left alone', !M.worthCompressing(400) && M.worthCompressing(2000));
+
+  const pageLike = 'x'.repeat(50) + JSON.stringify({ a: 1 }).repeat(400);
+  const gz = M.encodeBody(pageLike, 'text/html', 'gzip');
+  const plain = M.encodeBody(pageLike, 'text/html', undefined);
+  ok('compression actually shrinks the page', gz.body.length < plain.body.length / 2, `${gz.body.length} vs ${plain.body.length}`);
+  ok('the encoding is declared', gz.headers['content-encoding'] === 'gzip' && !plain.headers['content-encoding']);
+  ok('content-length matches the bytes sent', Number(gz.headers['content-length']) === gz.body.length);
+  // A cache that hands a gzipped copy to a client which asked for plain is a page that
+  // never loads, and the only way to see it is standing at the site.
+  ok('both answers vary on accept-encoding', gz.headers['vary'] === 'accept-encoding' && plain.headers['vary'] === 'accept-encoding');
+  ok('a small body is not compressed even when gzip is offered', !M.encodeBody('{"ok":true}', 'application/json', 'gzip').headers['content-encoding']);
+
+  // The validator is over the content: `git pull` can restore a byte-identical page
+  // with a fresh mtime, and re-sending 120 kB for that is the cost this avoids.
+  ok('same content, same etag', M.etagFor('hello') === M.etagFor('hello'));
+  ok('changed content, changed etag', M.etagFor('hello') !== M.etagFor('hello!'));
+  ok('a held copy is recognised', M.etagMatches(M.etagFor('hello'), M.etagFor('hello')));
+  ok('a list of validators is handled', M.etagMatches(`W/"other", ${M.etagFor('hello')}`, M.etagFor('hello')));
+  ok('a stale validator is not', !M.etagMatches('W/"stale"', M.etagFor('hello')));
+
+  const page = readFileSync('packages/gateway/src/setup/setup.html', 'utf8');
+  ok('the page stops polling when nobody is looking', page.includes("addEventListener('visibilitychange'"));
+  ok('no status poll runs outside that scheduler', !/setInterval\((refresh|loadHealth|loadSensorsNow)/.test(page));
+  ok('coming back refreshes at once', /if \(visible\) for \(const p of polls\)/.test(page));
+  // The watchdog is the largest recurring cost after the tunnel itself; the page says so
+  // next to the field rather than leaving it to be discovered on the bill.
+  ok('the watchdog interval shows what it costs in data', page.includes("MB a month of mobile data"));
+
   // ---- generated video config lives outside the checkout ----
   // It used to be written into docker/go2rtc.yaml inside the repo, which left every
   // running gateway with a modified checkout and blocked `git pull --ff-only`. The two

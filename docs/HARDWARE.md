@@ -1,8 +1,9 @@
 # YonderGate — hardware guide
 
 *What to buy, how to wire it, and what it costs in watts. Written for the case the
-project is built for: a solar plot with no wired power and no wired internet, where
-every watt is a panel and a battery you had to carry there.*
+project is built for: a site with no wired power and no wired internet, running off a
+battery — charged by whatever you have there, usually solar — where every watt is
+hardware somebody had to carry in.*
 
 > **Read this first:** none of the figures below were measured on a YonderGate box.
 > The software numbers (memory, what transcodes) come from this repository; the power
