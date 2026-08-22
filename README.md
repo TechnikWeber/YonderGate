@@ -1,3 +1,5 @@
+**English** · [Deutsch](README.de.md)
+
 # YonderGate
 
 An **off-grid site gateway** on a Raspberry Pi: it puts a remote place — a holiday
@@ -338,7 +340,8 @@ The living list of what is open. Ticked items are done and covered by tests.
 
 **Operations**
 - [ ] Decide the license before this gets contributors (see docs/CONCEPT.md)
-- [ ] Bilingual docs as in YonderRC — `docs/HARDWARE.de.md` is done, `README.de.md` is not
+- [x] Bilingual docs as in YonderRC — `README.de.md` and `docs/HARDWARE.de.md` are there,
+      and a test fails if the two READMEs drift apart in structure
 - [x] A hardware guide: which Pi, which LTE stick, solar/charge controller wiring, and
       what the whole thing costs in watts — [docs/HARDWARE.md](docs/HARDWARE.md)
 - [ ] Power behaviour on brownout: described in the hardware guide, but **not verified**

@@ -829,6 +829,29 @@ async function main() {
   ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
   ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
 
+  // ---- the two READMEs must not drift apart ----
+  // A translation that lags is worse than none: it states as current something the
+  // project stopped doing, and the reader cannot tell which of the two is the lie. This
+  // will not catch a bad translation, but it catches the case that actually happens —
+  // a section or a TODO item added to one of them and not the other.
+  {
+    const en = readFileSync('README.md', 'utf8');
+    const de = readFileSync('README.de.md', 'utf8');
+    const heads = (t: string) => (t.match(/^#{2,3} /gm) ?? []).length;
+    const items = (t: string) => (t.match(/^- \[[ x]\] /gm) ?? []).length;
+    const done = (t: string) => (t.match(/^- \[x\] /gm) ?? []).length;
+    ok('both READMEs exist', en.length > 0 && de.length > 0);
+    ok('each points at the other', en.includes('[Deutsch](README.de.md)') && de.includes('[English](README.md)'));
+    ok('the same sections in both', heads(en) === heads(de), `${heads(en)} vs ${heads(de)}`);
+    ok('the same TODO items in both', items(en) === items(de), `${items(en)} vs ${items(de)}`);
+    ok('and the same ones ticked', done(en) === done(de), `${done(en)} vs ${done(de)}`);
+    // The German one links the German docs, or it sends the reader back to English.
+    ok('the German README links the German docs',
+      de.includes('docs/HARDWARE.de.md') && de.includes('docs/DATA-BUDGET.de.md'));
+    ok('and CLAUDE.md says both are edited together',
+      readFileSync('CLAUDE.md', 'utf8').includes('Both language versions are edited in the same commit'));
+  }
+
   // ---- the 80 % warning for a card billed per megabyte ----
   // The monthly allowance answers "how much of this month's bucket is gone". A prepaid
   // card billed per MB has no bucket and no month — what runs out is the balance.

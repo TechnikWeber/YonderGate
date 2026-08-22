@@ -2,6 +2,42 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.12
+**English**
+- **`README.de.md`** — the German README, in full rather than a summary: every section,
+  every TODO item, the tariff table and the two running budgets. Both files now carry the
+  language switcher at the top, the same way YonderRC does, and the German one links the
+  German docs (`HARDWARE.de.md`, `DATA-BUDGET.de.md`) rather than sending the reader back
+  to English.
+- **A test fails if the two drift apart.** Same sections, same number of TODO items, same
+  ones ticked, and each pointing at the other. It cannot judge a translation, but it
+  catches the thing that actually happens: a bullet added to one of them and forgotten in
+  the other. Verified by breaking it on purpose before committing.
+- **CLAUDE.md says the rule out loud**: both language versions are edited in the *same
+  commit*, always. A translation that lags is worse than none — it states as current
+  something the project stopped doing, and the reader has no way to tell which of the two
+  is the lie.
+- The same guard and the same wording went into **YonderRC** (v1.46.3), whose two READMEs
+  already matched.
+
+**Deutsch**
+- **`README.de.md`** — die deutsche README, vollständig statt als Zusammenfassung: jeder
+  Abschnitt, jeder TODO-Punkt, die Tariftabelle und die beiden Betriebsbudgets. Beide
+  Dateien tragen jetzt oben den Sprachumschalter, so wie YonderRC es macht, und die
+  deutsche verlinkt die deutschen Dokumente (`HARDWARE.de.md`, `DATA-BUDGET.de.md`), statt
+  den Leser zurück ins Englische zu schicken.
+- **Ein Test schlägt fehl, wenn die beiden auseinanderlaufen.** Dieselben Abschnitte,
+  dieselbe Zahl an TODO-Punkten, dieselben abgehakt, und jede verweist auf die andere.
+  Über die Qualität einer Übersetzung sagt das nichts, aber es fängt das, was wirklich
+  passiert: ein Punkt, der in einer ergänzt und in der anderen vergessen wird. Vor dem
+  Commit absichtlich kaputtgemacht und geprüft, dass er anschlägt.
+- **CLAUDE.md sagt die Regel ausdrücklich**: Beide Sprachfassungen werden im *selben
+  Commit* bearbeitet, immer. Eine hinterherhinkende Übersetzung ist schlechter als keine —
+  sie behauptet als aktuell, was das Projekt nicht mehr tut, und der Leser kann nicht
+  erkennen, welche der beiden lügt.
+- Derselbe Wächter und derselbe Wortlaut sind in **YonderRC** gelandet (v1.46.3), dessen
+  beide READMEs ohnehin schon zusammenpassten.
+
 ## v0.12.11
 **English**
 - **The 80 % warning now works for prepaid credit billed per megabyte, not just a monthly
