@@ -7,7 +7,8 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 > **Status: early but useful.** Provisioning, remote access, LTE, cameras and
 > sensors come from [YonderRC](https://github.com/TechnikWeber/YonderRC); device
 > discovery, subnet routing and per-device publishing are in. See
-> [docs/CONCEPT.md](docs/CONCEPT.md) for the goal and the **TODO** below for what is
+> [docs/CONCEPT.md](docs/CONCEPT.md) for the goal, [docs/HARDWARE.md](docs/HARDWARE.md)
+> for what to buy and what it costs in watts, and the **TODO** below for what is
 > still missing. Nothing here has run on a real site yet — the hardware paths
 > (nmcli, ping sweeps, Tailscale routing) are only verifiable on the Pi itself.
 
@@ -207,6 +208,11 @@ at the same time.
 
 ## Quick start (Raspberry Pi OS Lite, Bookworm)
 
+**What to buy first:** a **Pi Zero 2 W**, a HiLink LTE stick with an external antenna,
+IP cameras rather than USB ones, and an INA228 in the battery line — about 2.5–4 W all
+together. The reasoning, the power budget and the wiring are in
+[docs/HARDWARE.md](docs/HARDWARE.md) ([deutsch](docs/HARDWARE.de.md)).
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TechnikWeber/YonderGate/main/provisioning/bootstrap.sh | bash
 ```
@@ -263,6 +269,9 @@ The living list of what is open. Ticked items are done and covered by tests.
 
 **Operations**
 - [ ] Decide the license before this gets contributors (see docs/CONCEPT.md)
-- [ ] Bilingual docs (`README.de.md`, `docs/HARDWARE.de.md`) as in YonderRC
-- [ ] A hardware guide: which Pi, which LTE stick, solar/charge controller wiring
-- [ ] Power behaviour: what happens on brownout, and does the SD card survive it
+- [ ] Bilingual docs as in YonderRC — `docs/HARDWARE.de.md` is done, `README.de.md` is not
+- [x] A hardware guide: which Pi, which LTE stick, solar/charge controller wiring, and
+      what the whole thing costs in watts — [docs/HARDWARE.md](docs/HARDWARE.md)
+- [ ] Power behaviour on brownout: described in the hardware guide, but **not verified** —
+      and the installer still sets up no zram/swap, which a 512 MB Zero 2 W wants before
+      its first `npm install`

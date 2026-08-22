@@ -9,7 +9,10 @@ a local web page, no screen or keyboard needed.
 Flash **Raspberry Pi OS Lite (64-bit, Bookworm)** with Raspberry Pi Imager. In the
 Imager settings, enable SSH and (optionally) preconfigure your home WiFi so the
 first boot is reachable. Pi 4 or Pi Zero 2 W are the sweet spot (they have the
-hardware H.264 encoder; the Pi 5 does not).
+hardware H.264 encoder; the Pi 5 does not) — and on solar, the **Zero 2 W** is the
+one to pick: it costs about 2 W less, permanently. See
+[docs/HARDWARE.md](../docs/HARDWARE.md) for the full parts list, the power budget and
+the wiring, including the zram step a 512 MB board wants before its first update.
 
 ## 2. Copy the repo and install
 

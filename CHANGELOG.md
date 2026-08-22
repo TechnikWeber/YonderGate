@@ -2,6 +2,62 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.3
+**English**
+- **A hardware guide, because the first question about an off-grid box is "what do I buy
+  and what does it cost me in watts?"** [docs/HARDWARE.md](docs/HARDWARE.md) answers both:
+  a **Pi Zero 2 W** (the original Zero W is ARMv6 — no 64-bit OS, no Node, it will never
+  run this), a HiLink stick with a real external antenna, **IP cameras rather than USB**,
+  and an INA228 in the battery line.
+- **The power budget it is designed against: ~2.5–4 W, i.e. 60–95 Wh/day.** With the part
+  most people get wrong spelled out — the board is the *third* biggest lever. One
+  always-on IP camera can cost more than the entire gateway, and a stick with a poor
+  antenna transmits harder and burns watts doing it.
+- **What the Zero 2 W actually costs you**, all four of them checked against this
+  repository: 512 MB where the risky moment is `npm install` and not runtime (the service
+  measures ~54 MB RSS), one 2.4 GHz radio that cannot do AP and uplink at once, one
+  micro-USB data socket, no Ethernet.
+- **Why an RTSP camera is free and a USB one is not** — the RTSP path is `-c copy`
+  (`cameraManager.ts:107`), a USB camera is transcoded (`cameraManager.ts:112`). That is
+  also why the Pi 5, with no H.264 encoder, is the wrong board here.
+- **Brownout and the SD card**, the way off-grid Pis actually die: a 5 V buck with
+  head-room, the LTE stick's spikes kept off the Pi's rail, the charge controller's
+  low-voltage disconnect doing the cutting, and the `vcgencmd get_throttled` bit 16 the
+  gateway already reads (`health.ts:82`) — under-voltage *since boot* is the one that
+  catches a supply that sagged at 3 a.m. Whether a card survives a season of it is not
+  something this repo can claim, and the guide says so.
+- German sibling `docs/HARDWARE.de.md`, and the installer note now points at both. The
+  guide also names a gap it does not fix: `install.sh` sets up no zram or swap, which a
+  512 MB board wants before its first update.
+
+**Deutsch**
+- **Ein Hardware-Leitfaden, weil die erste Frage zu einer Inselbox lautet: „Was kaufe ich,
+  und was kostet es an Watt?"** [docs/HARDWARE.de.md](docs/HARDWARE.de.md) beantwortet
+  beides: ein **Pi Zero 2 W** (der ursprüngliche Zero W ist ARMv6 — kein 64-Bit-OS, kein
+  Node, das läuft dort nie), ein HiLink-Stick mit echter externer Antenne, **IP- statt
+  USB-Kameras** und ein INA228 in der Batterieleitung.
+- **Das Budget, gegen das ausgelegt wird: ~2,5–4 W, also 60–95 Wh/Tag.** Inklusive dem,
+  was die meisten falsch gewichten — das Board ist der *drittgrößte* Hebel. Eine
+  dauerhaft laufende IP-Kamera kann mehr kosten als das ganze Gateway, und ein Stick mit
+  schlechter Antenne sendet härter und verbrennt dabei Watt.
+- **Was der Zero 2 W tatsächlich kostet**, alle vier Punkte gegen dieses Repository
+  geprüft: 512 MB, wobei der kritische Moment `npm install` ist und nicht der Betrieb (der
+  Dienst misst ~54 MB RSS), ein 2,4-GHz-Funkchip, der AP und Uplink nicht gleichzeitig
+  kann, eine Micro-USB-Datenbuchse, kein Ethernet.
+- **Warum eine RTSP-Kamera nichts kostet und eine USB-Kamera schon** — der RTSP-Pfad ist
+  `-c copy` (`cameraManager.ts:107`), eine USB-Kamera wird transkodiert
+  (`cameraManager.ts:112`). Genau deshalb ist der Pi 5 ohne H.264-Encoder hier das falsche
+  Board.
+- **Brownout und die SD-Karte**, so wie Insel-Pis wirklich sterben: ein 5-V-Buck mit
+  Reserve, die Spitzen des LTE-Sticks weg von der Pi-Schiene, die Tiefentladeabschaltung
+  des Ladereglers als das, was abschaltet, und Bit 16 aus `vcgencmd get_throttled`, das
+  das Gateway ohnehin liest (`health.ts:82`) — Unterspannung *seit dem Boot* ist die, die
+  eine um 3 Uhr eingebrochene Versorgung überhaupt sichtbar macht. Ob eine Karte eine
+  Saison davon übersteht, kann dieses Repo nicht behaupten, und der Leitfaden sagt das.
+- Deutsche Fassung als `docs/HARDWARE.de.md`, der Installer-Hinweis verweist auf beide.
+  Der Leitfaden benennt auch eine Lücke, die er nicht schließt: `install.sh` richtet weder
+  zram noch Swap ein — was ein 512-MB-Board vor seinem ersten Update haben will.
+
 ## v0.12.2
 **English**
 - **You can now enter the secret, not just set one.** After generating one there was
