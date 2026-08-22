@@ -31,9 +31,13 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 - **LTE**: ModemManager modems (APN, SIM PIN, network mode, roaming, diagnostics)
   **and HiLink sticks** (Huawei E3372h-320 & friends) — found through the routing
   table, with their own web UI proxied through the gateway on port 8081.
-- **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot — either
-  **always live**, or **only in a window** (default Sundays 14:00–14:15). In window mode
-  the tunnel stays down and alerts are held on disk, then arrive as one message when it
+- **Remote access**: Tailscale, ZeroTier or WireGuard, brought up at boot. WireGuard
+  takes either the **uploaded `.conf`** your server exported, or the **values typed in**
+  (keys, address, endpoint, AllowedIPs) for a peer that came as a page of settings rather
+  than a file. Both end up as the same stored `.conf`, so an uploaded file can afterwards
+  be edited field by field.
+- **The tunnel can be on a schedule**: **always live**, or **only in a window** (default
+  Sundays 14:00–14:15). In window mode the tunnel stays down and alerts are held on disk, then arrive as one message when it
   opens and the box is fully live until it closes. It cannot lock you out: it stays up
   for ten minutes after every restart, never drops while somebody has the page open, and
   there is an *open it now* button. See [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md).
