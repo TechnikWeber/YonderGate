@@ -2,6 +2,33 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.8
+**English**
+- **The two button rows in the uplink panel were touching.** *Open now* and *Save mode* sat
+  flush against each other with no air, which read as one control. Both rows now carry the
+  same spacing the rest of the page uses.
+- **"Back to the schedule" said nothing about what it does, and most of the time it did
+  nothing at all.** It only ever cancelled a hand-opening, so with no override running it
+  was a button that answered a press with silence. It is now hidden until there *is*
+  something to cancel, and then labelled with what it ends: *"Cancel — close again instead
+  of at 12:14"*.
+- The paragraph above the buttons now says what *Open now* is for in the first place: it
+  brings the tunnel up outside the window for half an hour, for when you need in today and
+  the window is on Sunday.
+
+**Deutsch**
+- **Die beiden Button-Reihen im Uplink-Panel klebten aneinander.** *Open now* und *Save
+  mode* standen ohne Luft direkt untereinander und lasen sich wie ein Bedienelement. Beide
+  Reihen haben jetzt denselben Abstand wie der Rest der Seite.
+- **„Back to the schedule" sagte nicht, was es tut — und meistens tat es gar nichts.** Der
+  Knopf hat immer nur ein von Hand geöffnetes Fenster abgebrochen; ohne laufende
+  Übersteuerung war er ein Button, der auf einen Druck mit Schweigen antwortet. Er ist
+  jetzt versteckt, solange es nichts abzubrechen gibt, und trägt dann die Beschriftung
+  dessen, was er beendet: *„Cancel — close again instead of at 12:14"*.
+- Der Absatz über den Buttons sagt jetzt auch, wofür *Open now* überhaupt da ist: er holt
+  den Tunnel außerhalb des Fensters für eine halbe Stunde hoch — für den Fall, dass du
+  heute rein musst und das Fenster am Sonntag ist.
+
 ## v0.12.7
 **English**
 - **WireGuard can now be set up by hand, not only from a file.** Uploading the `.conf`

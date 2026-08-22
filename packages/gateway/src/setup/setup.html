@@ -419,13 +419,13 @@
             <label>For (min)<input id="upDuration" type="number" min="5" max="1440" value="15" /></label>
             <label>Stay up after a restart (min)<input id="upGrace" type="number" min="0" max="120" value="10" /></label>
           </div>
-          <p class="msg">It cannot lock you out on its own: the tunnel also stays up for a while after every restart, it is never taken down while somebody has this page open, and the button below opens it by hand. Alerts wait on disk, so a reboot in between does not lose them — but they do wait, which is the trade you are making.</p>
-          <div class="btns">
+          <p class="msg">It cannot lock you out on its own: the tunnel also stays up for a while after every restart, it is never taken down while somebody has this page open, and <b>Open now</b> below brings it up outside the window for half an hour — for when you need in today and the window is on Sunday. Alerts wait on disk, so a reboot in between does not lose them — but they do wait, which is the trade you are making.</p>
+          <div class="btns" style="margin-top:10px">
             <button class="btn" onclick="run(this, () => uplinkOpen(30))">Open now for 30 min</button>
-            <button class="btn" onclick="run(this, () => uplinkClose())">Back to the schedule</button>
+            <button class="btn" id="up-cancel" style="display:none" onclick="run(this, () => uplinkClose())">Cancel</button>
           </div>
         </div>
-        <div class="btns"><button class="btn primary" onclick="run(this, () => saveUplink())">Save mode</button></div>
+        <div class="btns" style="margin-top:12px"><button class="btn primary" onclick="run(this, () => saveUplink())">Save mode</button></div>
         <div class="msg" id="up-state"></div>
       </section>
 
@@ -1087,9 +1087,16 @@
         const u = uplinkState;
         if (!u) { $('up-state').textContent = ''; return; }
         if (u.mode === 'always') {
+          $('up-cancel').style.display = 'none';
           $('up-state').innerHTML = 'The tunnel is managed by hand — <b>Bring up</b> and <b>Stop</b> above are the only things that move it.';
           return;
         }
+        // Only shown while a hand-opening is actually running, and labelled with what it
+        // ends: a button that silently does nothing most of the time is a button nobody
+        // can guess the meaning of.
+        const openUntil = u.openUntil ? new Date(u.openUntil) : null;
+        $('up-cancel').style.display = openUntil ? '' : 'none';
+        if (openUntil) $('up-cancel').textContent = `Cancel — close again instead of at ${openUntil.toLocaleTimeString()}`;
         const next = u.nextWindowAt ? new Date(u.nextWindowAt) : null;
         const held = u.buffered
           ? `<b style="color:var(--warn)">${u.buffered} alert${u.buffered === 1 ? '' : 's'} waiting</b> — they go out as one message when it opens.`

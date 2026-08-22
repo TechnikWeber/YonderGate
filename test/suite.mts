@@ -1115,6 +1115,11 @@ async function main() {
   // The watchdog is the largest recurring cost after the tunnel itself; the page says so
   // next to the field rather than leaving it to be discovered on the bill.
   ok('the watchdog interval shows what it costs in data', page.includes("MB a month of mobile data"));
+  // A button that silently does nothing most of the time cannot be guessed at, so the
+  // cancel only exists while there is a hand-opening to cancel.
+  ok('the cancel button is hidden until there is something to cancel',
+    /\$\('up-cancel'\)\.style\.display = openUntil \? '' : 'none'/.test(page));
+  ok('and says what it ends', page.includes('close again instead of at'));
 
   // ---- generated video config lives outside the checkout ----
   // It used to be written into docker/go2rtc.yaml inside the repo, which left every
