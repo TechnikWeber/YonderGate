@@ -100,20 +100,24 @@ Die gehaltenen Alarme liegen in `/var/lib/yondergate/alert-buffer.json` — ein 
 Mittwoch verliert also den Alarm vom Dienstag nicht, und ein fehlgeschlagenes Zustellen
 behält sie für den nächsten Versuch.
 
-**B — Geweckt per SMS (nicht implementiert; das, was den Gedanken zu Ende bringt).**
-Standby wie bei C, aber statt bis Sonntag zu warten, schickst du der SIM eine SMS: das
-Gateway liest sie am Modem aus (`mmcli` oder die HiLink-SMS-API — SMS läuft über den
-Signalisierungskanal und kostet kein Datenvolumen) und öffnet den Tunnel für eine
-festgelegte Zahl Minuten. Damit wird aus „einmal die Woche live" ein „live, wann immer du
-fragst", ohne Standby-Kosten.
+**B — Geweckt per SMS. Bewusst geparkt (22.08.2026).** Die Idee: statt bis Sonntag zu
+warten, schickst du der SIM eine SMS, das Gateway liest sie am Modem aus (`mmcli` oder die
+HiLink-SMS-API — SMS läuft über den Signalisierungskanal und kostet kein Datenvolumen) und
+öffnet den Tunnel für eine festgelegte Zahl Minuten.
 
-Es braucht Sorgfalt, weil man sich damit eine Box bauen kann, die man nicht mehr erreicht:
-eine Absender-Whitelist plus ein Secret im Nachrichtentext, damit keine falsche Nummer den
-Tunnel öffnet — und das Fenster aus C darunter, damit ein still kaputter Weckpfad ein paar
-Tage kostet statt einer Fahrt zum Standort.
+Gescheitert ist das am Tarif, nicht am Code. **Der Weckkanal ist nur so verlässlich wie die
+Fähigkeit der SIM, eine SMS zu empfangen**, und die Produkte, die ein Privatkunde
+tatsächlich kaufen kann (siehe unten), kommen nicht zuverlässig mit einer brauchbaren
+Nummer — reine M2M-Datentarife haben oft gar keine MSISDN. Ein Weg hinein, der bis zu dem
+Tag funktioniert, an dem man ihn braucht, ist schlechter als keiner. Also ist das Fenster
+die Antwort, und B bleibt aufgeschrieben statt gebaut.
 
-**C wird ausgeliefert, B ist der nächste Schritt**; das Fenster ist bereits der Fallback,
-den B brauchen wird.
+Der Vollständigkeit halber: das meiste davon wäre klein gewesen. Der Session-und-Token-Tanz
+für HiLink ist bereits implementiert (`system/hilink.ts`), und die Aktion ist
+`uplink.openFor()`, die mit C ausgeliefert wurde. Gefehlt hätten ein POST-Helfer, ein
+SMS-Listen-Parser und ein Dienst.
+
+**Ausgeliefert wird C.**
 
 ## Tarifwahl
 
@@ -123,8 +127,10 @@ In der Reihenfolge, in der es wirklich zählt:
    andersherum als das, was Consumer-Prepaid macht: Eine SIM, die fast nichts verbraucht,
    wird abgeschaltet, weil sie fast nichts verbraucht — oder das Guthaben verfällt. Eine
    Box, die bewusst still ist, darf nicht auf einem Tarif liegen, der Stille bestraft.
-2. **SMS ein- und ausgehend enthalten.** Ohne das ist Bauform B unmöglich. Nebenbei ein
-   brauchbarer Notkanal „lebst du noch?", wenn Daten nicht gehen.
+2. ~~**SMS ein- und ausgehend enthalten.**~~ Als Kriterium gestrichen (22.08.2026): Die
+   Tarife, die ein Privatkunde tatsächlich kaufen kann, kommen nicht verlässlich mit einer
+   Nummer, die SMS empfangen kann — deshalb ist auch Bauform B unten geparkt. Zahl nichts
+   extra dafür.
 3. **Wie abgerechnet wird.** Nach **Session-Rundung** fragen: Ein Tarif, der jede Session
    auf 10 oder 100 kB aufrundet, macht aus einer 350-Byte-Watchdog-Probe eine mit 100 kB
    und zerstört dieses ganze Konzept. Du willst kB-genaue oder gepoolte Abrechnung.
@@ -141,36 +147,70 @@ In der Reihenfolge, in der es wirklich zählt:
 
 ### Die Optionen als Kategorien
 
-**IoT-Lifetime-Kontingent** (1NCE und Ähnliche: ein paar hundert MB plus SMS, ~10 Jahre
-gültig, einmalig bezahlt, keine Monatsgebühr). Genau dafür gebaut: keine
-Nichtnutzungsfalle, SMS dabei, nichts zum Nachladen. 500 MB auf zehn Jahre sind im Mittel
-~4 MB im Monat — bequem für Alarme, einen Watchdog in vernünftigem Takt und das
-gelegentliche Standbild; **nicht** genug für Livevideo oder die Gewohnheit, die Seite
-offen zu lassen. Der stärkste Treffer auf die Anforderung, wie sie formuliert ist.
+**IoT-Lifetime-Kontingente sind für Privatkunden zu.** Das gehört vorweg, bevor man
+danach sucht: 1NCE („10 Euro für 10 Jahre", 500 MB plus 250 SMS im Telekom-Netz) und das
+o2-Gegenstück *Easy IoT* (11,90 € für zehn Jahre, je nach Region 750–1500 MB) sind
+**Geschäftskundenprodukte**. Beide haben genau die richtige Form für diese Box, und beide
+verkaufen nicht an Privatpersonen. Wer ohnehin ein Kleingewerbe hat, dem stehen sie offen
+— das ist eine Tatsache über die Produkte, kein Ratschlag zur Papierlage.
 
-**Consumer-Prepaid** (Supermarktmarken und Verwandte). Am billigsten pro Gigabyte und hier
-am schlechtesten: Guthaben verfällt, inaktive SIMs werden abgeschaltet, und du erbst ein
-Jahresritual, das du nicht vergessen darfst, während die Box auf einer Wiese steht.
+Für Privatkunden bleiben drei Formen:
 
-**M2M-/IoT-Vertrag beim Betreiber.** Kleine Monatsgebühr, MB-genaue oder gepoolte
-Abrechnung, SMS verfügbar, keine Abschaltung wegen Stille, Verwaltungsportal. Die richtige
-Antwort, wenn das Draufschalten zur Routine wird statt Ausnahme zu bleiben. Ausdrücklich
-nach Rundung und nach SMS fragen.
+**Eine Pay-per-use-IoT-SIM, die man tatsächlich kaufen kann** — Things Mobile behält die
+*Form* von 1NCE: keine Grundgebühr, Guthaben ohne Verfall, von Privatpersonen bestellbar.
+Der Haken ist der Preis. Abgerechnet wird mit rund 10 ct pro MB, und ein Verbrauch **unter
+5 MB im Monat kostet nochmal 10 ct extra pro MB** — eine Box, die bewusst leise ist, wird
+also zum schlechtesten Tarif abgerechnet, etwa 20 ct pro MB. Bei 5 MB im Monat sind das
+~1 € im Monat, das geht; bei 100 MB sind es 20 €, das geht nicht. Im teltarif-Test kam die
+Karte außerdem nur mit HSPA ins Vodafone-Netz statt mit dem beworbenen LTE. Richtige Form,
+falscher Preis, mittelmäßiges Netz.
 
-**Ein normaler Handytarif in der Box.** Überdimensioniert und zu teuer für Standby — aber
-die ehrliche Wahl, wenn du wirklich Livevideo schauen wirst.
+**Normales Consumer-Prepaid, ausgewählt nach der Inaktivitätsregel statt nach dem Preis.**
+Die Regel ist die ganze Entscheidung, und die Fristen gehen weit auseinander:
+
+| | Abschaltung nach | Anmerkung |
+|---|---|---|
+| Telekom Prepaid | **24 Monate** | längste Frist, bestes Netz am abgelegenen Standort |
+| congstar (Telekom-Netz) | 15 Monate | günstiger, gleiches Netz |
+| Aldi Talk | 4–24 Monate | skaliert mit der Aufladung: 5 € → 4 Monate, 30 € → 2 Jahre |
+| Lidl Connect | 6–12 Monate | nach Aufladungshöhe |
+| o2 Prepaid | 6 Monate | kurz |
+| Vodafone CallYa | **90 Tage** | für eine bewusst stille Box unbrauchbar |
+
+**Die Falle steht im Kleingedruckten, und es ist nicht die, die man vermutet: die meisten
+Anbieter zählen eine Aufladung, nicht die Nutzung.** Ein Gateway, das still 5 MB im Monat
+verbraucht, kann trotzdem wegen Inaktivität abgeschaltet werden, weil nichts *bezahlt*
+wurde. Das Kriterium heißt also nicht „verbraucht sie Daten", sondern „wann muss ich das
+nächste Mal Geld draufladen" — und das ist eine Kalendererinnerung, die man nicht verlieren
+darf, während die Box auf einer Wiese steht.
+
+**Ein kleiner Monats-Datentarif, monatlich kündbar.** Für etwa drei Euro im Monat gibt es
+bei den günstigen SIM-only-Marken ein paar GB. Langweilig, planbar, überhaupt keine
+Inaktivitätsregel zu verfolgen, und so viel Luft, dass ein Blick in die Kamera aufhört,
+eine Entscheidung zu sein. Auf zehn Jahre gerechnet weit teurer als alles darüber — aber
+niemand plant zehn Jahre Feriengrundstück.
 
 ### Die Empfehlung
 
-**Mit einem IoT-Lifetime-Kontingent inklusive SMS anfangen.** Es passt auf die Anforderung
-(Alarme, seltene Blicke), es kann nicht wegen Nichtnutzung sterben, und es ist der Tarif,
-der die SMS-Weckvariante B später überhaupt möglich macht. Dazu: Watchdog auf 15–30
-Minuten, `apt`-Timer aus, Standbilder statt Livevideo.
+**Erst Empfang, dann Tarif.** An einem abgelegenen Standort entscheidet das Netz, das die
+Box tatsächlich erreicht, mehr als der Preis — und ein Stick, der hart senden muss,
+verbrennt auch Watt ([docs/HARDWARE.de.md](HARDWARE.de.md)). Vor dem Kauf mit einem Handy
+testen, und zwar dort, wo die Box stehen wird.
+
+Auf dieser Grundlage passt **eine Prepaid-Karte im Telekom-Netz — congstar, oder die
+Telekom selbst bei knappem Empfang** — am besten auf „Alarme plus der gelegentliche
+Blick": gute Reichweite, eine 15- bzw. 24-Monats-Frist, die eine Aufladung im Jahr
+erfüllt, und GB-Preise eine Größenordnung unter den Pay-per-use-IoT-SIMs. Das
+Aufladedatum am Tag der Installation in den Kalender.
+
+**Nimm stattdessen Things Mobile, wenn du genau dieses Jahresritual vermeiden willst** und
+dich auf ein paar MB im Monat beschränken kannst. Es ist das einzige Privatkundenprodukt
+mit dem „einmal zahlen und vergessen"-Gefühl, und du bezahlst es ungefähr zehnfach.
 
 **Dann eine Woche messen und neu entscheiden.** Wenn Tailscales Leerlauf-Keepalives sich
-als zig Megabyte im Monat herausstellen, hält dieses Kontingent in Bauform A keine zehn
-Jahre — und genau diese Zahl sagt dir, ob sich Bauform B lohnt oder ob du einfach ein
-Monatskontingent kaufst. Der Zähler steckt schon in der Seite; nutz ihn, bevor du Geld
+als zig Megabyte im Monat herausstellen, hört das billige Ende dieser Liste auf, billig zu
+sein — und das Zeitfenster (Setup › Remote access) ist die Antwort, weil es genau diesen
+Posten auf null bringt. Der Zähler steckt schon in der Seite; nutz ihn, bevor du Geld
 ausgibst.
 
 ## Was nicht belegt ist

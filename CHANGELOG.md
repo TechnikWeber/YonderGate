@@ -2,6 +2,56 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.9
+**English**
+- **The SMS wake is decided against, and the reason is written down** rather than left as
+  a TODO somebody re-proposes in three months. It failed on the tariff, not the code: the
+  wake channel is only as reliable as the SIM's ability to receive an SMS, and the products
+  a private customer can actually buy do not dependably come with a usable number — data-only
+  M2M tariffs frequently have no MSISDN at all. A way in that works until the day you need
+  it is worse than not having one.
+- **The tariff advice was wrong and is corrected.** It recommended an "IoT lifetime bundle
+  with SMS" — 1NCE and o2's *Easy IoT* are exactly the right shape for this box and **both
+  are business-customer products**. Recommending something the reader cannot buy is worse
+  than recommending nothing.
+- **What a private customer actually has**, now in the doc with figures: a pay-per-use IoT
+  SIM that keeps the shape but bills small users at the worst rate (~20 ct/MB once the
+  under-5 MB surcharge applies), ordinary prepaid chosen for its inactivity rule, or a small
+  monthly data tariff with no rule to track at all.
+- **The inactivity rules are tabulated, and the trap is named.** They run from 90 days
+  (Vodafone CallYa — unusable for a box meant to be quiet) to 24 months (Telekom). And the
+  catch is not the one you would guess: **most providers count a top-up, not usage**, so a
+  gateway quietly spending 5 MB a month can still be switched off for inactivity.
+- The recommendation is now **coverage first**: at a remote plot the network that reaches
+  the box decides more than the price, and a stick that has to transmit hard also burns
+  watts. Then a prepaid SIM on the Telekom network, with the top-up date in a calendar.
+
+**Deutsch**
+- **Der SMS-Weckruf ist abgesagt, und der Grund steht geschrieben** statt als TODO
+  liegenzubleiben, das in drei Monaten jemand erneut vorschlägt. Gescheitert ist er am
+  Tarif, nicht am Code: Der Weckkanal ist nur so verlässlich wie die Fähigkeit der SIM,
+  eine SMS zu empfangen — und die Produkte, die ein Privatkunde tatsächlich kaufen kann,
+  kommen nicht zuverlässig mit einer brauchbaren Nummer; reine M2M-Datentarife haben oft
+  gar keine MSISDN. Ein Weg hinein, der bis zu dem Tag funktioniert, an dem man ihn
+  braucht, ist schlechter als keiner.
+- **Der Tarifrat war falsch und ist korrigiert.** Empfohlen war ein „IoT-Lifetime-Kontingent
+  mit SMS" — 1NCE und das o2-Gegenstück *Easy IoT* haben genau die richtige Form für diese
+  Box und sind **beide Geschäftskundenprodukte**. Etwas zu empfehlen, das der Leser nicht
+  kaufen kann, ist schlechter als gar nichts zu empfehlen.
+- **Was ein Privatkunde wirklich hat**, jetzt mit Zahlen in der Doku: eine
+  Pay-per-use-IoT-SIM, die die Form behält, aber kleine Verbraucher zum schlechtesten Satz
+  abrechnet (~20 ct/MB, sobald der Aufschlag unter 5 MB greift), normales Prepaid, ausgewählt
+  nach seiner Inaktivitätsregel, oder ein kleiner Monats-Datentarif ganz ohne Regel.
+- **Die Inaktivitätsfristen stehen als Tabelle da, und die Falle ist benannt.** Sie reichen
+  von 90 Tagen (Vodafone CallYa — für eine bewusst stille Box unbrauchbar) bis 24 Monate
+  (Telekom). Und der Haken ist nicht der vermutete: **die meisten Anbieter zählen eine
+  Aufladung, nicht die Nutzung** — ein Gateway, das still 5 MB im Monat verbraucht, kann
+  also trotzdem wegen Inaktivität abgeschaltet werden.
+- Die Empfehlung lautet jetzt **erst Empfang**: An einem abgelegenen Standort entscheidet
+  das Netz, das die Box erreicht, mehr als der Preis, und ein Stick, der hart senden muss,
+  verbrennt auch Watt. Danach eine Prepaid-Karte im Telekom-Netz, Aufladedatum in den
+  Kalender.
+
 ## v0.12.8
 **English**
 - **The two button rows in the uplink panel were touching.** *Open now* and *Save mode* sat

@@ -98,18 +98,22 @@ page open, and *Open now for 30 min* overrides it from the page. The held alerts
 written to `/var/lib/yondergate/alert-buffer.json`, so a reboot on Wednesday does not lose
 Tuesday's alert, and a flush that fails keeps them for the next attempt.
 
-**B — Woken by SMS (not implemented; the one that finishes the idea).** Standby as in C,
-but instead of waiting for Sunday you text the SIM: the gateway reads the message off the
-modem (`mmcli` or the HiLink SMS API — SMS travels on the signalling channel and costs no
-data at all) and opens the tunnel for a set number of minutes. That turns "live once a
-week" into "live whenever you ask", at no standby cost.
+**B — Woken by SMS. Parked, deliberately (2026-08-22).** The idea: instead of waiting for
+Sunday you text the SIM, the gateway reads the message off the modem (`mmcli` or the HiLink
+SMS API — SMS travels on the signalling channel and costs no data at all) and opens the
+tunnel for a set number of minutes.
 
-It needs care, because it can build a box you cannot reach: a sender whitelist plus a
-secret in the message text, so a wrong number cannot open your tunnel — and the window
-from C left underneath it, so a wake path that silently breaks costs you a few days rather
-than a drive to the site.
+It was dropped on the tariff, not the code. **The wake channel is only as reliable as the
+SIM's ability to receive an SMS**, and the products a private customer can actually buy
+(see below) do not dependably come with a usable number — data-only M2M tariffs frequently
+have no MSISDN at all. A way in that works until the day you need it is worse than not
+having one, so the window is the answer and B stays written down rather than built.
 
-**C is what ships and B is the next step**; the window is already the fallback B will need.
+Most of it would have been small, for the record: the HiLink session-and-token dance is
+already implemented (`system/hilink.ts`), and the action is `uplink.openFor()`, which
+shipped with C. What was missing was a POST helper, an SMS-list parser, and a service.
+
+**C is what ships.**
 
 ## Choosing a tariff
 
@@ -119,8 +123,9 @@ In the order that actually matters:
    what consumer prepaid does: a SIM that uses almost nothing gets switched off for using
    almost nothing, or its credit expires. A box designed to be silent must not be on a
    tariff that punishes silence.
-2. **SMS in and out included.** Without it, shape B is impossible. It is also a decent
-   last-resort "are you alive" channel when data is broken.
+2. ~~**SMS in and out included.**~~ Dropped as a criterion (2026-08-22): the tariffs a
+   private customer can actually buy do not reliably come with a number that can receive
+   SMS, which is also why shape B below is parked. Do not pay extra for it.
 3. **How the carrier meters.** Ask about **per-session rounding**: a tariff that rounds
    every session up to 10 or 100 kB turns a 350-byte watchdog probe into a 100 kB one and
    destroys this whole design. Per-kB or pooled billing is what you want.
@@ -136,34 +141,67 @@ In the order that actually matters:
 
 ### The options, as categories
 
-**IoT lifetime bundle** (1NCE and similar: a few hundred MB plus SMS, valid ~10 years, one
-payment, no monthly fee). Built for exactly this: no inactivity trap, SMS included, and
-nothing to keep topping up. 500 MB over ten years averages ~4 MB a month — comfortable for
-alerts, watchdog at a sane interval and the occasional still frame; **not** enough for live
-video or a habit of leaving the page open. The strongest fit for the requirement as stated.
+**IoT lifetime bundles are closed to private customers.** This is worth knowing before
+you go looking: 1NCE ("10 euros for 10 years", 500 MB plus 250 SMS on the Telekom
+network) and o2's equivalent *Easy IoT* (11.90 € for ten years, 750–1500 MB depending on
+the region) are **business-customer products**. Both are exactly the right shape for this
+box and neither will sell to a consumer. If a small business registration exists anyway,
+they reopen — that is a fact about the products, not a suggestion about paperwork.
 
-**Consumer prepaid** (supermarket brands and friends). Cheapest per gigabyte and the worst
-fit here: credit expires, inactive SIMs get deactivated, and you inherit a yearly ritual
-you must not forget while the box sits in a field.
+What is left for a private customer is three shapes:
 
-**Carrier M2M / IoT contract.** A small monthly fee, per-MB or pooled metering, SMS
-available, no inactivity kill, management portal. The right answer if dialling in becomes
-routine rather than rare. Ask specifically about rounding and about SMS.
+**A pay-per-use IoT SIM you can actually buy** — Things Mobile is the one that keeps the
+1NCE *shape*: no monthly fee, credit that does not expire, orderable by an individual.
+The price is the catch. It bills roughly 10 ct per MB, and usage **below 5 MB a month
+costs another 10 ct on top** — so a box designed to be quiet is billed at the worst rate,
+about 20 ct per MB. At 5 MB a month that is ~1 € a month, which is fine; at 100 MB it is
+20 €, which is not. teltarif's test also only ever got HSPA on Vodafone rather than the
+advertised LTE. Right shape, wrong price, mediocre network.
 
-**An ordinary phone tariff in the box.** Overkill and over-priced for standby — but the
-honest choice if you will genuinely watch live video.
+**Ordinary consumer prepaid, chosen for its inactivity rule rather than its price.** The
+rule is the whole decision, and the figures differ wildly:
+
+| | Deactivated after | Note |
+|---|---|---|
+| Telekom prepaid | **24 months** | longest window, best coverage at a remote site |
+| congstar (Telekom network) | 15 months | cheaper, same network |
+| Aldi Talk | 4–24 months | scales with the top-up: 5 € → 4 months, 30 € → 2 years |
+| Lidl Connect | 6–12 months | by top-up size |
+| o2 prepaid | 6 months | short |
+| Vodafone CallYa | **90 days** | unusable for a box that is meant to be quiet |
+
+**The trap is in the small print, and it is not the one you would guess: most providers
+count a top-up, not usage.** A gateway that quietly uses 5 MB a month can still be
+switched off for inactivity, because nothing was *paid*. So the criterion is not "does it
+use data" but "when do I next have to put money on it" — and that is a calendar reminder
+you must not lose, while the box sits in a field.
+
+**A small monthly data tariff, cancellable monthly.** Three-ish euros a month buys a few
+GB from the cheap SIM-only brands. Boring, predictable, no inactivity rule to track at
+all, and enough headroom that looking at a camera stops being a decision. Over ten years
+it costs far more than any of the above — but nobody plans ten years of a holiday plot.
 
 ### The recommendation
 
-**Start with an IoT lifetime bundle that includes SMS.** It matches the stated requirement
-(alerts, rare look-ins), it cannot be killed by inactivity, and it is the tariff that makes
-the SMS wake in shape B possible later. Pair it with: watchdog at 15–30 minutes, `apt`
-timers off, snapshots rather than live video.
+**Coverage first, tariff second.** At a remote plot the network that actually reaches the
+box decides more than the price does — and a stick that has to transmit hard also burns
+watts ([docs/HARDWARE.md](HARDWARE.md)). Test with a phone, standing where the box will
+stand, before buying anything.
+
+Given that, **a prepaid SIM on the Telekom network — congstar, or Telekom's own if
+coverage is marginal** — is the best fit for "alerts plus the occasional look": good
+reach, a 15- or 24-month window that one top-up a year satisfies, and per-GB prices an
+order of magnitude below the pay-per-use IoT SIMs. Put the top-up date in a calendar the
+day you install the box.
+
+**Take Things Mobile instead if the yearly ritual is what you want to avoid** and you can
+hold yourself to a few MB a month. It is the only consumer product with the "pay once,
+forget it" feel, and you pay roughly ten times over for it.
 
 **Then measure for a week and re-decide.** If Tailscale's idle keepalives turn out to be
-tens of megabytes a month, that bundle will not last ten years on shape A — and that is
-the number that tells you whether to build shape B or simply buy a monthly allowance.
-The counter is already in the page; use it before spending money.
+tens of megabytes a month, the cheap end of this list stops being cheap — and window mode
+(Setup › Remote access) is the answer, because it takes exactly that item to zero. The
+counter is already in the page; use it before spending money.
 
 ## Not verified
 

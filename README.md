@@ -281,10 +281,11 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [x] **Uplink window**: two modes on a radio button — always live, or live only in a
       window (default Sundays 14:00–14:15), with alerts held on disk in between and
       delivered as one grouped message when it opens
-- [ ] **SMS wake**, so you do not have to wait for the window: no tunnel until a text
-      arrives (`mmcli` / the HiLink SMS API), then up for N minutes. Needs a sender
-      whitelist and a secret in the message; the window above is already the fallback
-      underneath it — a wake path that can fail silently is a box nobody can reach
+- ~~SMS wake~~ — **decided against, 2026-08-22.** Not on the code (the HiLink session
+      handling exists and the action is `uplink.openFor()`), but on the tariff: the SIMs a
+      private customer can buy do not dependably have a number that receives SMS. A way in
+      that works until the day you need it is worse than not having one. The window stays
+      the answer; the reasoning is in [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md)
 - [x] Time on the page: current time, timezone, the servers actually in use, and a
       **DS3231 hardware clock enabled with a checkbox** rather than an SSH session
 - [x] Interface picker for the data counter, and a "used / left / days to go" line
