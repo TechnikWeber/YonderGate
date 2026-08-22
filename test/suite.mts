@@ -325,8 +325,13 @@ async function main() {
   ok('a counter that went backwards starts a new baseline', usage.bytes === 2_000_000 && usage.lastCounter === 500_000);
   usage = USE.accumulate(usage, 1_500_000, T0 + 180_000);
   ok('and counting resumes from there', usage.bytes === 3_000_000);
+  // Changed deliberately in v0.12.11: the counter reading carries across the month
+  // boundary. It used to be dropped, which started every month by silently losing one
+  // poll interval of traffic — invisible at a minute's resolution, but the credit total
+  // (which has no month) would have lost that chunk every month for years.
   const nextMonth = USE.accumulate(usage, 9_000_000, Date.UTC(2027, 0, 2));
-  ok('a new month starts at zero', nextMonth.bytes === 0 && nextMonth.month === '2027-01');
+  ok('a new month starts the monthly figure again', nextMonth.month === '2027-01');
+  ok('and the traffic across the boundary is not lost', nextMonth.bytes === 7_500_000, String(nextMonth.bytes));
 
   ok('interface counters are read from /proc', USE.parseProcNetDev('Inter-|   Receive\n face |bytes\n  eth1: 1000 0 0 0 0 0 0 0 2000 0\n', 'eth1') === 3000);
   ok('an interface that is not there is null', USE.parseProcNetDev('  eth0: 1 2\n', 'eth1') === null);
@@ -823,6 +828,53 @@ async function main() {
   const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
   ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
   ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
+
+  // ---- the 80 % warning for a card billed per megabyte ----
+  // The monthly allowance answers "how much of this month's bucket is gone". A prepaid
+  // card billed per MB has no bucket and no month — what runs out is the balance.
+  const U2 = await import('../packages/gateway/src/system/usage');
+  const t0 = Date.UTC(2026, 0, 10);
+  let u = U2.emptyUsage(U2.billingMonth(t0));
+  u = U2.recordTopUp(u, t0);
+  // 100 MB at 5 ct/MB = 5 € of a 10 € card.
+  u = U2.accumulate(u, 0, t0);
+  u = U2.accumulate(u, 100e6, t0 + 3600_000);
+  ok('the credit total tracks the bytes', u.sinceTopUp === 100e6, String(u.sinceTopUp));
+  let c = U2.creditStatus(u, 10, 5);
+  ok('spent is bytes times price', Math.abs((c.spentEur ?? 0) - 5) < 0.001, String(c.spentEur));
+  ok('and half the card is left', Math.abs((c.leftEur ?? 0) - 5) < 0.001);
+  ok('50 % does not warn', c.percent === 50 && !c.warn && !c.over);
+  u = U2.accumulate(u, 170e6, t0 + 7200_000);
+  c = U2.creditStatus(u, 10, 5);
+  ok('80 % of the credit warns', c.warn && !c.over, String(c.percent));
+  u = U2.accumulate(u, 220e6, t0 + 10800_000);
+  ok('and an empty card is over', U2.creditStatus(u, 10, 5).over);
+  ok('no credit configured means no warning', !U2.creditStatus(u, null, 5).warn && U2.creditStatus(u, null, 5).percent === null);
+
+  // The billing month must reset the monthly figure and leave the credit alone: the
+  // two answer different questions and only one of them owns a calendar.
+  const creditNextMonth = Date.UTC(2026, 1, 2);
+  const creditRolled = U2.accumulate(u, 260e6, creditNextMonth);
+  ok('a new month zeroes the monthly total', creditRolled.bytes === 40e6, String(creditRolled.bytes));
+  ok('but not the credit total', creditRolled.sinceTopUp === 260e6, String(creditRolled.sinceTopUp));
+  ok('a top-up starts the credit again', U2.recordTopUp(creditRolled, creditNextMonth).sinceTopUp === 0);
+  ok('and records when', (U2.recordTopUp(creditRolled, creditNextMonth).topUpAt ?? '').startsWith('2026-02-02'));
+
+  // "lasts about 40 more days" is what says whether the next top-up is a diary entry
+  // or a problem. Under a day of history it must refuse to guess.
+  const f = U2.creditForecast(creditRolled, 20, 5, creditNextMonth);
+  ok('the forecast projects from what was actually spent', (f.daysLeft ?? 0) > 0, JSON.stringify(f));
+  ok('a fresh top-up is not projected from', U2.creditForecast(U2.recordTopUp(creditRolled, creditNextMonth), 20, 5, creditNextMonth).daysLeft === null);
+
+  // One status for both shapes, so the alert rule does not branch on the tariff.
+  const credited = U2.dataStatus(u, { plan: 'credit', capGb: null, creditEur: 10, pricePerMbCents: 5 });
+  ok('the credit plan reports its own arithmetic', credited.over && credited.detail.includes('€'), credited.detail);
+  const monthly = U2.dataStatus(u, { plan: 'monthly', capGb: 1, creditEur: null, pricePerMbCents: null });
+  ok('the monthly plan is unchanged', monthly.detail.includes('GB'), monthly.detail);
+  // An old usage.json predates both fields; it must load rather than produce NaN.
+  const legacy = { month: '2026-01', bytes: 5e6, lastCounter: 5e6, updated: null };
+  ok('a counter file from before this feature still works',
+    U2.accumulate(legacy, 6e6, t0).sinceTopUp === 1e6 && U2.creditStatus(legacy, 10, 5).spentEur === 0);
 
   // ---- WireGuard set up by hand ----
   // The upload path stays; this is the other half, for a peer that came as a page of

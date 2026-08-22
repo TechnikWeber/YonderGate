@@ -502,10 +502,26 @@
           <label>Interface
             <select id="dataIface"><option value="">(scan first)</option></select>
           </label>
+          <label>What runs out
+            <select id="dataPlan" onchange="renderDataPlan()">
+              <option value="monthly">a monthly allowance</option>
+              <option value="credit">prepaid credit, billed per MB</option>
+            </select>
+          </label>
+        </div>
+        <div class="grid2" id="data-monthly">
           <label>Allowance (GB/month)<input id="dataCap" type="number" step="0.1" placeholder="none" /></label>
         </div>
-        <div class="btns"><button class="btn" onclick="run(this, () => saveData())">Save allowance</button></div>
-        <p class="msg">The stick's counter is what the carrier sees but resets when the stick reboots; the interface counter works for any uplink but counts local traffic too. Either way the gateway keeps its own monthly total from the <b>differences</b>, so a reset costs nothing. A warning goes out at <b>80 %</b> of the allowance.</p>
+        <div class="grid2" id="data-credit" style="display:none">
+          <label>Credit last loaded (€)<input id="dataCredit" type="number" step="0.01" placeholder="e.g. 15" /></label>
+          <label>Price per MB (ct)<input id="dataPrice" type="number" step="0.1" placeholder="3–5 on German prepaid" /></label>
+        </div>
+        <div class="btns" style="margin-top:8px">
+          <button class="btn" onclick="run(this, () => saveData())">Save</button>
+          <button class="btn" id="data-topup" style="display:none" onclick="run(this, () => topUp())">I topped it up</button>
+        </div>
+        <p class="msg">The stick's counter is what the carrier sees but resets when the stick reboots; the interface counter works for any uplink but counts local traffic too. Either way the gateway keeps its own total from the <b>differences</b>, so a reset costs nothing. A warning goes out at <b>80 %</b> — of the monthly allowance, or of the credit once it is billed per megabyte.</p>
+        <p class="msg" id="data-credit-note" style="display:none">Prepaid billed per MB has no month: what runs out is the balance, whenever that happens. The counter therefore runs from the last top-up rather than from the 1st, so press <b>I topped it up</b> whenever you put money on the card. On most German tariffs that top-up is also what stops the SIM being deactivated for inactivity — the projection below tells you when the next one is due.</p>
         <div class="msg" id="data-msg"></div>
 
         <div class="eyebrow2" style="margin-top:12px">Alerts (ntfy)</div>
@@ -1214,8 +1230,17 @@
               d.usageStatus?.over ? 'bad' : d.usageStatus?.warn ? 'warn' : '') : '') +
           // "1.9 GB left with 9 days to go" is a sentence someone can act on; a
           // percentage on its own is not.
-          (d.usageOverview?.leftBytes != null
+          (d.data?.plan !== 'credit' && d.usageOverview?.leftBytes != null
             ? row('left this month', `${fmtBytes(d.usageOverview.leftBytes)} · ${d.usageOverview.daysLeft} days to go · ${fmtBytes(d.usageOverview.perDayLeft)}/day`)
+            : '') +
+          // The same sentence for a card billed per megabyte, where the thing that
+          // runs out is money and the calendar has nothing to do with it.
+          (d.data?.plan === 'credit' && d.usageCredit?.leftEur != null
+            ? row('credit left', `${d.usageCredit.leftEur.toFixed(2)} € of ${d.data.creditEur} € · ${fmtBytes(d.usage.sinceTopUp || 0)} since the top-up`,
+                d.usageCredit.over ? 'bad' : d.usageCredit.warn ? 'warn' : '')
+            : '') +
+          (d.data?.plan === 'credit' && d.usageForecast?.daysLeft != null
+            ? row('lasts about', `${d.usageForecast.daysLeft} more days at ${(d.usageForecast.perDayEur * 30).toFixed(2)} €/month`)
             : '');
 
         // Show what is actually in use, not an empty box that looks unconfigured.
@@ -1232,7 +1257,11 @@
         renderInterfaces(d.interfaces || [], d.data);
         if (d.data) {
           $('dataSource').value = d.data.source;
+          $('dataPlan').value = d.data.plan || 'monthly';
           if (!$('dataCap').value && d.data.capGb) $('dataCap').value = d.data.capGb;
+          if (!$('dataCredit').value && d.data.creditEur) $('dataCredit').value = d.data.creditEur;
+          if (!$('dataPrice').value && d.data.pricePerMbCents) $('dataPrice').value = d.data.pricePerMbCents;
+          renderDataPlan();
         }
         if (d.history) $('historyEnabled').checked = !!d.history.enabled;
         healthData = d;
@@ -1315,13 +1344,32 @@
         $('ntp-msg').textContent = r.message || '';
         loadHealth();
       }
+      // Two tariff shapes, one panel: a monthly bucket, or prepaid credit billed per
+      // megabyte. The second has no month at all — see docs/DATA-BUDGET.md.
+      function renderDataPlan() {
+        const credit = $('dataPlan').value === 'credit';
+        $('data-monthly').style.display = credit ? 'none' : '';
+        $('data-credit').style.display = credit ? '' : 'none';
+        $('data-credit-note').style.display = credit ? '' : 'none';
+        $('data-topup').style.display = credit ? '' : 'none';
+      }
       async function saveData() {
         const r = await post('/api/data', {
           source: $('dataSource').value,
           iface: $('dataIface').value.trim(),
+          plan: $('dataPlan').value,
           capGb: $('dataCap').value.trim(),
+          creditEur: $('dataCredit').value.trim(),
+          pricePerMbCents: $('dataPrice').value.trim(),
         });
         $('data-msg').innerHTML = r.ok ? esc(r.message) : `<b style="color:var(--bad)">${esc(r.message)}</b>`;
+        loadHealth();
+      }
+      async function topUp() {
+        const r = await post('/api/data/topup', {});
+        $('data-msg').innerHTML = esc(r.message || '');
+        loadHealth();
+        return r;
       }
       async function saveHistorySettings() {
         const r = await post('/api/history/settings', { enabled: $('historyEnabled').checked });

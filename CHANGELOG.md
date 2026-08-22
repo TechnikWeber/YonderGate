@@ -2,6 +2,64 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.11
+**English**
+- **The 80 % warning now works for prepaid credit billed per megabyte, not just a monthly
+  allowance.** Setup › Mobile data has both shapes: *a monthly allowance* as before, or
+  *prepaid credit* — you enter what you last loaded onto the card and what a megabyte
+  costs (3–5 ct on a German prepaid tariff), and the same warning fires at 80 % of the
+  balance instead of 80 % of a bucket.
+- **A card billed per MB has no month, so the counter does not have one either.** It runs
+  from the **last top-up**, not from the 1st, with an *I topped it up* button that starts
+  it again. The monthly figure keeps running alongside for anyone who still wants it.
+- **It says how long the credit lasts** — "about 40 more days at 0.60 €/month" — computed
+  from what was actually spent since the top-up. Under a day of history it refuses to
+  project rather than dress a guess up as a number. On most German prepaid tariffs the
+  top-up is also what stops the SIM being deactivated for inactivity, so that line doubles
+  as the reminder for the next one.
+- **Fixed while doing it: the monthly counter dropped one poll interval at every month
+  boundary.** The reading that crossed midnight on the 1st used to be thrown away and
+  taken as a new baseline. Invisible at a minute's resolution — but the credit total has
+  no month, and would have lost that chunk every month for years. The reading now carries
+  across; the test that encoded the old behaviour was updated rather than worked around.
+- An existing `usage.json` from before this release loads unchanged; both new fields are
+  optional and default to zero.
+- **The README now says what this thing costs to run**, both budgets, with the measured
+  figures: watts (≈2.5–4 W, and why the board is only the third biggest lever) and
+  megabytes, plus a tariff table for private customers — per-MB prepaid at 25 ct–1 € a
+  month against our own standby, an auto-renewing pack that doubles as the top-up, a
+  monthly data tariff at ~2.99 €, and the pay-per-use IoT SIM at ten times the price. With
+  the trap named: most providers count a top-up, not usage.
+
+**Deutsch**
+- **Die 80-%-Warnung funktioniert jetzt auch für Prepaid-Guthaben mit MB-Abrechnung**,
+  nicht nur für ein Monatskontingent. Setup › Mobile data kennt beide Formen: *monatliches
+  Kontingent* wie bisher, oder *Prepaid-Guthaben* — du trägst ein, was du zuletzt
+  aufgeladen hast und was ein Megabyte kostet (3–5 ct in einem deutschen Prepaid-Tarif),
+  und dieselbe Warnung kommt bei 80 % des Guthabens statt bei 80 % eines Eimers.
+- **Eine Karte mit MB-Abrechnung hat keinen Monat, also hat der Zähler auch keinen.** Er
+  läuft ab der **letzten Aufladung**, nicht ab dem Ersten, mit einem Knopf *I topped it
+  up*, der ihn neu startet. Die Monatszahl läuft für alle, die sie mögen, daneben weiter.
+- **Er sagt, wie lange das Guthaben reicht** — „noch etwa 40 Tage bei 0,60 €/Monat" —
+  gerechnet aus dem, was seit der Aufladung tatsächlich ausgegeben wurde. Bei weniger als
+  einem Tag Historie verweigert er die Hochrechnung, statt eine Vermutung als Zahl zu
+  verkleiden. In den meisten deutschen Prepaid-Tarifen ist die Aufladung zugleich das, was
+  die SIM vor der Abschaltung bewahrt — diese Zeile ist also auch die Erinnerung an die
+  nächste.
+- **Dabei behoben: der Monatszähler verlor an jeder Monatsgrenze ein Poll-Intervall.** Die
+  Messung, die über Mitternacht des Ersten lief, wurde verworfen und als neue Basislinie
+  genommen. Bei Minutenauflösung unsichtbar — aber das Guthabenkonto hat keinen Monat und
+  hätte diesen Brocken jahrelang jeden Monat verloren. Die Messung wird jetzt übernommen;
+  der Test, der das alte Verhalten festschrieb, wurde korrigiert statt umgangen.
+- Eine bestehende `usage.json` von vor diesem Release lädt unverändert; beide neuen Felder
+  sind optional und starten bei null.
+- **Die README sagt jetzt, was der Betrieb kostet**, beide Budgets mit den gemessenen
+  Zahlen: Watt (≈2,5–4 W, und warum das Board nur der drittgrößte Hebel ist) und Megabyte,
+  dazu eine Tariftabelle für Privatkunden — Prepaid pro MB mit 25 ct–1 € im Monat gegen
+  unseren eigenen Standby gerechnet, ein Auto-Paket, das zugleich die Aufladung ist, ein
+  Monats-Datentarif ab ~2,99 €, und die Pay-per-use-IoT-SIM zum zehnfachen Preis. Mit der
+  benannten Falle: die meisten Anbieter zählen eine Aufladung, nicht die Nutzung.
+
 ## v0.12.10
 **English**
 - **Prepaid: pack or per megabyte?** The data-budget doc now answers it with our own

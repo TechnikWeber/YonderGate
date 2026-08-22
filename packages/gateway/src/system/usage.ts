@@ -25,10 +25,19 @@ export interface UsageState {
   lastCounter: number | null;
   /** When the total was last updated (ISO). */
   updated: string | null;
+  /**
+   * Bytes since the credit was last topped up — deliberately *not* reset by the
+   * billing month. A prepaid card billed per megabyte has no month: what runs out
+   * is the credit, whenever that happens to be. Optional so an existing usage.json
+   * from before this feature loads unchanged.
+   */
+  sinceTopUp?: number;
+  /** When the operator last recorded a top-up (ISO). */
+  topUpAt?: string | null;
 }
 
 export function emptyUsage(month: string): UsageState {
-  return { month, bytes: 0, lastCounter: null, updated: null };
+  return { month, bytes: 0, lastCounter: null, updated: null, sinceTopUp: 0, topUpAt: null };
 }
 
 export function billingMonth(ts: number): string {
@@ -46,17 +55,28 @@ export function billingMonth(ts: number): string {
  */
 export function accumulate(prev: UsageState, counter: number | null, now: number): UsageState {
   const month = billingMonth(now);
-  const base = prev.month === month ? prev : emptyUsage(month);
+  // A new month zeroes the monthly figure but must not touch the credit total: the
+  // two answer different questions and only one of them cares about calendars.
+  const carried = { sinceTopUp: prev.sinceTopUp ?? 0, topUpAt: prev.topUpAt ?? null };
+  const base = prev.month === month ? prev : { ...emptyUsage(month), ...carried, lastCounter: prev.lastCounter };
   if (counter === null || !Number.isFinite(counter) || counter < 0) return base;
   if (base.lastCounter === null || counter < base.lastCounter) {
     return { ...base, lastCounter: counter, updated: new Date(now).toISOString() };
   }
+  const delta = counter - base.lastCounter;
   return {
+    ...base,
     month,
-    bytes: base.bytes + (counter - base.lastCounter),
+    bytes: base.bytes + delta,
+    sinceTopUp: (base.sinceTopUp ?? 0) + delta,
     lastCounter: counter,
     updated: new Date(now).toISOString(),
   };
+}
+
+/** The operator put money on the card: the credit total starts again from here. */
+export function recordTopUp(prev: UsageState, now: number): UsageState {
+  return { ...prev, sinceTopUp: 0, topUpAt: new Date(now).toISOString() };
 }
 
 /** `/proc/net/dev` → total bytes in+out for one interface. */
@@ -129,5 +149,95 @@ export function usageOverview(usage: UsageState, capGb: number | null, now: numb
     percent: st.percent,
     daysLeft,
     perDayLeft: leftBytes === null ? null : Math.round(leftBytes / daysLeft),
+  };
+}
+
+/**
+ * Where the *credit* stands, for a prepaid card billed per megabyte.
+ *
+ * The monthly allowance above answers "how much of this month's bucket is gone".
+ * A card billed per MB has no bucket and no month — it has a balance that shrinks
+ * until the box goes quiet. Same 80 % warning, different arithmetic: what is spent
+ * is bytes × price, and what matters is the share of the credit that is gone.
+ */
+export function creditStatus(
+  usage: UsageState,
+  creditEur: number | null,
+  pricePerMbCents: number | null,
+  warnAt = 0.8,
+): { spentEur: number | null; leftEur: number | null; percent: number | null; warn: boolean; over: boolean } {
+  if (!creditEur || creditEur <= 0 || !pricePerMbCents || pricePerMbCents <= 0) {
+    return { spentEur: null, leftEur: null, percent: null, warn: false, over: false };
+  }
+  const spentEur = ((usage.sinceTopUp ?? 0) / 1e6) * (pricePerMbCents / 100);
+  const percent = Math.round((spentEur / creditEur) * 1000) / 10;
+  return {
+    spentEur,
+    leftEur: Math.max(0, creditEur - spentEur),
+    percent,
+    warn: spentEur >= creditEur * warnAt,
+    over: spentEur >= creditEur,
+  };
+}
+
+/**
+ * How long the rest of the credit lasts at the rate it has actually been spent.
+ * "about 8 months left" is what tells you whether the next top-up is a calendar
+ * entry or a problem — and on most German prepaid tariffs the top-up, not the
+ * usage, is what keeps the card from being deactivated (see docs/DATA-BUDGET.md).
+ */
+export function creditForecast(
+  usage: UsageState,
+  creditEur: number | null,
+  pricePerMbCents: number | null,
+  now: number,
+): { perDayEur: number | null; daysLeft: number | null } {
+  const st = creditStatus(usage, creditEur, pricePerMbCents);
+  const since = usage.topUpAt ? Date.parse(usage.topUpAt) : NaN;
+  if (st.spentEur === null || !Number.isFinite(since)) return { perDayEur: null, daysLeft: null };
+  // Under a day of history says nothing; projecting from it would be a wild guess
+  // dressed up as a number.
+  const days = (now - since) / 86_400_000;
+  if (days < 1 || st.spentEur <= 0) return { perDayEur: null, daysLeft: null };
+  const perDayEur = st.spentEur / days;
+  return { perDayEur, daysLeft: Math.floor((st.leftEur ?? 0) / perDayEur) };
+}
+
+export interface DataPlanSettings {
+  plan: 'monthly' | 'credit';
+  capGb: number | null;
+  creditEur: number | null;
+  pricePerMbCents: number | null;
+}
+
+/**
+ * One answer for both shapes, so the alert rule and the page do not each have to
+ * know which kind of tariff this SIM is on.
+ */
+export function dataStatus(usage: UsageState, s: DataPlanSettings): {
+  percent: number | null;
+  warn: boolean;
+  over: boolean;
+  detail: string;
+} {
+  if (s.plan === 'credit') {
+    const c = creditStatus(usage, s.creditEur, s.pricePerMbCents);
+    return {
+      percent: c.percent,
+      warn: c.warn,
+      over: c.over,
+      detail: c.spentEur === null
+        ? `${formatBytes(usage.sinceTopUp ?? 0)} since the last top-up (no credit set)`
+        : `${c.spentEur.toFixed(2)} € of ${s.creditEur} € credit used (${c.percent}%), ${formatBytes(usage.sinceTopUp ?? 0)}`,
+    };
+  }
+  const u = usageStatus(usage, s.capGb);
+  return {
+    percent: u.percent,
+    warn: u.warn,
+    over: u.over,
+    detail: u.percent === null
+      ? `${formatBytes(usage.bytes)} used this month (no allowance set)`
+      : `${formatBytes(usage.bytes)} of ${s.capGb} GB used (${u.percent}%)`,
   };
 }

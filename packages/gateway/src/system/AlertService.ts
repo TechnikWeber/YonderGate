@@ -12,7 +12,10 @@ import {
   type Alert,
   type AlertState,
 } from './alerts.js';
-import { accumulate, emptyUsage, billingMonth, formatBytes, usageStatus, type UsageState } from './usage.js';
+import {
+  accumulate, emptyUsage, billingMonth, creditForecast, creditStatus, dataStatus,
+  recordTopUp, usageStatus, type UsageState,
+} from './usage.js';
 import { addBuffered, digestBuffered, type BufferedAlert } from './uplink.js';
 import { shouldAutoCycle } from './power.js';
 
@@ -59,8 +62,25 @@ export class AlertService {
     this.save();
   }
 
-  snapshot(): { usage: UsageState; status: ReturnType<typeof usageStatus> } {
-    return { usage: this.usage, status: usageStatus(this.usage, this.config.data.capGb) };
+  snapshot(): {
+    usage: UsageState;
+    status: ReturnType<typeof usageStatus>;
+    credit: ReturnType<typeof creditStatus>;
+    forecast: ReturnType<typeof creditForecast>;
+  } {
+    const d = this.config.data;
+    return {
+      usage: this.usage,
+      status: usageStatus(this.usage, d.capGb),
+      credit: creditStatus(this.usage, d.creditEur, d.pricePerMbCents),
+      forecast: creditForecast(this.usage, d.creditEur, d.pricePerMbCents, Date.now()),
+    };
+  }
+
+  /** The card was topped up: the credit total starts again from here. */
+  noteTopUp(): void {
+    this.usage = recordTopUp(this.usage, Date.now());
+    this.save();
   }
 
   /** Send one alert from elsewhere in the box (the watchdog uses this). */
@@ -99,7 +119,9 @@ export class AlertService {
     ]);
     const telemetry = this.telemetry.message as TelemetryMessage | null | undefined;
     const values = readingsOf(telemetry);
-    const usage = usageStatus(this.usage, this.config.data.capGb);
+    // One status for both tariff shapes: a monthly bucket and prepaid credit run out
+    // in different arithmetic but mean the same thing to whoever gets the message.
+    const usage = dataStatus(this.usage, this.config.data);
 
     for (const rule of this.config.alerts.rules) {
       const prev = this.states.get(rule.id) ?? { since: null, firedAt: null };
@@ -120,9 +142,7 @@ export class AlertService {
           : `${device.label} (${device.ip}) is answering`;
       } else if (rule.kind === 'usage') {
         breached = usage.warn;
-        detail = usage.percent === null
-          ? 'no allowance configured'
-          : `${formatBytes(this.usage.bytes)} of ${this.config.data.capGb} GB used (${usage.percent}%)`;
+        detail = usage.percent === null ? 'no allowance or credit configured' : usage.detail;
       } else if (rule.kind === 'health') {
         if (rule.target === 'undervoltage') {
           breached = health.undervoltageNow === true;

@@ -445,6 +445,8 @@ export async function handleSetup(
       usage: snap.usage,
       usageStatus: snap.status,
       usageOverview: usageOverview(snap.usage, ctx.config.data.capGb, Date.now()),
+      usageCredit: snap.credit,
+      usageForecast: snap.forecast,
       interfaces: await ctx.system.interfaces(),
       data: ctx.config.data,
       ntpServers: ctx.config.ntpServers,
@@ -493,18 +495,48 @@ export async function handleSetup(
   }
 
   if (url === '/api/data' && method === 'POST') {
-    const body = (await readBody(req)) as { source?: unknown; iface?: unknown; capGb?: unknown };
+    const body = (await readBody(req)) as {
+      source?: unknown; iface?: unknown; capGb?: unknown;
+      plan?: unknown; creditEur?: unknown; pricePerMbCents?: unknown;
+    };
     const source = body.source === 'interface' ? 'interface' : 'hilink';
     const iface = String(body.iface ?? ctx.config.data.iface).trim() || 'eth1';
-    const capRaw = body.capGb === '' || body.capGb === null || body.capGb === undefined ? null : Number(body.capGb);
-    if (capRaw !== null && (!Number.isFinite(capRaw) || capRaw <= 0)) {
-      json(res, 400, { ok: false, message: 'The allowance is a number of gigabytes, or empty for none.' });
+    const plan = body.plan === 'credit' ? 'credit' : 'monthly';
+    const optNum = (v: unknown): number | null =>
+      v === '' || v === null || v === undefined ? null : Number(v);
+    const capRaw = optNum(body.capGb);
+    const creditEur = optNum(body.creditEur);
+    const pricePerMbCents = optNum(body.pricePerMbCents);
+    const bad = (v: number | null, what: string): string | null =>
+      v !== null && (!Number.isFinite(v) || v <= 0) ? what : null;
+    const complaint =
+      bad(capRaw, 'The allowance is a number of gigabytes, or empty for none.') ??
+      bad(creditEur, 'The credit is what you last loaded onto the card, in euros.') ??
+      bad(pricePerMbCents, 'The price per megabyte is in cents — 3 to 5 is the usual range on a German prepaid tariff.');
+    if (complaint) {
+      json(res, 400, { ok: false, message: complaint });
       return true;
     }
-    const data = { source: source as 'hilink' | 'interface', iface, capGb: capRaw };
+    const data = { source: source as 'hilink' | 'interface', iface, plan: plan as 'monthly' | 'credit', capGb: capRaw, creditEur, pricePerMbCents };
     savePersisted(ctx.config.configPath, { data });
     ctx.config.data = data;
-    json(res, 200, { ok: true, message: `Counting ${source === 'hilink' ? "the stick's own counter" : iface}${capRaw ? `, warning at 80% of ${capRaw} GB` : ', no allowance set'}.`, data });
+    const counting = `Counting ${source === 'hilink' ? "the stick's own counter" : iface}`;
+    const warns = plan === 'credit'
+      ? creditEur && pricePerMbCents
+        ? `, warning at 80 % of ${creditEur} € at ${pricePerMbCents} ct/MB`
+        : ', no credit set'
+      : capRaw
+        ? `, warning at 80 % of ${capRaw} GB`
+        : ', no allowance set';
+    json(res, 200, { ok: true, message: `${counting}${warns}.`, data });
+    return true;
+  }
+
+  // "I put money on the card": the credit total starts again from here. A separate
+  // call rather than a field, because it is an event, not a setting.
+  if (url === '/api/data/topup' && method === 'POST') {
+    ctx.alerts.noteTopUp();
+    json(res, 200, { ok: true, message: 'Noted — the credit counter starts again from now.', ...ctx.alerts.snapshot() });
     return true;
   }
 

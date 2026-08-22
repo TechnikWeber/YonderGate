@@ -60,9 +60,11 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   synced** — a year of history is worthless if the timestamps came from a box that
   booted in 1970. NTP servers are set from the page; a DS3231 RTC is detected if you
   fit one.
-- **Mobile data counter** with a monthly allowance: the stick's own figure or the
-  kernel's interface counters, kept as a running total that survives either side
-  resetting.
+- **Mobile data counter**, against a **monthly allowance or prepaid credit billed per
+  megabyte** — the stick's own figure or the kernel's interface counters, kept as a
+  running total that survives either side resetting. It warns at 80 % of whichever
+  applies, and on credit it projects how long the balance lasts, which doubles as the
+  reminder for the next top-up.
 - **Sensors with history**: voltage, current and temperature over I²C (INA2xx,
   ADS1115, and the usual temperature parts), or simulated when no hardware is
   attached — recorded once a minute and kept for 13 months, so the page can answer
@@ -216,17 +218,54 @@ the device sees the gateway as its visitor rather than you.
 Use subnet routes if you can, publishing if you must — and note that you can do both
 at the same time.
 
+## What it costs to run
+
+Two budgets decide whether a box like this is practical, and neither is about the code.
+
+**Watts.** A **Pi Zero 2 W** plus a HiLink LTE stick is **≈ 2.5–4 W, i.e. 60–95 Wh/day**.
+The board is only the third biggest lever: one always-on IP camera can cost more than the
+whole gateway, and a stick with a poor antenna transmits harder and burns watts doing it.
+Parts list, wiring and the brownout section: [docs/HARDWARE.md](docs/HARDWARE.md)
+([deutsch](docs/HARDWARE.de.md)).
+
+**Megabytes.** Measured against the running gateway: the setup page is 33 kB gzipped and
+0 bytes when unchanged, an open tab costs ~2 MB/hour (and stops when you hide it), the
+watchdog is ~3 MB/month at five minutes, a camera still frame 50–200 kB — and a minute of
+live 1080p is ~15 MB, more than a month of everything else. The item nobody budgets for is
+`apt`, which on a metered link can dwarf all of it.
+
+### Which SIM
+
+The tariff decides more than the price does, and the criterion is not the one most people
+start with. The full reasoning is in [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md)
+([deutsch](docs/DATA-BUDGET.de.md)); the short version:
+
+- **Coverage first.** At a remote plot the network that actually reaches the box matters
+  more than a euro a month — and better signal also costs fewer watts. Test with a phone,
+  standing where the box will stand, before buying anything.
+- **The 1NCE shape is closed to you.** 1NCE ("10 € for 10 years") and o2's *Easy IoT* are
+  exactly right for this box and **both are business-customer products**.
+- **What is left, for a private customer:**
+
+| | Costs | Watch out for |
+|---|---|---|
+| **Prepaid, no pack, per MB** | 3–5 ct/MB → **25 ct–1 €/month** at our standby | no ceiling except the credit; ask about per-session rounding |
+| **Prepaid + auto-renewing pack** | from ~2 €/month (congstar, Telekom network) | the pack *is* the top-up, so the SIM cannot be deactivated |
+| **Monthly data tariff** | ~2.99 €/month for 3 GB (o2 network) | nothing to track at all; dearest over ten years |
+| **Pay-per-use IoT SIM** (Things Mobile) | ~20 ct/MB for small users | keeps the "pay once, forget it" shape, ten times the price |
+
+- **The trap is inactivity, and it is backwards from what you would expect: most providers
+  count a top-up, not usage.** A gateway quietly spending 5 MB a month can still be
+  switched off. The windows run from 90 days (Vodafone CallYa — unusable here) to
+  24 months (Telekom).
+- **The counter is built in.** Setup › Mobile data tracks either a monthly allowance or
+  **prepaid credit billed per MB**, warns at 80 % of whichever applies, and projects how
+  long the credit lasts — which is also the reminder for the next top-up.
+
 ## Quick start (Raspberry Pi OS Lite, Bookworm)
 
 **What to buy first:** a **Pi Zero 2 W**, a HiLink LTE stick with an external antenna,
-IP cameras rather than USB ones, and an INA228 in the battery line — about 2.5–4 W all
-together. The reasoning, the power budget and the wiring are in
-[docs/HARDWARE.md](docs/HARDWARE.md) ([deutsch](docs/HARDWARE.de.md)).
-
-**Which SIM:** one that is not switched off for being quiet, and that includes SMS.
-[docs/DATA-BUDGET.md](docs/DATA-BUDGET.md) ([deutsch](docs/DATA-BUDGET.de.md)) measures
-what the box actually sends, and works through the tariff shapes — including the one
-where standby costs no data at all.
+IP cameras rather than USB ones, and an INA228 in the battery line. Details above.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TechnikWeber/YonderGate/main/provisioning/bootstrap.sh | bash
@@ -269,7 +308,8 @@ The living list of what is open. Ticked items are done and covered by tests.
       turn into a night of notifications
 - [x] **System health**: disk, temperature, load, uptime, undervoltage, clock sync,
       RTC detection, NTP servers settable from the page
-- [x] **Mobile data counter** with an allowance and a warning at 80 %
+- [x] **Mobile data counter** with a warning at 80 % — against a monthly allowance *or*
+      prepaid credit billed per MB, with a projection of how long the credit lasts
 - [ ] Alert when the **uplink itself** is gone — needs a way to notice after the fact,
       since a box with no link cannot send anything while it is down
 - [x] **Cheap on a metered link**: the page is gzipped (121.9 kB → 33.1 kB, measured) and

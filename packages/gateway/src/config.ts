@@ -136,11 +136,22 @@ export interface DataSettings {
   source: 'hilink' | 'interface';
   /** Which interface to count when source is 'interface'. */
   iface: string;
+  /**
+   * What runs out: a monthly bucket, or prepaid credit billed per megabyte. The
+   * second has no month — see usage.ts and docs/DATA-BUDGET.md.
+   */
+  plan: 'monthly' | 'credit';
   /** Monthly allowance in GB; null = no cap, no warning. */
   capGb: number | null;
+  /** Credit plan: what was last loaded onto the card, in euros. */
+  creditEur: number | null;
+  /** Credit plan: what a megabyte costs, in cents. */
+  pricePerMbCents: number | null;
 }
 
-export const DATA_DEFAULTS: DataSettings = { source: 'hilink', iface: 'eth1', capGb: null };
+export const DATA_DEFAULTS: DataSettings = {
+  source: 'hilink', iface: 'eth1', plan: 'monthly', capGb: null, creditEur: null, pricePerMbCents: null,
+};
 
 /** The subset the setup UI can edit and persist. */
 export interface PersistentConfig {
