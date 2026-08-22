@@ -2,6 +2,60 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.12.10
+**English**
+- **Prepaid: pack or per megabyte?** The data-budget doc now answers it with our own
+  measurements instead of hand-waving. Per MB in an ordinary German tariff is **3–5 ct**
+  (congstar ~5 ct, CallYa ~3 ct) — four to seven times cheaper than the pay-per-use IoT
+  SIMs. Against the measured standby of 5–20 MB a month that is **25 ct to 1 € a month**;
+  the watchdog at five minutes is ~15 ct, an hour with the page open ~10 ct.
+- **The break-even is ~60–130 MB a month**, which is exactly where looking at cameras stops
+  being rare. Two things decide it beyond the arithmetic: an **auto-renewing pack is also
+  the top-up**, so it keeps the SIM alive by itself and there is no yearly ritual to forget;
+  and **per MB has no ceiling except the credit** — a forgotten camera stream or a retry
+  loop bills straight through, which on prepaid caps the damage but leaves the box offline
+  until somebody notices.
+- **The cheapest small data tariffs, with numbers** (August 2026, and they move): ~2.99 €
+  for 3 GB monthly-cancellable in the o2 network is the cheapest on the market; ~2 € gets
+  you congstar prepaid data in the **Telekom network**, dearer per GB and better where
+  reach actually matters. Small packs are a trap — 3 GB usually costs less than 1 GB.
+- **And the one that looks like the answer and is not:** GMX FreePhone advertises 3 GB for
+  **0 €** and is **eSIM only**, which a HiLink stick cannot take. The price also holds only
+  while you open their mail app ten days a month, is guaranteed for a year, and carries an
+  auto-top-up. Written down so it gets rejected once rather than re-suggested forever.
+- The recommendation is now two-stage: **start per MB, let the built-in counter tell you
+  when you cross ~100 MB**, then switch to the smallest auto-renewing pack — which from
+  that point is both cheaper and the thing that stops the SIM being deactivated.
+
+**Deutsch**
+- **Prepaid: Paket oder pro Megabyte?** Die Datenbudget-Doku beantwortet das jetzt mit
+  unseren eigenen Messungen statt mit Gefühl. Pro MB sind es in einem normalen deutschen
+  Tarif **3–5 ct** (congstar ~5 ct, CallYa ~3 ct) — vier- bis siebenmal billiger als die
+  Pay-per-use-IoT-SIMs. Gegen den gemessenen Standby von 5–20 MB im Monat sind das **25 ct
+  bis 1 € im Monat**; der Watchdog im Fünf-Minuten-Takt ~15 ct, eine Stunde mit offener
+  Seite ~10 ct.
+- **Der Break-even liegt bei ~60–130 MB im Monat**, also genau dort, wo Kamerablicke
+  aufhören, selten zu sein. Zwei Dinge entscheiden über die Rechnung hinaus: Ein sich
+  **automatisch verlängerndes Paket ist zugleich die Aufladung**, hält die SIM also von
+  selbst am Leben, und es gibt kein Jahresritual zu vergessen; und **pro MB hat keine
+  Obergrenze außer dem Guthaben** — ein vergessener Kamerastream oder eine Retry-Schleife
+  wird durchgerechnet, was auf Prepaid den Schaden deckelt, die Box aber offline lässt, bis
+  es jemand merkt.
+- **Die günstigsten kleinen Datentarife, mit Zahlen** (Stand August 2026, und sie bewegen
+  sich): ~2,99 € für 3 GB monatlich kündbar im o2-Netz ist das Günstigste am Markt; ~2 €
+  bringen congstar Prepaid Daten im **Telekom-Netz**, teurer pro GB und besser da, wo
+  Empfang wirklich zählt. Kleine Pakete sind eine Falle — 3 GB kosten meist weniger als
+  1 GB.
+- **Und das, was nach der Antwort aussieht und keine ist:** GMX FreePhone bewirbt 3 GB für
+  **0 €** und gibt es **nur als eSIM**, was ein HiLink-Stick nicht kann. Der Preis gilt
+  außerdem nur, solange man deren Mail-App an zehn Tagen im Monat öffnet, ist ein Jahr
+  garantiert und hat eine Datenautomatik dran. Aufgeschrieben, damit es einmal verworfen
+  wird statt ewig wieder vorgeschlagen.
+- Die Empfehlung ist jetzt zweistufig: **pro MB anfangen, den eingebauten Zähler sagen
+  lassen, wann du über ~100 MB kommst**, dann auf das kleinste sich automatisch
+  verlängernde Paket wechseln — das ab da beides ist: billiger und das, was die SIM vor der
+  Abschaltung bewahrt.
+
 ## v0.12.9
 **English**
 - **The SMS wake is decided against, and the reason is written down** rather than left as

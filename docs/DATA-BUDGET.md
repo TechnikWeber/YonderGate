@@ -176,10 +176,50 @@ switched off for inactivity, because nothing was *paid*. So the criterion is not
 use data" but "when do I next have to put money on it" — and that is a calendar reminder
 you must not lose, while the box sits in a field.
 
-**A small monthly data tariff, cancellable monthly.** Three-ish euros a month buys a few
-GB from the cheap SIM-only brands. Boring, predictable, no inactivity rule to track at
-all, and enough headroom that looking at a camera stops being a decision. Over ten years
-it costs far more than any of the above — but nobody plans ten years of a holiday plot.
+**Inside a prepaid tariff there are then two ways to pay for the data, and for a box
+like this they are not close.** You load credit — the top-up is what resets the
+inactivity clock — and then either:
+
+- **a data pack**: a flat for four weeks, from about 2 € (congstar, Telekom network) or
+  3 € for a few GB from the cheap o2-network brands;
+- **no pack at all**, billed per megabyte. That is **3–5 ct/MB** in an ordinary German
+  tariff (congstar ~5 ct, Vodafone CallYa ~3 ct) — four to seven times cheaper per MB than
+  the pay-per-use IoT SIM above.
+
+Put our measured numbers against that. In window mode the standby is the watchdog and NTP:
+call it 5–20 MB a month, so **25 ct to 1 € per month at 5 ct/MB**. The watchdog at five
+minutes costs about 15 ct a month; an hour with the page open costs about 10 ct. A 1 GB
+pack at 3–4 € is four to sixteen times that for volume you will not touch. **Per MB wins
+until you use roughly 60–130 MB a month** — that is the break-even, and it is exactly the
+point where looking at cameras stops being rare.
+
+Two things decide it beyond the arithmetic:
+
+- **An auto-renewing pack is the top-up.** It is the revenue event the provider counts, so
+  it keeps the SIM alive by itself and there is no yearly ritual to forget. That is worth
+  real money against the risk of losing the card.
+- **Per MB has no ceiling — except the credit, which is the point.** A camera stream you
+  forgot to close, an `apt` upgrade, a retry loop: billed straight through. On prepaid the
+  damage stops at the credit on the card, which is a genuine safety property, but the box
+  is then offline until you notice. Ask about **per-session rounding** before choosing
+  this: a tariff that rounds every session to 10 or 100 kB turns our 350-byte watchdog
+  probe into a 100 kB one and reverses the whole calculation.
+
+**A small monthly data tariff, cancellable monthly.** Boring, predictable, no inactivity
+rule to track at all, and enough headroom that looking at a camera stops being a decision.
+Cheapest as of August 2026, and worth re-checking because these move constantly:
+
+| | | |
+|---|---|---|
+| **~2.99 €/month, 3 GB** | o2 network | sim.de / winSIM / PremiumSIM, monthly cancellable, no setup fee — the cheapest thing on the market |
+| **~2 €/month** | **Telekom network** | congstar prepaid data — dearer per GB, better reach where it matters |
+| ~3.99 €/month, 1 GB | various | small packs are rarely worth it; 3 GB usually costs less than 1 GB |
+
+**And the one that looks like the answer and is not:** GMX FreePhone advertises 3 GB for
+**0 €**. It is **eSIM only**, which a HiLink stick cannot take at all, and the price holds
+only while you open the GMX mail app on ten days a month, is guaranteed for twelve months,
+and comes with an auto-top-up that buys 1 GB for 1.99 € when the 3 GB run out. Somebody
+will find it and suggest it; it does not fit this box.
 
 ### The recommendation
 
@@ -191,8 +231,14 @@ stand, before buying anything.
 Given that, **a prepaid SIM on the Telekom network — congstar, or Telekom's own if
 coverage is marginal** — is the best fit for "alerts plus the occasional look": good
 reach, a 15- or 24-month window that one top-up a year satisfies, and per-GB prices an
-order of magnitude below the pay-per-use IoT SIMs. Put the top-up date in a calendar the
-day you install the box.
+order of magnitude below the pay-per-use IoT SIMs.
+
+**Start on per-MB billing with no pack**, because in window mode the box costs well under
+a euro a month there, and let the data counter tell you when you cross ~100 MB a month.
+Then switch to the smallest **auto-renewing pack**, which from that point is both cheaper
+and the thing that keeps the SIM alive on its own. Until you switch, put the top-up date
+in a calendar the day you install the box — that reminder is the only maintenance this
+path asks of you, and it is the one that strands the box if you lose it.
 
 **Take Things Mobile instead if the yearly ritual is what you want to avoid** and you can
 hold yourself to a few MB a month. It is the only consumer product with the "pay once,

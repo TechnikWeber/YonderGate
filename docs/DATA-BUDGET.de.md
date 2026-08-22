@@ -184,11 +184,53 @@ wurde. Das Kriterium heißt also nicht „verbraucht sie Daten", sondern „wann
 nächste Mal Geld draufladen" — und das ist eine Kalendererinnerung, die man nicht verlieren
 darf, während die Box auf einer Wiese steht.
 
-**Ein kleiner Monats-Datentarif, monatlich kündbar.** Für etwa drei Euro im Monat gibt es
-bei den günstigen SIM-only-Marken ein paar GB. Langweilig, planbar, überhaupt keine
-Inaktivitätsregel zu verfolgen, und so viel Luft, dass ein Blick in die Kamera aufhört,
-eine Entscheidung zu sein. Auf zehn Jahre gerechnet weit teurer als alles darüber — aber
-niemand plant zehn Jahre Feriengrundstück.
+**Innerhalb eines Prepaid-Tarifs gibt es dann zwei Arten, die Daten zu bezahlen, und für
+eine Box wie diese liegen sie weit auseinander.** Du lädst Guthaben auf — die Aufladung ist
+das, was die Inaktivitätsuhr zurücksetzt — und dann entweder:
+
+- **ein Datenpaket**: eine Flat für vier Wochen, ab etwa 2 € (congstar, Telekom-Netz) oder
+  3 € für ein paar GB bei den günstigen Marken im o2-Netz;
+- **gar kein Paket**, abgerechnet pro Megabyte. Das sind **3–5 ct/MB** in einem normalen
+  deutschen Tarif (congstar ~5 ct, Vodafone CallYa ~3 ct) — vier- bis siebenmal billiger pro
+  MB als die Pay-per-use-IoT-SIM oben.
+
+Dagegen unsere gemessenen Zahlen. Im Zeitfenster-Modus besteht der Standby aus Watchdog und
+NTP: sagen wir 5–20 MB im Monat, also **25 ct bis 1 € im Monat bei 5 ct/MB**. Der Watchdog
+im Fünf-Minuten-Takt kostet etwa 15 ct im Monat, eine Stunde mit offener Seite etwa 10 ct.
+Ein 1-GB-Paket für 3–4 € ist das Vier- bis Sechzehnfache davon, für Volumen, das du nicht
+anfasst. **Pro MB gewinnt, bis du ungefähr 60–130 MB im Monat verbrauchst** — das ist der
+Break-even, und er liegt genau da, wo Kamerablicke aufhören, selten zu sein.
+
+Zwei Dinge entscheiden über die Rechnung hinaus:
+
+- **Ein sich automatisch verlängerndes Paket ist die Aufladung.** Es ist das
+  Umsatzereignis, das der Anbieter zählt, hält die SIM also von selbst am Leben, und es
+  gibt kein Jahresritual zu vergessen. Das ist gegen das Risiko, die Karte zu verlieren,
+  echtes Geld wert.
+- **Pro MB hat keine Obergrenze — außer dem Guthaben, und genau das ist der Punkt.** Ein
+  vergessener Kamerastream, ein `apt`-Upgrade, eine Retry-Schleife: wird durchgerechnet. Auf
+  Prepaid endet der Schaden am Guthaben der Karte, was eine echte Sicherheitseigenschaft
+  ist — aber die Box ist dann offline, bis du es merkst. Vor dieser Wahl nach der
+  **Session-Rundung** fragen: Ein Tarif, der jede Session auf 10 oder 100 kB aufrundet,
+  macht aus unserer 350-Byte-Watchdog-Probe eine mit 100 kB und dreht die ganze Rechnung um.
+
+**Ein kleiner Monats-Datentarif, monatlich kündbar.** Langweilig, planbar, überhaupt keine
+Inaktivitätsregel zu verfolgen, und so viel Luft, dass ein Blick in die Kamera aufhört, eine
+Entscheidung zu sein. Das Günstigste im Stand August 2026 — und nachprüfenswert, weil sich
+das ständig bewegt:
+
+| | | |
+|---|---|---|
+| **~2,99 €/Monat, 3 GB** | o2-Netz | sim.de / winSIM / PremiumSIM, monatlich kündbar, ohne Anschlusspreis — das Günstigste am Markt |
+| **~2 €/Monat** | **Telekom-Netz** | congstar Prepaid Daten — teurer pro GB, besserer Empfang da, wo es zählt |
+| ~3,99 €/Monat, 1 GB | verschiedene | kleine Pakete lohnen selten; 3 GB kosten meist weniger als 1 GB |
+
+**Und das, was nach der Antwort aussieht und keine ist:** GMX FreePhone bewirbt 3 GB für
+**0 €**. Es ist **nur als eSIM** zu haben, was ein HiLink-Stick überhaupt nicht kann, und
+der Preis gilt nur, solange du die GMX-Mail-App an zehn Tagen im Monat öffnest, ist für
+zwölf Monate garantiert, und es hängt eine Datenautomatik dran, die nach den 3 GB
+automatisch 1 GB für 1,99 € nachbucht. Irgendwer wird es finden und vorschlagen; zu dieser
+Box passt es nicht.
 
 ### Die Empfehlung
 
@@ -200,8 +242,15 @@ testen, und zwar dort, wo die Box stehen wird.
 Auf dieser Grundlage passt **eine Prepaid-Karte im Telekom-Netz — congstar, oder die
 Telekom selbst bei knappem Empfang** — am besten auf „Alarme plus der gelegentliche
 Blick": gute Reichweite, eine 15- bzw. 24-Monats-Frist, die eine Aufladung im Jahr
-erfüllt, und GB-Preise eine Größenordnung unter den Pay-per-use-IoT-SIMs. Das
-Aufladedatum am Tag der Installation in den Kalender.
+erfüllt, und GB-Preise eine Größenordnung unter den Pay-per-use-IoT-SIMs.
+
+**Fang ohne Paket an, mit Abrechnung pro MB**, weil die Box im Zeitfenster-Modus dort weit
+unter einem Euro im Monat kostet, und lass dir vom Datenzähler sagen, wann du über ~100 MB
+im Monat kommst. Dann auf das kleinste **sich automatisch verlängernde Paket** wechseln,
+das ab da beides ist: billiger und das, was die SIM von selbst am Leben hält. Bis dahin am
+Tag der Installation das Aufladedatum in den Kalender — diese Erinnerung ist die einzige
+Wartung, die dieser Weg verlangt, und die eine, die die Box aussperrt, wenn du sie
+verlierst.
 
 **Nimm stattdessen Things Mobile, wenn du genau dieses Jahresritual vermeiden willst** und
 dich auf ein paar MB im Monat beschränken kannst. Es ist das einzige Privatkundenprodukt
