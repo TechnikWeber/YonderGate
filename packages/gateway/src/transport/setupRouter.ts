@@ -18,7 +18,7 @@ import { usageOverview } from '../system/usage.js';
 import { RANGES } from '../sensors/history.js';
 import type { CameraCfg, TelemetryConfig } from '@yondergate/protocol';
 import { safeStreamName } from '../video/cameraManager.js';
-import { CSI_MODULES } from '../system/bootConfig.js';
+import { CSI_MODULES, moduleById, reconcileCameras } from '../system/bootConfig.js';
 import { secretOk, readSecretFromReq, originAllowed, requestOrigin } from './auth.js';
 import {
   HOTSPOT_DEFAULTS,
@@ -1099,7 +1099,19 @@ export async function handleSetup(
   if (url === '/api/camera-module' && method === 'POST') {
     const body = (await readBody(req)) as { id?: string; overlay?: string | null };
     const r = await ctx.system.setCameraModule(String(body.id ?? ''), body.overlay ?? null);
-    json(res, r.ok ? 200 : 400, { ...r, current: await ctx.system.cameraModule() });
+    // A tuning file is a sensor calibration, not a preference: carrying the previous
+    // module's over to a different sensor misconfigures it silently. Same for a focus
+    // mode on a camera with no lens actuator.
+    const mod = r.ok ? moduleById(String(body.id ?? '')) : undefined;
+    if (mod) {
+      const cameras = reconcileCameras(ctx.config.cameras, mod);
+      if (JSON.stringify(cameras) !== JSON.stringify(ctx.config.cameras)) {
+        savePersisted(ctx.config.configPath, { cameras });
+        ctx.config.cameras = cameras;
+        await ctx.applyCameras(cameras);
+      }
+    }
+    json(res, r.ok ? 200 : 400, { ...r, current: await ctx.system.cameraModule(), cameras: ctx.config.cameras });
     return true;
   }
 

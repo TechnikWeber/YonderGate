@@ -2,6 +2,70 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.14.0
+**English**
+- **Camera handling is now the same on both platforms**, ported from YonderRC
+  v1.52.1–v1.54.0 and verified there on a Pi 4B.
+- **Rotation and mirroring per camera**: 0° / 180° plus independent horizontal and
+  vertical mirrors, for CSI and USB alike. A camera bolted under a roof edge upside down
+  is the normal case for a site gateway. It is one transform, not three options — a 180°
+  rotation *is* both mirrors, so all three settings collapse into two booleans before
+  anything is emitted, and "180° and also mirrored" cancels on that axis instead of
+  depending on the order a camera stack applies two flags in. CSI does it in the sensor
+  and it is free; V4L2 gets an ffmpeg `-vf` filter written without spaces, because go2rtc
+  splits an `exec:` line on whitespace. 90°/270° are deliberately absent: the sensor
+  cannot do them and faking them would put a transcode back into the pipeline.
+- **Switching camera module cleans up after the previous one.** A tuning file is a
+  *sensor* calibration, so leaving an Arducam IMX519's on a Raspberry Pi OV5647 hands the
+  new sensor another one's colour and exposure model — silently, with a picture that still
+  looks plausible. `reconcileCameras` now runs on every module selection: it fills in the
+  new module's tuning file, drops the previous module's, and clears a focus mode the new
+  module has no actuator for. Only catalogue values are touched — a hand-entered path is
+  the operator's and stays — and USB cameras are never touched.
+- **The go2rtc reload log no longer lies.** go2rtc restarts *itself* on
+  `POST /api/restart` and often drops the connection before answering, after which the
+  gateway claimed the config had not been applied. It now asks which streams are actually
+  being served before saying anything.
+- **No camera is stated as a valid setup**, in the preview and in the startup banner,
+  rather than reading like something is missing. The gateway's preview is a manual still
+  frame, so it never had YonderRC's reconnect problem — nothing to fix there, only the
+  wording.
+- **Not verified on a gateway.** All of it was proven on the YonderRC vehicle — same Pi
+  OS, same libcamera, same code — but no YonderGate box has run it.
+
+**Deutsch**
+- **Die Kamera-Behandlung ist jetzt auf beiden Plattformen gleich**, portiert aus YonderRC
+  v1.52.1–v1.54.0 und dort an einem Pi 4B verifiziert.
+- **Rotation und Spiegelung pro Kamera**: 0° / 180° plus unabhängige horizontale und
+  vertikale Spiegelung, für CSI und USB gleichermaßen. Eine unter einer Dachkante über
+  Kopf verschraubte Kamera ist bei einem Standort-Gateway der Normalfall. Es ist eine
+  Transformation, nicht drei Optionen — eine 180°-Drehung *ist* beide Spiegelungen, also
+  fallen alle drei Einstellungen in zwei Booleans zusammen, und „180° und zusätzlich
+  gespiegelt" hebt sich auf dieser Achse auf, statt von der Reihenfolge abzuhängen, in der
+  ein Kamera-Stack zwei Flags anwendet. CSI macht das im Sensor und kostet nichts; V4L2
+  bekommt einen ffmpeg-`-vf`-Filter ohne Leerzeichen, weil go2rtc eine `exec:`-Zeile an
+  Leerzeichen trennt. 90°/270° fehlen bewusst: der Sensor kann sie nicht, und sie
+  nachzubilden hieße, einen Transcode in die Pipeline zurückzuholen.
+- **Ein Modulwechsel räumt hinter dem vorherigen auf.** Eine Tuning-Datei ist eine
+  *Sensor*-Kalibrierung; die einer Arducam IMX519 auf einer Raspberry Pi OV5647 stehen zu
+  lassen gibt dem neuen Sensor das Farb- und Belichtungsmodell eines fremden —
+  stillschweigend, mit einem Bild, das plausibel aussieht. `reconcileCameras` läuft jetzt
+  bei jeder Modulauswahl: es trägt die Tuning-Datei des neuen Moduls ein, entfernt die des
+  vorherigen und löscht einen Fokusmodus, für den das neue Modul keinen Aktuator hat.
+  Angefasst wird nur, was der Katalog gesetzt hat — ein von Hand eingetragener Pfad gehört
+  dem Betreiber und bleibt —, USB-Kameras nie.
+- **Das go2rtc-Reload-Log lügt nicht mehr.** go2rtc startet sich auf `POST /api/restart`
+  selbst neu und legt oft die Verbindung, bevor es antwortet; das Gateway behauptete
+  daraufhin, die Konfiguration sei nicht angewandt worden. Jetzt wird erst gefragt, welche
+  Streams tatsächlich ausgeliefert werden.
+- **Keine Kamera wird als gültige Betriebsart benannt**, im Preview wie im Start-Banner,
+  statt zu klingen, als fehle etwas. Der Preview des Gateways ist ein manuelles Standbild
+  und hatte YonderRCs Reconnect-Problem daher nie — dort war nichts zu reparieren, nur zu
+  formulieren.
+- **Auf einem Gateway nicht verifiziert.** Bewiesen ist alles am YonderRC-Fahrzeug —
+  gleiches Pi OS, gleiches libcamera, gleicher Code —, aber keine YonderGate-Box hat es
+  laufen lassen.
+
 ## v0.13.0
 **English**
 - **The Pi camera path never worked on current Raspberry Pi OS** — ported from YonderRC

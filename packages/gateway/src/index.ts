@@ -18,7 +18,12 @@ async function main() {
   console.log('  ──────────────────────');
   console.log(`  site      : ${config.siteName}`);
   console.log(`  telemetry : ${config.telemetry.source} · ${config.telemetry.enabled ? 'on' : 'off'}`);
-  console.log(`  video     : ${config.videoBaseUrl ?? 'disabled'} · cams [${config.cameras.map((c) => c.name).join(', ')}]`);
+  console.log(
+    `  video     : ${config.videoBaseUrl ?? 'disabled'} · ` +
+      (config.cameras.length
+        ? `cams [${config.cameras.map((c) => c.name).join(', ')}]`
+        : 'no cameras (a valid setup — the preview just stays empty)'),
+  );
   console.log('');
 
   const system = createSystem(config.systemKind);

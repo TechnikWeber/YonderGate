@@ -75,6 +75,14 @@ count), which catches the common case of adding a bullet to one of them.
   Setup › Cameras › CSI camera module (`system/bootConfig.ts`, pure + tested). config.txt
   decides whether the box boots at all: never rewrite it, only comment out competing lines
   and replace the one marked block.
+- **A tuning file is a sensor calibration, not a preference.** Switching camera module
+  runs `reconcileCameras` (`system/bootConfig.ts`): the new module's file goes in, the
+  previous module's comes out, and a focus mode the new module has no actuator for is
+  cleared. Only catalogue values are touched; a hand-entered path stays.
+- **Orientation is one transform, not three options.** 180° *is* both mirrors, so
+  `rotation`/`hflip`/`vflip` collapse to two booleans in `orientationOf()`. 90°/270° are
+  not offered — the sensor cannot do them and faking them costs a transcode.
+- **No camera at all is a supported setup**, not a fault. Say so in messages.
 - **Raspberry Pi's `imx519.json` has no `rpi.af` algorithm**, so an Arducam 16MP is
   permanently soft; `provisioning/tuning/imx519-af.json` adds it with a measured map — the
   actuator's rest position is *not* infinity.

@@ -182,6 +182,16 @@ hardware encoder (`h264_v4l2m2m`), one camera, modest resolution — and it is t
 the Pi 5, which has no H.264 encoder, is the wrong board here. If you have a choice, buy
 IP cameras and never think about this again.
 
+**Mounting orientation.** Each camera has **Rotation** (0° / 180°) plus separate
+horizontal and vertical mirrors. On a CSI camera the sensor applies them, so they cost
+nothing; a USB camera gets an ffmpeg filter. 90° and 270° are deliberately not offered —
+the sensor cannot do them, and faking them would mean putting a transcode into a pipeline
+built to avoid one.
+
+**No camera at all is a valid setup.** Remove every entry and nothing is retried and
+nothing reports an error; the preview simply says so. Sensors and device access carry on
+regardless — video is not what this project is about.
+
 **A CSI camera on the Pi's ribbon connector** works too (`rpicam` type). Only the official
 Raspberry Pi sensors are auto-detected; an Arducam needs `camera_auto_detect=0` plus an
 explicit `dtoverlay=`, which **Setup › Cameras › CSI camera module** writes into

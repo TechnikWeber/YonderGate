@@ -189,6 +189,16 @@ Hardware-Encoder (`h264_v4l2m2m`), eine Kamera, moderate Auflösung — und gena
 der Pi 5 ohne H.264-Encoder hier das falsche Board. Wenn du die Wahl hast: IP-Kameras
 kaufen und nie wieder darüber nachdenken.
 
+**Montage-Orientierung.** Jede Kamera hat eine **Rotation** (0° / 180°) plus getrennte
+horizontale und vertikale Spiegelung. Bei einer CSI-Kamera macht das der Sensor, es kostet
+also nichts; eine USB-Kamera bekommt einen ffmpeg-Filter. 90° und 270° gibt es bewusst
+nicht — der Sensor kann das nicht, und es nachzubilden hieße, einen Transcode in eine
+Pipeline zu holen, die dafür gebaut wurde, ohne auszukommen.
+
+**Gar keine Kamera ist eine gültige Konfiguration.** Löscht man alle Einträge, wird nichts
+wiederholt und nichts meldet einen Fehler; der Preview sagt das einfach. Sensoren und
+Gerätezugriff laufen unabhängig davon weiter — Video ist nicht das Thema dieses Projekts.
+
 **Eine CSI-Kamera am Flachbandanschluss des Pi** geht ebenfalls (Typ `rpicam`).
 Automatisch erkannt werden nur die offiziellen Raspberry-Pi-Sensoren; eine Arducam braucht
 `camera_auto_detect=0` plus ein explizites `dtoverlay=` — das schreibt **Setup › Cameras ›
