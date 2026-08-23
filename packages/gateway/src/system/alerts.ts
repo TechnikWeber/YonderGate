@@ -159,6 +159,15 @@ export function defaultRules(): AlertRule[] {
       forMs: 5 * 60_000,
     },
     {
+      // A sealed box in the sun is the normal case here, and a thermal clamp looks
+      // exactly like a sagging supply from the outside — slow and flaky.
+      id: 'health:thermal',
+      kind: 'health',
+      target: 'thermal',
+      label: 'Pi throttling from heat',
+      forMs: 5 * 60_000,
+    },
+    {
       id: 'usage:cap',
       kind: 'usage',
       target: 'usage',

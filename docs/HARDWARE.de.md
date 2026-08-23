@@ -234,6 +234,18 @@ Video ist ausdrücklich nicht das Thema dieses Projekts, siehe `docs/CONCEPT.md`
      └──► 12 V ──► IP-Kamera(s), geschaltet über Shelly/Tasmota/GPIO-Relais
 ```
 
+**Hitze ist der zweite Grund, warum eine Box langsam wird.** Die Statusseite zeigt neben
+der Versorgungszeile eine Zeile **clock speed**: die Firmware drosselt den Takt des Pi
+sowohl bei einbrechender 5-V-Schiene als auch bei zu heißem SoC — von außen sieht beides
+gleich aus, nämlich nach einer langsamen, zickigen Box. Ein geschlossenes Gehäuse in der
+Sonne ist hier der Normalfall, deshalb werden die beiden getrennt gemeldet und getrennt
+alarmiert. Schatten und ein größerer Akku sind keine austauschbaren Abhilfen.
+
+**Shut down** (Setup › System) fährt die SD-Karte sauber herunter und schaltet den Pi ab —
+der sichere Weg, bevor du den Akku abklemmst oder die Box überwinterst. Sie kommt **nicht**
+von allein zurück: an einem entlegenen Standort heißt das eine Anfahrt, also nur benutzen,
+wenn du an die Box kommst.
+
 ## Was nicht belegt ist
 
 Alles in dieser Datei ist Auslegungshilfe. Nichts davon lief bisher an einem echten

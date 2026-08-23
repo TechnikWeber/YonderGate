@@ -226,6 +226,17 @@ Video is explicitly not what this project is about; see `docs/CONCEPT.md`.
      └──► 12 V ──► IP camera(s), switched via Shelly/Tasmota/GPIO relay
 ```
 
+**Heat is the other reason a box goes slow.** The status page shows a **clock speed** row
+next to the supply row: the firmware clamps the Pi's clock both when the 5 V rail sags and
+when the SoC gets too hot, and from the outside those look identical — a slow, flaky box.
+A sealed enclosure in the sun is the normal case here, so the two are reported separately
+and alerted separately. Shade and a bigger battery are not interchangeable fixes.
+
+**Shut down** (Setup › System) parks the SD card and powers the Pi off — the safe way
+before you disconnect the battery or store the box over winter. It does **not** come back
+on its own: on a remote site that means a journey, so only use it when you can reach the
+box.
+
 ## What is not verified
 
 Everything in this file is design guidance. Nothing here has run on a real site yet; the

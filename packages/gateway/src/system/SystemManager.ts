@@ -407,6 +407,11 @@ export interface SystemManager {
   /** Select a camera module; takes effect on the next boot. */
   setCameraModule(id: string, customOverlay?: string | null): Promise<ActionResult & { rebootRequired: boolean }>;
   reboot(): Promise<ActionResult>;
+  /**
+   * Power the box down. One-way: on a site gateway "power-cycle it" can mean a drive,
+   * so the caller has to be certain.
+   */
+  shutdown(): Promise<ActionResult>;
 }
 
 /** Strip secrets (auth key, WG conf) from a remote config for safe display. */

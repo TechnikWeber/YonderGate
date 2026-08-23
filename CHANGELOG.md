@@ -2,6 +2,42 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.15.0
+**English**
+- **Heat is now told apart from a sagging supply.** The firmware clamps the Pi's clock for
+  two completely different reasons, and `parseThrottled` only ever read the two
+  under-voltage bits. A box in a sealed enclosure in the sun — the normal case for this
+  project — would have reported *supply: ok* while crawling at 600 MHz: the same slow,
+  flaky behaviour, with a fix that has nothing to do with the battery. Bits 2 and 3 are
+  read as well now, shown as their own **clock speed** row, and watched by their own alert
+  rule (`health:thermal`, on by default for a new box).
+- `explainClamp()` says which one it is in words that point somewhere: a sag at the battery
+  under load, an undersized buck converter or a long thin run from the panel; heat at
+  shade, a vent or a heatsink. The tests assert that the heat message never mentions the
+  supply, because that is the whole point of separating them.
+- **Shut down gateway** (Setup › System). Cutting power to a Pi mid-write is how an SD card
+  in a box on a pole becomes a drive out there with a card reader. The warning is sized for
+  a remote site: it does not come back on its own, and someone has to be at the box.
+
+**Deutsch**
+- **Hitze wird jetzt von einer einbrechenden Versorgung unterschieden.** Die Firmware
+  drosselt den Takt des Pi aus zwei völlig verschiedenen Gründen, und `parseThrottled` las
+  bisher nur die beiden Unterspannungs-Bits. Eine Box im geschlossenen Gehäuse in der Sonne
+  — der Normalfall für dieses Projekt — hätte *supply: ok* gemeldet, während sie mit
+  600 MHz kroch: dasselbe langsame, zickige Verhalten, mit einer Abhilfe, die nichts mit
+  dem Akku zu tun hat. Bit 2 und 3 werden jetzt mitgelesen, als eigene Zeile **clock
+  speed** angezeigt und von einer eigenen Alarmregel überwacht (`health:thermal`, bei einer
+  neuen Box standardmäßig an).
+- `explainClamp()` sagt, welcher der beiden Fälle vorliegt, und zwar in Worten, die
+  irgendwohin zeigen: ein Einbruch auf den Akku unter Last, einen unterdimensionierten
+  Wandler oder eine lange dünne Leitung vom Panel; Hitze auf Schatten, Belüftung oder
+  Kühlkörper. Die Tests halten fest, dass die Hitze-Meldung die Versorgung **nie** erwähnt
+  — genau dafür trennt man die beiden.
+- **Shut down gateway** (Setup › System). Einem Pi mitten im Schreibvorgang den Strom zu
+  nehmen ist der Weg, auf dem eine SD-Karte in einer Box am Mast zu einer Anfahrt mit
+  Kartenleser wird. Die Warnung ist für einen entlegenen Standort formuliert: von allein
+  kommt sie nicht zurück, es muss jemand an die Box.
+
 ## v0.14.3
 **English**
 - **Removed `scaleCamera`.** It came across with the fork and scaled a camera's resolution

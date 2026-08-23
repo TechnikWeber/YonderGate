@@ -1043,6 +1043,11 @@ export async function handleSetup(
     return true;
   }
 
+  if (url === '/api/shutdown' && method === 'POST') {
+    json(res, 200, await ctx.system.shutdown());
+    return true;
+  }
+
   if (url === '/api/factory-reset' && method === 'POST') {
     resetPersisted(ctx.config.configPath);
     // Drop the secret live so the operator isn't locked out after a reset; the rest

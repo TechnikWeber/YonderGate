@@ -26,6 +26,10 @@ export interface Health {
   undervoltage: boolean | null;
   /** True when the supply is sagging right now. */
   undervoltageNow: boolean | null;
+  /** The firmware is clamping the clock right now (voltage or heat). */
+  clockClampedNow: boolean | null;
+  /** …and the clamp is a temperature limit, which is a different fix entirely. */
+  thermalClampNow: boolean | null;
   /** Is the system clock synchronised, and by what? */
   clockSynced: boolean | null;
   ntpServer: string | null;
@@ -42,7 +46,8 @@ export interface Health {
 
 export const HEALTH_UNKNOWN: Health = {
   diskFreeMb: null, diskUsedPercent: null, cpuTempC: null, uptimeS: null, load1: null,
-  undervoltage: null, undervoltageNow: null, clockSynced: null, ntpServer: null, rtc: null,
+  undervoltage: null, undervoltageNow: null, clockClampedNow: null, thermalClampNow: null,
+  clockSynced: null, ntpServer: null, rtc: null,
   time: null, timezone: null, ntpServers: [], rtcOverlay: null,
 };
 
@@ -83,12 +88,49 @@ export function parseLoad(raw: string): number | null {
  * bit 16 is under-voltage *since boot* — the second one is what catches a supply
  * that sags only when the LTE stick transmits, which is exactly the failure that
  * corrupts SD cards.
+ *
+ * Bits 2 and 3 are the *other* reason the firmware clamps the clock: heat. A box in
+ * a sealed enclosure in the sun is the normal case for this project, and until now it
+ * would have reported "supply ok" while crawling at 600 MHz — the same slow, flaky
+ * behaviour as a sagging rail, with a completely different fix. They are read
+ * separately so the two can never be confused for one another.
  */
-export function parseThrottled(out: string): { now: boolean | null; since: boolean | null } {
+export function parseThrottled(out: string): {
+  now: boolean | null;
+  since: boolean | null;
+  clampedNow: boolean | null;
+  hotNow: boolean | null;
+} {
   const m = (out ?? '').match(/throttled=0x([0-9a-fA-F]+)/);
-  if (!m) return { now: null, since: null };
+  if (!m) return { now: null, since: null, clampedNow: null, hotNow: null };
   const bits = parseInt(m[1], 16);
-  return { now: (bits & 0x1) !== 0, since: (bits & 0x10000) !== 0 };
+  return {
+    now: (bits & 0x1) !== 0,
+    since: (bits & 0x10000) !== 0,
+    clampedNow: (bits & 0x4) !== 0,
+    hotNow: (bits & 0x8) !== 0,
+  };
+}
+
+/**
+ * Why the clock is being clamped, in words that point at a fix. Heat and voltage look
+ * identical from the outside — a slow box — but one wants shade and airflow and the
+ * other wants a bigger supply.
+ */
+export function explainClamp(h: Pick<Health, 'undervoltageNow' | 'undervoltage' | 'thermalClampNow' | 'clockClampedNow'>): string | null {
+  if (h.undervoltageNow) {
+    return 'The 5 V rail is below spec right now. On an off-grid box that is usually the battery under load, an undersized buck converter, or a long thin run from the panel — measure at the Pi, not at the controller.';
+  }
+  if (h.thermalClampNow) {
+    return 'The Pi is clamping its clock to cool down. A sealed enclosure in the sun does this — shade it, add a vent or a heatsink. Nothing is wrong with the supply.';
+  }
+  if (h.clockClampedNow) {
+    return 'The clock is clamped without a temperature limit, so treat it as a supply problem and measure the rail.';
+  }
+  if (h.undervoltage) {
+    return 'The supply has sagged at least once since boot. It is not sagging this second, but there is no headroom — worth fixing before the box is left alone.';
+  }
+  return null;
 }
 
 /**

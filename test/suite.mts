@@ -914,6 +914,36 @@ async function main() {
   ok('usb dims coerced even', !!dims && Number(dims[1]) % 2 === 0 && Number(dims[2]) % 2 === 0);
   ok('yaml stream key sanitised', /\n {2}bad_name:/.test(generateGo2rtcYaml([{ name: 'bad name!', type: 'sim', width: 320, height: 240, fps: 10 }], 'libx264')));
 
+  // ---- throttling: heat and voltage must never be confused ----
+  {
+    const H = await import('../packages/gateway/src/system/health');
+    // The mask measured on a real Pi with a sagging supply.
+    const sag = H.parseThrottled('throttled=0x50005');
+    ok('under-voltage now', sag.now === true && sag.since === true);
+    ok('and the clock is clamped', sag.clampedNow === true);
+    ok('but not because of heat', sag.hotNow === false);
+
+    // A sealed box in the sun: clamped, hot, supply perfectly fine.
+    const hot = H.parseThrottled('throttled=0xC');
+    ok('thermal clamp is seen', hot.clampedNow === true && hot.hotNow === true);
+    ok('and does not claim a supply problem', hot.now === false && hot.since === false);
+
+    ok('a healthy box is quiet', JSON.stringify(H.parseThrottled('throttled=0x0')) === JSON.stringify({ now: false, since: false, clampedNow: false, hotNow: false }));
+    ok('an unreadable answer is unknown, not healthy', H.parseThrottled('command not found').now === null);
+
+    const base = { undervoltageNow: false, undervoltage: false, thermalClampNow: false, clockClampedNow: false };
+    ok('nothing to explain when all is well', H.explainClamp(base) === null);
+    // The fixes are not interchangeable, so the words must not be either.
+    ok('a sag points at the battery and the converter', /battery|buck|panel/.test(H.explainClamp({ ...base, undervoltageNow: true }) ?? ''));
+    ok('heat points at shade and airflow', /shade|vent|heatsink/.test(H.explainClamp({ ...base, thermalClampNow: true, clockClampedNow: true }) ?? ''));
+    ok('and never at the supply', !/battery|buck/.test(H.explainClamp({ ...base, thermalClampNow: true, clockClampedNow: true }) ?? ''));
+    ok('a clamp with no heat is a supply problem', /supply|rail/.test(H.explainClamp({ ...base, clockClampedNow: true }) ?? ''));
+    ok('a past sag is still worth saying', /headroom|sagged/.test(H.explainClamp({ ...base, undervoltage: true }) ?? ''));
+
+    const { defaultRules } = await import('../packages/gateway/src/system/alerts');
+    ok('a new box watches heat too', defaultRules().some((r) => r.target === 'thermal'));
+  }
+
   // ---- native driver modules: allowlist, npm args, failure diagnosis ----
   // These sentences are the whole user-facing failure story on a gateway that may
   // only be reachable from a phone, so they are pinned here.

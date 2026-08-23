@@ -329,6 +329,10 @@ export class SimSystem implements SystemManager {
       load1: 0.12,
       undervoltage: true, // seen once since boot — the classic Pi + LTE stick symptom
       undervoltageNow: false,
+      // A simulated box runs at full clock, so the panel shows the healthy case rather
+      // than an em dash that looks like a missing reading.
+      clockClampedNow: false,
+      thermalClampNow: false,
       clockSynced: true,
       ntpServer: 'time.cloudflare.com',
       rtc: this.rtcOverlay ? 'rtc-ds3231' : null,
@@ -537,6 +541,10 @@ export class SimSystem implements SystemManager {
         : `${mod.label} selected — that is what the Pi already booted with, so no reboot is needed.`,
       rebootRequired: pending,
     };
+  }
+
+  async shutdown(): Promise<ActionResult> {
+    return { ok: true, message: 'Shutdown requested (simulated — no-op).' };
   }
 
   async reboot(): Promise<ActionResult> {

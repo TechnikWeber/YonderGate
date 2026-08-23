@@ -989,7 +989,9 @@ export class RealSystem implements SystemManager {
       sh(`cat ${BOOT_CONFIG_PATH}`),
     ]);
     const disk = df.ok ? parseDf(df.out) : { freeMb: null, usedPercent: null };
-    const volt = throttled.ok ? parseThrottled(throttled.out) : { now: null, since: null };
+    const volt = throttled.ok
+      ? parseThrottled(throttled.out)
+      : { now: null, since: null, clampedNow: null, hotNow: null };
     const clock = timedate.ok ? parseTimedatectl(timedate.out) : { synced: null, ntpEnabled: null };
     return {
       ...HEALTH_UNKNOWN,
@@ -1000,6 +1002,8 @@ export class RealSystem implements SystemManager {
       load1: load.ok ? parseLoad(load.out) : null,
       undervoltageNow: volt.now,
       undervoltage: volt.since,
+      clockClampedNow: volt.clampedNow,
+      thermalClampNow: volt.hotNow,
       clockSynced: clock.synced,
       ntpServer: timesync.ok ? parseTimesyncServer(timesync.out) : null,
       rtc: rtc.ok ? rtc.out.trim() || null : null,
@@ -1538,5 +1542,17 @@ export class RealSystem implements SystemManager {
   async reboot(): Promise<ActionResult> {
     void sh('sudo reboot'); // fire and forget
     return { ok: true, message: 'Rebooting…' };
+  }
+
+  async shutdown(): Promise<ActionResult> {
+    // The point of the button: cutting power to a Pi mid-write is how an SD card in a
+    // box on a pole becomes a drive out there with a card reader.
+    void sh('sudo poweroff');
+    return {
+      ok: true,
+      message:
+        'Shutting down… wait for the green LED to stop blinking before cutting power. ' +
+        'Nothing brings it back but someone at the box.',
+    };
   }
 }

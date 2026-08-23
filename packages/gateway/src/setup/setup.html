@@ -667,8 +667,16 @@
         <div class="eyebrow">System</div>
         <div class="btns">
           <button class="btn bad" onclick="run(this, () => reboot())">Reboot gateway</button>
+          <button class="btn bad" onclick="run(this, () => shutdown())">Shut down gateway</button>
           <button class="btn bad" onclick="run(this, () => factoryReset())">Factory reset</button>
         </div>
+        <p class="msg">
+          <b>Shut down</b> parks the SD card and powers the Pi off — the safe way before you
+          disconnect the battery or store the box for the winter, instead of pulling the
+          supply mid-write. <b>It does not come back on its own.</b> On a remote site that
+          means someone has to travel out and power-cycle it, so only do this if you can
+          reach the box or are about to.
+        </p>
         <p class="msg">Factory reset clears all saved gateway settings (incl. the API secret) — restart to apply defaults.</p>
         <div class="msg" id="sys-msg"></div>
       </section>
@@ -1173,7 +1181,7 @@
         const opts =
           kind === 'sensor' ? (healthData?.sensorKeys || []).map((k) => [k.key, k.label])
           : kind === 'device' ? (healthData?.devices || []).map((d) => [d.id, `${d.label} (${d.ip})`])
-          : [['undervoltage', 'supply voltage sagging'], ['disk', 'disk nearly full'], ['clock', 'clock not synchronised']];
+          : [['undervoltage', 'supply voltage sagging'], ['thermal', 'Pi throttling from heat'], ['disk', 'disk nearly full'], ['clock', 'clock not synchronised']];
         sel.innerHTML = opts.length
           ? opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')
           : '<option value="">nothing to watch yet</option>';
@@ -1242,6 +1250,10 @@
           row('load', na(h.load1)) +
           row('supply', h.undervoltageNow ? 'sagging right now' : h.undervoltage ? 'sagged since boot' : h.undervoltage === false ? 'ok' : '—',
               h.undervoltageNow ? 'bad' : h.undervoltage ? 'warn' : 'go') +
+          // Heat and voltage both show up as a slow box; naming which one is the whole
+          // point, because shade and a bigger battery are not interchangeable.
+          row('clock speed', h.thermalClampNow ? 'clamped — too hot' : h.clockClampedNow ? 'clamped — check the supply' : h.clockClampedNow === false ? 'full' : '—',
+              h.clockClampedNow ? 'bad' : 'go') +
           row('clock', h.clockSynced === null ? '—' : h.clockSynced ? `synced${h.ntpServer ? ' · ' + h.ntpServer : ''}` : 'NOT synced', h.clockSynced === false ? 'bad' : 'go') +
           row('hardware clock', h.rtc || 'none fitted', h.rtc ? 'go' : '') +
           row('time on this box', h.time ? new Date(h.time).toLocaleString() + (h.timezone ? ` · ${h.timezone}` : '') : '—') +
@@ -1913,6 +1925,11 @@
       async function reboot() {
         if (!confirm('Reboot the gateway now?')) return;
         const r = await post('/api/reboot');
+        $('sys-msg').textContent = r.message || '';
+      }
+      async function shutdown() {
+        if (!confirm('Shut the gateway down?\n\nIt will NOT come back on its own — someone has to be at the box to power-cycle it. On a remote site that is a journey.')) return;
+        const r = await post('/api/shutdown');
         $('sys-msg').textContent = r.message || '';
       }
       async function factoryReset() {

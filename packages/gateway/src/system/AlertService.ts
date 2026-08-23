@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { explainClamp } from './health.js';
 import { join } from 'node:path';
 import { readingKey, type TelemetryMessage } from '@yondergate/protocol';
 import type { GatewayConfig } from '../config.js';
@@ -146,7 +147,12 @@ export class AlertService {
       } else if (rule.kind === 'health') {
         if (rule.target === 'undervoltage') {
           breached = health.undervoltageNow === true;
-          detail = 'The supply voltage is sagging right now — check the power supply and cable.';
+          detail = explainClamp(health) ?? 'The supply voltage is sagging right now.';
+        } else if (rule.target === 'thermal') {
+          // Its own rule, not folded into the supply one: a slow box reads the same
+          // either way, but shade and a bigger battery are not interchangeable fixes.
+          breached = health.thermalClampNow === true;
+          detail = explainClamp(health) ?? 'The Pi is clamping its clock to cool down.';
         } else if (rule.target === 'disk') {
           breached = health.diskUsedPercent !== null && health.diskUsedPercent > 90;
           detail = `${health.diskFreeMb ?? '?'} MB free`;
