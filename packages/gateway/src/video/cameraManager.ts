@@ -148,22 +148,6 @@ function posInt(n: number, min: number, fallback: number): number {
   return Number.isFinite(v) && v >= min ? v : fallback;
 }
 
-/**
- * Scale a camera's resolution/bitrate for a live quality level requested from the
- * ground. 'high' keeps the configured values; lower levels shrink dimensions and
- * cap bitrate so the picture stays fluid on a poor link.
- */
-export function scaleCamera(cam: CameraCfg, quality: 'high' | 'medium' | 'low'): CameraCfg {
-  if (quality === 'high') return cam;
-  const factor = quality === 'medium' ? 0.66 : 0.5;
-  const cap = quality === 'medium' ? 1200 : 600;
-  return {
-    ...cam,
-    width: even(cam.width * factor),
-    height: even(cam.height * factor),
-    bitrateKbps: Math.min(cam.bitrateKbps ?? cap, cap),
-  };
-}
 export function cameraSource(cam: CameraCfg, encoder = 'libx264', rpicamBin = 'rpicam-vid'): string {
   // Coerce everything that lands in a shell command line to safe numeric/string
   // values — these come from the setup UI and must never inject.

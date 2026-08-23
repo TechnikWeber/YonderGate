@@ -2,6 +2,21 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.14.3
+**English**
+- **Removed `scaleCamera`.** It came across with the fork and scaled a camera's resolution
+  and bitrate for a quality level requested by a ground station — which this project does
+  not have and is not going to have. Nothing outside the tests called it, so it was code
+  that described a feature the gateway does not offer. Its three tests and their fixture
+  went with it.
+
+**Deutsch**
+- **`scaleCamera` entfernt.** Es kam mit dem Fork mit und skalierte Auflösung und Bitrate
+  einer Kamera auf eine von einer Bodenstation angeforderte Qualitätsstufe — die es hier
+  nicht gibt und nicht geben wird. Außerhalb der Tests rief es niemand auf, es war also
+  Code, der ein Feature beschrieb, das das Gateway nicht hat. Seine drei Tests und deren
+  Fixture sind mitgegangen.
+
 ## v0.14.2
 **English**
 - **The camera row stopped talking about the IMX519 under every other sensor** — same

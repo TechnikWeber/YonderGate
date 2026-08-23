@@ -5,7 +5,7 @@
  */
 import * as C from '../packages/gateway/src/sensors/convert';
 import { TelemetryService } from '../packages/gateway/src/sensors/TelemetryService';
-import { cameraSource, scaleCamera } from '../packages/gateway/src/video/cameraManager';
+import { cameraSource } from '../packages/gateway/src/video/cameraManager';
 import type { TelemetryConfig, CameraCfg } from '@yondergate/protocol';
 import { readFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -913,13 +913,6 @@ async function main() {
   const dims = evilSrc.match(/-video_size (\d+)x(\d+)/);
   ok('usb dims coerced even', !!dims && Number(dims[1]) % 2 === 0 && Number(dims[2]) % 2 === 0);
   ok('yaml stream key sanitised', /\n {2}bad_name:/.test(generateGo2rtcYaml([{ name: 'bad name!', type: 'sim', width: 320, height: 240, fps: 10 }], 'libx264')));
-
-  // ---- video quality scaling ----
-  const big: CameraCfg = { name: 'c', type: 'sim', width: 1280, height: 720, fps: 30, bitrateKbps: 2500 };
-  ok('quality high keeps size', scaleCamera(big, 'high').width === 1280);
-  ok('quality low shrinks + caps bitrate', scaleCamera(big, 'low').width === 640 && scaleCamera(big, 'low').bitrateKbps === 600);
-  ok('quality medium even dims', scaleCamera(big, 'medium').width % 2 === 0);
-
 
   // ---- native driver modules: allowlist, npm args, failure diagnosis ----
   // These sentences are the whole user-facing failure story on a gateway that may
