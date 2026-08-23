@@ -17,6 +17,8 @@ diese Geräte und lässt dich zu ihnen durch.
 > Nichts davon lief bisher an einem echten Standort — die Hardware-Pfade (nmcli,
 > Ping-Sweeps, Tailscale-Routing) sind nur auf dem Pi selbst überprüfbar.
 
+![Setup-Seite von YonderGate: Systemstatus mit LTE, Fernzugriff und der Warnung zum offenen Hotspot, darunter das Panel „Site network" mit Gerätesuche und Tailscale-Subnetzrouten](docs/screenshots/Status_and_Network.png?v=1)
+
 ## Was heute funktioniert
 
 - **Finden, was vor Ort ist**: *Scan* liest die Neighbour-Tabelle des Kernels (sofort),
@@ -66,10 +68,19 @@ diese Geräte und lässt dich zu ihnen durch.
   80 %. Jeder Alarm wartet, bis der Zustand angehalten hat, und bleibt danach sechs Stunden
   still — eine flatternde Verbindung darf keine Nacht voller Benachrichtigungen werden.
 - **Zustand des Standorts**: Platte, CPU-Temperatur, Last, Laufzeit, **Unterspannung** (der
-  klassische Pi-plus-LTE-Stick-Fehler, der SD-Karten frisst) und ob die **Uhr wirklich
-  synchron** ist — ein Jahr Verlauf ist wertlos, wenn die Zeitstempel von einer Box kommen,
-  die 1970 gebootet hat. NTP-Server werden auf der Seite gesetzt, eine DS3231-RTC wird
-  erkannt, wenn du eine einbaust.
+  klassische Pi-plus-LTE-Stick-Fehler, der SD-Karten frisst), ob der Pi seinen **Takt
+  drosselt** — und wenn ja, ob es die Versorgung ist oder die Hitze, denn eine geschlossene
+  Box in der Sonne sieht von außen genauso aus wie ein schwächelnder Akku, und die beiden
+  Abhilfen haben nichts miteinander zu tun — und ob die **Uhr wirklich synchron** ist: ein
+  Jahr Verlauf ist wertlos, wenn die Zeitstempel von einer Box kommen, die 1970 gebootet
+  hat. NTP-Server werden auf der Seite gesetzt, eine DS3231-RTC wird erkannt, wenn du eine
+  einbaust.
+
+  ![Zustandswerte des Standorts: Laufzeit, Plattenplatz, CPU-Temperatur, Last, Versorgung, Taktrate, Uhrsynchronität und verbrauchtes Mobilfunkvolumen](docs/screenshots/SiteHealth.png?v=1)
+- **Sauberes Herunterfahren von der Seite aus.** Einem Pi mitten im Schreibvorgang den
+  Strom zu nehmen ist der Weg, auf dem eine SD-Karte in einer Box am Mast zu einer Anfahrt
+  mit Kartenleser wird. *Shut down* fährt ihn vorher sauber herunter — mit der Warnung, die
+  dazugehört, denn zurück bringt ihn nur jemand, der an der Box steht.
 - **Mobilfunk-Datenzähler**, gegen ein **Monatskontingent oder Prepaid-Guthaben mit
   MB-Abrechnung** — die eigene Zahl des Sticks oder die Interface-Zähler des Kernels, als
   laufende Summe geführt, die es übersteht, wenn eine der beiden Seiten zurückgesetzt wird.
@@ -329,8 +340,9 @@ abgedeckt.
       aus**, weil es das Einzige ist, das dauerhaft auf die Karte schreibt
 - [x] **Alarme** über ntfy, mit Halte- und Ruhezeit, damit eine flatternde Verbindung nicht
       zu einer Nacht voller Benachrichtigungen wird
-- [x] **Systemzustand**: Platte, Temperatur, Last, Laufzeit, Unterspannung, Uhrsynchronität,
-      RTC-Erkennung, NTP-Server von der Seite aus setzbar
+- [x] **Systemzustand**: Platte, Temperatur, Last, Laufzeit, Unterspannung, thermische
+      Drosselung von einbrechender Versorgung unterschieden, Uhrsynchronität,
+      RTC-Erkennung, NTP-Server von der Seite aus setzbar, sauberes Herunterfahren
 - [x] **Mobilfunk-Datenzähler** mit Warnung bei 80 % — gegen ein Monatskontingent *oder*
       Prepaid-Guthaben mit MB-Abrechnung, samt Hochrechnung, wie lange das Guthaben reicht
 - [ ] Alarm, wenn **der Uplink selbst** weg ist — braucht einen Weg, es im Nachhinein zu

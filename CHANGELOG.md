@@ -2,6 +2,26 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.15.1
+**English**
+- **The READMEs have screenshots now** — they had none at all, which for a project whose
+  whole surface is one page was an odd omission. Two, in both languages: the setup page
+  with system status and the site-network panel, and the site-health readings.
+- Both READMEs describe the **thermal clamp** next to under-voltage, and the **clean
+  shutdown**; the TODO says so too. Taken with headless Chrome against the simulator, so
+  they can be retaken the same way after the next change rather than depending on someone
+  having hardware to hand.
+
+**Deutsch**
+- **Die READMEs haben jetzt Screenshots** — sie hatten gar keine, was für ein Projekt,
+  dessen gesamte Oberfläche eine einzige Seite ist, eine merkwürdige Lücke war. Zwei
+  Stück, in beiden Sprachen: die Setup-Seite mit Systemstatus und dem Panel „Site
+  network", und die Zustandswerte des Standorts.
+- Beide READMEs beschreiben die **thermische Drosselung** neben der Unterspannung und das
+  **saubere Herunterfahren**; die TODO sagt es ebenfalls. Aufgenommen mit headless Chrome
+  gegen den Simulator — sie lassen sich nach der nächsten Änderung also genauso neu
+  erzeugen, statt davon abzuhängen, dass gerade jemand Hardware zur Hand hat.
+
 ## v0.15.0
 **English**
 - **Heat is now told apart from a sagging supply.** The firmware clamps the Pi's clock for

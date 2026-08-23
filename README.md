@@ -15,6 +15,8 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 > what is still missing. Nothing here has run on a real site yet — the hardware paths
 > (nmcli, ping sweeps, Tailscale routing) are only verifiable on the Pi itself.
 
+![YonderGate setup page: system status with LTE, remote access and the open-hotspot warning, and the site network panel with device discovery and Tailscale subnet routes](docs/screenshots/Status_and_Network.png?v=1)
+
 ## What works today
 
 - **Find what is on site**: *Scan* reads the kernel's neighbour table (instant),
@@ -58,10 +60,18 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   80 %. Every alert waits until the condition has held, then stays quiet for six
   hours — a flaky link must not become a night of notifications.
 - **Site health**: disk, CPU temperature, load, uptime, **undervoltage** (the classic
-  Pi-plus-LTE-stick failure that eats SD cards) and whether the **clock is actually
-  synced** — a year of history is worthless if the timestamps came from a box that
-  booted in 1970. NTP servers are set from the page; a DS3231 RTC is detected if you
-  fit one.
+  Pi-plus-LTE-stick failure that eats SD cards), whether the Pi is **clamping its clock**
+  — and if so, whether that is the supply or the heat, because a sealed box in the sun
+  looks exactly like a sagging battery from the outside and the two fixes have nothing in
+  common — and whether the **clock is actually synced**: a year of history is worthless if
+  the timestamps came from a box that booted in 1970. NTP servers are set from the page; a
+  DS3231 RTC is detected if you fit one.
+
+  ![Site health readings: uptime, disk, CPU temperature, load, supply, clock speed, clock synchronisation and mobile data used](docs/screenshots/SiteHealth.png?v=1)
+- **A clean shutdown from the page.** Cutting power to a Pi mid-write is how an SD card in
+  a box on a pole becomes a drive out there with a card reader. *Shut down* parks it
+  first — with the warning it deserves, because nothing brings it back but someone at the
+  box.
 - **Mobile data counter**, against a **monthly allowance or prepaid credit billed per
   megabyte** — the stick's own figure or the kernel's interface counters, kept as a
   running total that survives either side resetting. It warns at 80 % of whichever
@@ -308,8 +318,9 @@ The living list of what is open. Ticked items are done and covered by tests.
       only thing that writes to the card continuously
 - [x] **Alerts** over ntfy, with a hold-down and a cooldown so a flaky link cannot
       turn into a night of notifications
-- [x] **System health**: disk, temperature, load, uptime, undervoltage, clock sync,
-      RTC detection, NTP servers settable from the page
+- [x] **System health**: disk, temperature, load, uptime, undervoltage, thermal
+      throttling told apart from a sagging supply, clock sync, RTC detection, NTP servers
+      settable from the page, and a clean shutdown
 - [x] **Mobile data counter** with a warning at 80 % — against a monthly allowance *or*
       prepaid credit billed per MB, with a projection of how long the credit lasts
 - [ ] Alert when the **uplink itself** is gone — needs a way to notice after the fact,
