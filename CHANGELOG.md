@@ -2,6 +2,40 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.14.2
+**English**
+- **The camera row stopped talking about the IMX519 under every other sensor** — same
+  fix as YonderRC v1.54.1, and the same bug, because the row was ported from there. The
+  tuning-file placeholder and the note underneath were hardcoded, so an OV5647 was offered
+  an Arducam's file path and told about an autofocus algorithm it has no motor for. Both
+  now follow the selected CSI module.
+- **Focus controls only where there is a lens to move.** A module naming one sensor
+  without an actuator says so instead of offering a dropdown that does nothing;
+  auto-detect and a custom overlay keep the controls, since either might turn up an
+  IMX708. A focus value already stored stays visible and editable.
+- The camera rows re-render when the module selection changes, so the two follow each
+  other without a page reload.
+- YonderRC's other fix of the day (v1.54.2, auto video quality freezing the picture) has
+  **no counterpart here**: the gateway has no ground station, no WebRTC panel and no
+  auto-quality controller. `scaleCamera` is inherited from the fork and currently has no
+  caller outside the tests.
+
+**Deutsch**
+- **Die Kamerazeile redet nicht mehr unter jedem anderen Sensor von der IMX519** — derselbe
+  Fix wie YonderRC v1.54.1 und derselbe Fehler, weil die Zeile von dort portiert wurde.
+  Platzhalter für die Tuning-Datei und der Hinweis darunter waren hartkodiert: einer OV5647
+  wurde der Dateipfad einer Arducam angeboten und von einem Autofokus-Algorithmus erzählt,
+  für den sie keinen Motor hat. Beides folgt jetzt dem gewählten CSI-Modul.
+- **Fokus-Bedienelemente nur dort, wo es eine Linse zu bewegen gibt.** Ein Modul, das genau
+  einen Sensor ohne Aktuator benennt, sagt das, statt ein Dropdown anzubieten, das nichts
+  tut; bei Auto-Detect und eigenem Overlay bleiben sie, weil dort eine IMX708 auftauchen
+  kann. Ein bereits gespeicherter Fokuswert bleibt sichtbar und änderbar.
+- Die Kamerazeilen werden neu gezeichnet, wenn die Modulauswahl wechselt.
+- YonderRCs zweiter Fix des Tages (v1.54.2, Auto-Videoqualität fror das Bild ein) hat hier
+  **kein Gegenstück**: das Gateway hat keine Bodenstation, kein WebRTC-Panel und keine
+  Auto-Qualitätsregelung. `scaleCamera` stammt aus dem Fork und hat außerhalb der Tests
+  derzeit keinen Aufrufer.
+
 ## v0.14.1
 **English**
 - **The update button no longer uninstalls the sensor driver.** `i2c-bus` is an
