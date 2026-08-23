@@ -2,6 +2,38 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.14.1
+**English**
+- **The update button no longer uninstalls the sensor driver.** `i2c-bus` is an
+  optionalDependency, and the update runs `npm install --omit=optional`, which prunes it.
+  `install.sh` puts it back from the recorded `hardwareDeps`; the in-app update never did,
+  so pressing *Update & restart* silently dropped a configured gateway back to simulated
+  sensors until someone reinstalled it by hand. `updateSteps` now appends a restore step
+  after the pruning install, through the same allowlist as `hwDeps.ts`
+  (`restorableHwDeps`) — the value comes from a config file and ends up in an npm command
+  line, so it is never passed through unchecked.
+- The gateway's allowlist is `i2c-bus` alone: it drives no servos and no SBUS, so
+  YonderRC's `pigpio` and `serialport` are modules this box should never install, and the
+  tests say so.
+- Same fix as YonderRC v1.50.0, where it was found on real hardware after an update had
+  quietly removed the PCA9685 driver.
+
+**Deutsch**
+- **Der Update-Knopf deinstalliert den Sensortreiber nicht mehr.** `i2c-bus` ist eine
+  optionalDependency, und das Update führt `npm install --omit=optional` aus — das
+  entfernt sie. `install.sh` stellt sie aus den gespeicherten `hardwareDeps` wieder her,
+  das Update im UI aber nie: *Update & restart* hat ein konfiguriertes Gateway also
+  stillschweigend auf simulierte Sensoren zurückfallen lassen, bis jemand von Hand
+  nachinstalliert hat. `updateSteps` hängt jetzt nach dem aufräumenden Install einen
+  Wiederherstellungsschritt an, über dieselbe Allowlist wie `hwDeps.ts`
+  (`restorableHwDeps`) — der Wert kommt aus einer Konfigurationsdatei und landet in einer
+  npm-Kommandozeile, wird also nie ungeprüft durchgereicht.
+- Die Allowlist des Gateways ist ausschließlich `i2c-bus`: es treibt weder Servos noch
+  SBUS, YonderRCs `pigpio` und `serialport` sind hier also Module, die diese Box nie
+  installieren sollte — die Tests halten das fest.
+- Derselbe Fix wie YonderRC v1.50.0, wo er an echter Hardware auffiel, nachdem ein Update
+  den PCA9685-Treiber klammheimlich entfernt hatte.
+
 ## v0.14.0
 **English**
 - **Camera handling is now the same on both platforms**, ported from YonderRC

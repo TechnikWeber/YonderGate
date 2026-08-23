@@ -18,6 +18,8 @@
  * All of it is pure here; RealSystem runs the commands.
  */
 
+import { isHwDep } from './hwDeps.js';
+
 /**
  * Files the gateway writes into its own checkout, so they are modified on every
  * running gateway and must not be mistaken for someone's work in progress. They are
@@ -167,10 +169,20 @@ export function isGitBranch(v: unknown): v is string {
  * runs TypeScript directly, so there is no build step to get wrong: pulling and
  * restarting IS the update.
  */
+/**
+ * Which recorded native modules an update may reinstall. Same allowlist as
+ * `hwDeps.ts` and the shell version in install.sh: the value comes from a config file
+ * and ends up in an npm command line, so it is never passed through unchecked.
+ */
+export function restorableHwDeps(deps: string[]): string[] {
+  return [...new Set(deps)].filter(isHwDep).sort();
+}
+
 export function updateSteps(
   impact: UpdateImpact,
   src: UpdateSource = UPDATE_SOURCE_DEFAULT,
   generated: string[] = [],
+  hardwareDeps: string[] = [],
 ): UpdateStep[] {
   const steps: UpdateStep[] = [];
   if (generated.length) {
@@ -181,6 +193,17 @@ export function updateSteps(
   steps.push({ label: 'Fetching and applying the update', cmd: 'git', args: ['pull', '--ff-only', src.source, src.branch] });
   if (impact.deps) {
     steps.push({ label: 'Installing changed dependencies', cmd: 'npm', args: ['install', '--omit=optional', '--no-audit', '--no-fund'] });
+    // …which also drops the native driver modules the operator installed from the setup
+    // page, because those are optionalDependencies too. install.sh restores them; the
+    // update button did not, so pressing Update silently turned a configured gateway
+    // back into a simulator until someone reinstalled them by hand.
+    for (const dep of restorableHwDeps(hardwareDeps)) {
+      steps.push({
+        label: `Restoring the ${dep} driver module`,
+        cmd: 'npm',
+        args: ['install', dep, '-w', '@yondergate/gateway', '--no-audit', '--no-fund'],
+      });
+    }
   }
   return steps;
 }

@@ -1446,6 +1446,24 @@ async function main() {
   const forkSteps = U.updateSteps({ deps: false, provisioning: false, service: true }, { source: 'https://example.com/x.git', branch: 'dev' });
   ok('the pull uses the configured source', forkSteps[0].args.join(' ') === 'pull --ff-only https://example.com/x.git dev');
 
+  // ---- an update must not uninstall the operator's native driver modules ----
+  ok('restorable keeps the allowlisted', U.restorableHwDeps(['i2c-bus']).join() === 'i2c-bus');
+  // A gateway drives no servos, so its allowlist is i2c-bus alone — YonderRC's pigpio and
+  // serialport are not modules this box should ever install.
+  ok('restorable drops anything else', U.restorableHwDeps(['i2c-bus', 'pigpio', 'rm -rf /']).join() === 'i2c-bus');
+  ok('restorable dedupes', U.restorableHwDeps(['i2c-bus', 'i2c-bus']).join() === 'i2c-bus');
+  const depSteps = U.updateSteps({ deps: true, provisioning: false, service: true }, U.UPDATE_SOURCE_DEFAULT, [], ['i2c-bus']);
+  ok(
+    'update reinstalls the recorded module',
+    depSteps.some((st) => st.cmd === 'npm' && st.args.join(' ') === 'install i2c-bus -w @yondergate/gateway --no-audit --no-fund'),
+  );
+  ok(
+    'restore runs after the pruning install',
+    depSteps.findIndex((st) => st.args.includes('--omit=optional')) < depSteps.findIndex((st) => st.args.includes('i2c-bus')),
+  );
+  const noDepSteps = U.updateSteps({ deps: false, provisioning: false, service: true }, U.UPDATE_SOURCE_DEFAULT, [], ['i2c-bus']);
+  ok('no restore when nothing was pruned', !noDepSteps.some((st) => st.args.includes('i2c-bus')));
+
   const impact = U.classifyChanges(['packages/gateway/src/index.ts', 'package.json', 'provisioning/install.sh']);
   ok('changed files classified', impact.service && impact.deps && impact.provisioning);
   ok('a service-only change is just a pull', U.classifyChanges(['packages/gateway/src/index.ts']).deps === false);
