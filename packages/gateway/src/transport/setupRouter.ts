@@ -18,6 +18,7 @@ import { usageOverview } from '../system/usage.js';
 import { RANGES } from '../sensors/history.js';
 import type { CameraCfg, TelemetryConfig } from '@yondergate/protocol';
 import { safeStreamName } from '../video/cameraManager.js';
+import { CSI_MODULES } from '../system/bootConfig.js';
 import { secretOk, readSecretFromReq, originAllowed, requestOrigin } from './auth.js';
 import {
   HOTSPOT_DEFAULTS,
@@ -1090,6 +1091,18 @@ export async function handleSetup(
     json(res, 200, ctx.telemetry.message ?? { ok: false, note: 'no telemetry yet' });
     return true;
   }
+  // ---- CSI camera module (writes config.txt, needs a reboot) ----
+  if (url === '/api/camera-module' && method === 'GET') {
+    json(res, 200, { modules: CSI_MODULES, current: await ctx.system.cameraModule() });
+    return true;
+  }
+  if (url === '/api/camera-module' && method === 'POST') {
+    const body = (await readBody(req)) as { id?: string; overlay?: string | null };
+    const r = await ctx.system.setCameraModule(String(body.id ?? ''), body.overlay ?? null);
+    json(res, r.ok ? 200 : 400, { ...r, current: await ctx.system.cameraModule() });
+    return true;
+  }
+
   // ---- cameras (graphical → generates go2rtc.yaml) ----
   if (url === '/api/cameras' && method === 'GET') {
     json(res, 200, { cameras: ctx.config.cameras });

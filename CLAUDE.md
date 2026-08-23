@@ -64,6 +64,21 @@ stopped doing, and the reader has no way to tell which of the two is the lie. Th
 suite fails if the two READMEs stop matching in structure (heading count, TODO item
 count), which catches the common case of adding a bullet to one of them.
 
+## Conventions / gotchas — cameras
+- **go2rtc runs `exec:` without a shell** (`shell.QuoteSplit` + `exec.Command`). A `|` in
+  a camera source becomes a literal argument to the camera binary. Without `{output}`
+  go2rtc reads the process stdout and sniffs the format instead, which is why the
+  `rpicam` path is plain `rpicam-vid … -o -` with no ffmpeg. Never reintroduce a pipe.
+- **The camera tools are `rpicam-*` on Bookworm**, not `libcamera-*`; the old symlinks are
+  gone. `detectRpicamBinary()` resolves it at startup — don't hardcode either name.
+- **A sensor outside the firmware's auto-detect set needs its own `dtoverlay`**, written by
+  Setup › Cameras › CSI camera module (`system/bootConfig.ts`, pure + tested). config.txt
+  decides whether the box boots at all: never rewrite it, only comment out competing lines
+  and replace the one marked block.
+- **Raspberry Pi's `imx519.json` has no `rpi.af` algorithm**, so an Arducam 16MP is
+  permanently soft; `provisioning/tuning/imx519-af.json` adds it with a measured map — the
+  actuator's rest position is *not* infinity.
+
 ## Next up
 The list lives in **README.md → TODO** so it is visible to anyone who opens the repo;
 keep it current when you finish something. The two that matter most right now:

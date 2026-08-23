@@ -189,6 +189,19 @@ Hardware-Encoder (`h264_v4l2m2m`), eine Kamera, moderate Auflösung — und gena
 der Pi 5 ohne H.264-Encoder hier das falsche Board. Wenn du die Wahl hast: IP-Kameras
 kaufen und nie wieder darüber nachdenken.
 
+**Eine CSI-Kamera am Flachbandanschluss des Pi** geht ebenfalls (Typ `rpicam`).
+Automatisch erkannt werden nur die offiziellen Raspberry-Pi-Sensoren; eine Arducam braucht
+`camera_auto_detect=0` plus ein explizites `dtoverlay=` — das schreibt **Setup › Cameras ›
+CSI camera module** für dich in `/boot/firmware/config.txt`: ein Backup bleibt als
+`config.txt.yondergate-bak` liegen, konkurrierende Zeilen werden auskommentiert statt
+gelöscht, und das Panel zeigt *Reboot required*, bis der Pi damit gebootet hat. Der Fokus
+ist eine eigene Falle: Raspberry Pis Tuning-Datei `imx519.json` enthält keinen
+Autofokus-Algorithmus, eine Arducam 16 MP bleibt also dauerhaft unscharf, egal was man
+einstellt. Die Modulauswahl trägt die Tuning-Datei
+`/var/lib/yondergate/tuning/imx519-af.json` ein, die das behebt; danach einen
+**Focus**-Modus wählen — an einer fest montierten Kamera ist `manual` auf 0 Dioptrien
+besser als `continuous`, das bei jedem Szenenwechsel neu sucht.
+
 Video ist ausdrücklich nicht das Thema dieses Projekts, siehe `docs/CONCEPT.md`.
 
 ## Verdrahtungsskizze

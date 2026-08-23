@@ -141,6 +141,12 @@ if [ -d "$REPO/.git" ]; then
   git -c safe.directory="$REPO" -C "$REPO" checkout -- docker/go2rtc.yaml 2>/dev/null || true
 fi
 
+# Camera tuning files. Raspberry Pi's stock imx519.json has no rpi.af algorithm, so an
+# Arducam 16MP stays permanently out of focus; ours adds it. Copied out of the checkout
+# so a camera can point at a stable path that survives an update.
+install -d -m 0755 /var/lib/yondergate/tuning
+cp "$REPO/provisioning/tuning/"*.json /var/lib/yondergate/tuning/ 2>/dev/null || true
+
 echo "-- systemd services"
 cp "$REPO/provisioning/systemd/"*.service /etc/systemd/system/
 systemctl daemon-reload

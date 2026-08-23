@@ -726,7 +726,141 @@ async function main() {
   const cam: CameraCfg = { name: 'test', type: 'sim', width: 640, height: 480, fps: 20 };
   ok('libx264 source', cameraSource(cam, 'libx264').includes('-c:v libx264'));
   ok('libopenh264 source', cameraSource(cam, 'libopenh264').includes('libopenh264'));
-  ok('rpicam uses libcamera', cameraSource({ ...cam, type: 'rpicam' }).includes('libcamera-vid'));
+  const rpi = cameraSource({ ...cam, type: 'rpicam' });
+  ok('rpicam uses rpicam-vid by default', rpi.includes('rpicam-vid'));
+  // go2rtc runs exec: without a shell — a pipe would be a literal argv, and the
+  // stream dies before the first frame. This is what shipped broken until v1.47.0.
+  ok('rpicam source has no shell pipe', !rpi.includes('|'));
+  ok('rpicam source has no {output}', !rpi.includes('{output}'));
+  ok('rpicam writes to stdout', rpi.trimEnd().endsWith('-o -'));
+  ok('rpicam honours legacy binary', cameraSource({ ...cam, type: 'rpicam' }, 'libx264', 'libcamera-vid').includes('libcamera-vid'));
+  ok(
+    'rpicam binary sanitised',
+    cameraSource({ ...cam, type: 'rpicam' }, 'libx264', 'rm -rf /').includes('exec:rpicam-vid '),
+  );
+  ok(
+    'rpicam bitrate in bits',
+    cameraSource({ ...cam, type: 'rpicam', bitrateKbps: 3000 }).includes('--bitrate 3000000'),
+  );
+
+  // ---- rpicam focus / tuning file ----
+  const rpiBase: CameraCfg = { ...cam, type: 'rpicam' };
+  ok('focus off emits nothing', !cameraSource(rpiBase).includes('--autofocus-mode'));
+  ok(
+    'focus continuous',
+    cameraSource({ ...rpiBase, focus: 'continuous' }).includes('--autofocus-mode continuous'),
+  );
+  const man = cameraSource({ ...rpiBase, focus: 'manual', lensPosition: 3.5 });
+  ok('focus manual carries lens position', man.includes('--autofocus-mode manual --lens-position 3.5'));
+  ok(
+    'lens position clamped',
+    cameraSource({ ...rpiBase, focus: 'manual', lensPosition: -4 }).includes('--lens-position 0'),
+  );
+  ok(
+    'manual without position → infinity',
+    cameraSource({ ...rpiBase, focus: 'manual' }).includes('--lens-position 0'),
+  );
+  ok(
+    'tuning file passed through',
+    cameraSource({ ...rpiBase, tuningFile: '/var/lib/yondergate/tuning/imx519-af.json' }).includes(
+      '--tuning-file /var/lib/yondergate/tuning/imx519-af.json',
+    ),
+  );
+  // go2rtc splits exec: on whitespace, so a path with a space would become two args.
+  ok(
+    'tuning file with space rejected',
+    !cameraSource({ ...rpiBase, tuningFile: '/etc/my tuning.json' }).includes('--tuning-file'),
+  );
+  ok(
+    'relative / traversing tuning file rejected',
+    !cameraSource({ ...rpiBase, tuningFile: '/var/../etc/shadow.json' }).includes('--tuning-file'),
+  );
+  ok(
+    'non-json tuning file rejected',
+    !cameraSource({ ...rpiBase, tuningFile: '/tmp/evil.sh' }).includes('--tuning-file'),
+  );
+  ok('focus only on rpicam', !cameraSource({ ...cam, type: 'sim', focus: 'auto' }).includes('--autofocus-mode'));
+
+  // ---- CSI camera module (config.txt, pure part) ----
+  const bc = await import('../packages/gateway/src/system/bootConfig');
+  const PI_CONFIG = [
+    '# Some comments',
+    'dtparam=i2c_arm=on',
+    'camera_auto_detect=1',
+    'dtoverlay=vc4-kms-v3d',
+    'max_framebuffers=2',
+    '[cm5]',
+    'dtoverlay=dwc2,dr_mode=host',
+    '[all]',
+    'enable_uart=1',
+    '',
+  ].join('\n');
+
+  ok('parse default is auto-detect', bc.parseBootConfig(PI_CONFIG).autoDetect === true);
+  ok('parse finds no camera overlay', bc.parseBootConfig(PI_CONFIG).overlay === null);
+  ok('parse maps to the auto module', bc.moduleIdFor(bc.parseBootConfig(PI_CONFIG)) === 'auto');
+
+  const withImx = bc.applyCameraModule(PI_CONFIG, 'imx519');
+  ok('apply turns auto-detect off', /\ncamera_auto_detect=0/.test(withImx));
+  ok('apply writes the overlay', /\ndtoverlay=imx519\n/.test(withImx));
+  ok('apply comments the old auto-detect', withImx.includes('# camera_auto_detect=1  # (replaced by YonderGate)'));
+  // The block must land in [all], not in whatever conditional section the file ended in.
+  ok('apply opens an [all] section', withImx.slice(withImx.indexOf('--- YonderGate')).includes('[all]'));
+  ok('apply leaves foreign overlays alone', withImx.includes('\ndtoverlay=vc4-kms-v3d') && withImx.includes('\ndtoverlay=dwc2,dr_mode=host'));
+  ok('round-trip reads back the module', bc.moduleIdFor(bc.parseBootConfig(withImx)) === 'imx519');
+
+  // Switching modules must not stack blocks up.
+  const switched = bc.applyCameraModule(withImx, 'arducam-64mp');
+  ok('switch leaves one managed block', switched.split('--- YonderGate camera module').length === 2);
+  ok('switch drops the old overlay', !/\ndtoverlay=imx519\n/.test(switched));
+  ok('switch reads back', bc.moduleIdFor(bc.parseBootConfig(switched)) === 'arducam-64mp');
+
+  const backToAuto = bc.applyCameraModule(switched, null);
+  ok('back to auto sets 1', /\ncamera_auto_detect=1/.test(backToAuto));
+  ok('back to auto writes no overlay', bc.parseBootConfig(backToAuto).overlay === null);
+  ok('back to auto is the auto module', bc.moduleIdFor(bc.parseBootConfig(backToAuto)) === 'auto');
+  ok('apply is idempotent', bc.applyCameraModule(backToAuto, null) === backToAuto);
+
+  ok('overlay name accepted', bc.validOverlayName('imx296'));
+  ok('overlay with params accepted', bc.validOverlayName('imx519,cam0'));
+  ok('overlay with assignment accepted', bc.validOverlayName('imx477,rotation=180'));
+  ok('overlay newline rejected', !bc.validOverlayName('imx296\nenable_uart=0'));
+  ok('overlay space rejected', !bc.validOverlayName('imx296 foo'));
+  ok('overlay shell chars rejected', !bc.validOverlayName('imx296;reboot'));
+  ok('overlay base name', bc.overlayBaseName('imx519,cam0') === 'imx519');
+
+  ok('boot record current while boot id unchanged', bc.recordIsCurrent({ bootId: 'abc', booted: { autoDetect: true, overlay: null } }, 'abc'));
+  ok('boot record stale after a reboot', !bc.recordIsCurrent({ bootId: 'abc', booted: { autoDetect: true, overlay: null } }, 'def'));
+  ok('no record is never current', !bc.recordIsCurrent(null, 'abc'));
+  ok('reboot due when the overlay changed', bc.bootedStateChanged({ autoDetect: true, overlay: null }, { autoDetect: false, overlay: 'imx519' }));
+  // auto → imx519 → auto rewrites the file but changes nothing the firmware cares about.
+  ok('no reboot when the effective state is unchanged', !bc.bootedStateChanged({ autoDetect: true, overlay: null }, bc.parseBootConfig(bc.applyCameraModule(bc.applyCameraModule(PI_CONFIG, 'imx519'), null))));
+  ok('reboot due when only auto-detect flipped', bc.bootedStateChanged({ autoDetect: true, overlay: null }, { autoDetect: false, overlay: null }));
+
+  ok('explain: overlay set but nothing bound', (bc.explainBootConfig({ autoDetect: false, overlay: 'imx519' }, 0) || '').includes('ribbon cable'));
+  ok('explain: auto-detect found nothing', (bc.explainBootConfig({ autoDetect: true, overlay: null }, 0) || '').includes('CSI camera module'));
+  ok('explain: auto off and no overlay', (bc.explainBootConfig({ autoDetect: false, overlay: null }, 0) || '').includes('never looks'));
+  ok('explain: silent when a camera is there', bc.explainBootConfig({ autoDetect: true, overlay: null }, 1) === null);
+  ok('catalogue has the arducam 16MP with a tuning file', !!bc.moduleById('imx519')?.tuningFile);
+
+  // ---- CSI camera detection (pure part) ----
+  const { parseCameraList, captureNodes, explainNoCamera } = await import(
+    '../packages/gateway/src/system/cameras'
+  );
+  ok(
+    'parseCameraList reads rpicam-hello',
+    parseCameraList('Available cameras\n-----------------\n0 : imx519 [4656x3496] (/base/soc/i2c0mux/i2c@1/imx519@1a)')[0].startsWith(
+      'imx519',
+    ),
+  );
+  ok('parseCameraList empty on none', parseCameraList('No cameras available!').length === 0);
+  ok(
+    'captureNodes drops codec nodes',
+    captureNodes(['/dev/video0', '/dev/video10', '/dev/video31']).join() === '/dev/video0',
+  );
+  ok('explainNoCamera names dtoverlay', explainNoCamera(true).includes('dtoverlay'));
+  ok('explainNoCamera names rpicam-apps', explainNoCamera(false).includes('rpicam-apps'));
+
 
   // ---- camera name / device sanitisation (no YAML break, no shell injection) ----
   const { safeStreamName, generateGo2rtcYaml } = await import('../packages/gateway/src/video/cameraManager');

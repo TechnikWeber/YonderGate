@@ -2,6 +2,95 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.13.0
+**English**
+- **The Pi camera path never worked on current Raspberry Pi OS** — ported from YonderRC
+  v1.47.0–v1.49.1, where all of this was found and fixed on a real Pi 4B with an Arducam
+  16 MP IMX519. YonderGate inherited the same three bugs at the fork.
+- **Wrong binary.** The generated go2rtc source called `libcamera-vid`; Bookworm renamed
+  the tools to `rpicam-*` and dropped the old symlinks, so go2rtc logged `executable file
+  not found in $PATH` and the stream never produced a frame. `detectRpicamBinary()` now
+  resolves the real name at startup, `rpicam-vid` first, `libcamera-vid` for Bullseye.
+- **A shell pipe that could never work.** The source was `libcamera-vid … -o - | ffmpeg …
+  -f rtsp {output}`, but go2rtc runs `exec:` **without a shell** (`shell.QuoteSplit` +
+  `exec.Command`), so the `|` and everything after it went to the camera binary as literal
+  arguments — fixing the name alone would have changed nothing. Without `{output}` go2rtc
+  reads the process stdout and sniffs the format itself, and raw H.264 Annex-B is exactly
+  what `rpicam-vid` writes, so ffmpeg is gone from the `rpicam` path entirely: one process
+  less, no transcode, less latency.
+- **Setup › Cameras › CSI camera module** — pick the sensor instead of editing config.txt
+  over SSH. Only the four official Raspberry Pi cameras are auto-detected; Arducam IMX519 /
+  64MP Hawkeye / OV64A40 Owlsight / Pivariety each need their own `dtoverlay`. Selecting a
+  module writes `camera_auto_detect` and `dtoverlay=` into `/boot/firmware/config.txt` and
+  the panel says *Reboot required* until the box has booted with it, with a **Reboot now**
+  button next to it. Nothing is rewritten blind: one backup as `config.txt.yondergate-bak`,
+  competing lines commented out rather than deleted, our block marked and replaced whole,
+  appended under its own `[all]`. A custom overlay name must pass a syntax check *and*
+  exist as a `.dtbo` on that Pi.
+- **Focus control** — `CameraCfg` gained `focus` (`off`/`manual`/`auto`/`continuous`),
+  `lensPosition` in dioptres and `tuningFile`. Raspberry Pi's stock `imx519.json` has no
+  `rpi.af` algorithm, so libcamera refuses every focus control and an Arducam 16 MP stays
+  permanently soft; `provisioning/tuning/imx519-af.json` adds it, with a **measured** map
+  (`[0.0, 597, 10.0, 1023]` — the actuator's rest position is not infinity).
+  `install.sh` puts it in `/var/lib/yondergate/tuning/`, and selecting the module fills the
+  path into the `rpicam` cameras that have none.
+- **`Detect hardware` tells the truth about cameras now.** It ran the same hardcoded
+  `libcamera-hello` and, finding nothing, listed every `/dev/video*` — on a Pi with no
+  camera at all that is `video10`…`video31`, the V4L2 codec/ISP nodes. It now tries
+  `rpicam-hello` first, counts only real capture nodes, and explains the boot config
+  instead of always advising a `dtoverlay`.
+- Reboot detection compares the effective configuration against what the system actually
+  booted with, keyed by the kernel boot id, so switching away and back is silent.
+  `SimSystem` keeps its own config.txt, so the whole panel works on a laptop.
+- **Not verified on a gateway.** All of it was proven on the YonderRC vehicle — same Pi
+  OS, same libcamera, same code — but no YonderGate box has run it.
+
+**Deutsch**
+- **Der Pi-Kamera-Pfad hat auf aktuellem Raspberry Pi OS nie funktioniert** — portiert aus
+  YonderRC v1.47.0–v1.49.1, wo das alles an einem echten Pi 4B mit einer Arducam 16 MP
+  IMX519 gefunden und behoben wurde. YonderGate hat dieselben drei Fehler beim Fork geerbt.
+- **Falsches Binary.** Die erzeugte go2rtc-Quelle rief `libcamera-vid`; Bookworm hat die
+  Tools nach `rpicam-*` umbenannt und die alten Symlinks entfernt, go2rtc protokollierte
+  `executable file not found in $PATH`, und der Stream lieferte nie ein Bild.
+  `detectRpicamBinary()` löst den echten Namen jetzt beim Start auf, `rpicam-vid` zuerst,
+  `libcamera-vid` für Bullseye.
+- **Eine Shell-Pipe, die nie funktionieren konnte.** Die Quelle war `libcamera-vid … -o -
+  | ffmpeg … -f rtsp {output}`, aber go2rtc führt `exec:` **ohne Shell** aus
+  (`shell.QuoteSplit` + `exec.Command`) — das `|` und alles danach landete als literales
+  Argument beim Kamera-Binary, die Umbenennung allein hätte also nichts geändert. Ohne
+  `{output}` liest go2rtc den stdout des Prozesses und erkennt das Format selbst, und rohes
+  H.264 Annex-B ist genau das, was `rpicam-vid` schreibt — ffmpeg fliegt damit ganz aus dem
+  `rpicam`-Pfad: ein Prozess weniger, kein Transcode, weniger Latenz.
+- **Setup › Cameras › CSI camera module** — den Sensor auswählen, statt die config.txt über
+  SSH zu editieren. Automatisch erkannt werden nur die vier offiziellen Raspberry-Pi-
+  Kameras; Arducam IMX519 / 64MP Hawkeye / OV64A40 Owlsight / Pivariety brauchen je ein
+  eigenes `dtoverlay`. Die Auswahl schreibt `camera_auto_detect` und `dtoverlay=` in
+  `/boot/firmware/config.txt`, danach zeigt das Panel *Reboot required*, bis die Box damit
+  gebootet hat — mit einem **Reboot now**-Knopf daneben. Es wird nichts blind
+  überschrieben: ein Backup als `config.txt.yondergate-bak`, konkurrierende Zeilen
+  auskommentiert statt gelöscht, unser Block markiert und als Ganzes ersetzt, unter einem
+  eigenen `[all]` angehängt. Ein eigener Overlay-Name muss die Syntaxprüfung bestehen *und*
+  als `.dtbo` auf diesem Pi existieren.
+- **Fokussteuerung** — `CameraCfg` hat jetzt `focus` (`off`/`manual`/`auto`/`continuous`),
+  `lensPosition` in Dioptrien und `tuningFile`. Raspberry Pis mitgelieferte `imx519.json`
+  enthält keinen `rpi.af`-Algorithmus, libcamera lehnt daher jede Fokus-Steuerung ab und
+  eine Arducam 16 MP bleibt dauerhaft unscharf; `provisioning/tuning/imx519-af.json` ergänzt
+  ihn, mit einer **gemessenen** Abbildung (`[0.0, 597, 10.0, 1023]` — die Ruhelage des
+  Aktuators ist nicht Unendlich). `install.sh` legt sie nach `/var/lib/yondergate/tuning/`,
+  und die Modulauswahl trägt den Pfad in die `rpicam`-Kameras ein, die noch keinen haben.
+- **`Detect hardware` sagt jetzt die Wahrheit über Kameras.** Es rief dasselbe
+  hartkodierte `libcamera-hello` auf und listete mangels Treffer jedes `/dev/video*` — auf
+  einem Pi ganz ohne Kamera sind das `video10`…`video31`, die V4L2-Codec/ISP-Knoten. Jetzt
+  zuerst `rpicam-hello`, nur echte Capture-Knoten, und statt immer zu einem `dtoverlay` zu
+  raten wird die Boot-Konfiguration erklärt.
+- Die Reboot-Erkennung vergleicht die effektive Konfiguration mit der, mit der das System
+  tatsächlich gebootet hat, über die Kernel-Boot-ID — hin und zurück schalten bleibt
+  daher still. `SimSystem` führt eine eigene config.txt, das Panel ist also auf dem Laptop
+  vollständig bedienbar.
+- **Auf einem Gateway nicht verifiziert.** Bewiesen ist alles am YonderRC-Fahrzeug —
+  gleiches Pi OS, gleiches libcamera, gleicher Code —, aber keine YonderGate-Box hat es
+  laufen lassen.
+
 ## v0.12.12
 **English**
 - **`README.de.md`** — the German README, in full rather than a summary: every section,

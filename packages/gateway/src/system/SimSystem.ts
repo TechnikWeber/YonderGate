@@ -18,8 +18,17 @@ import type {
   WifiStatus,
   WifiNetwork,
   HotspotConfig,
+  CameraModuleStatus,
 } from './SystemManager.js';
 import { HW_DEPS, isHwDep, type HwDepName } from './hwDeps.js';
+import {
+  applyCameraModule,
+  moduleById,
+  moduleIdFor,
+  parseBootConfig,
+  validOverlayName,
+  bootedStateChanged,
+} from './bootConfig.js';
 import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
@@ -484,7 +493,54 @@ export class SimSystem implements SystemManager {
     };
   }
 
+  /**
+   * A config.txt the simulator can edit, so the camera-module panel is fully usable
+   * without a Pi — including the "reboot required" state, which clears on a simulated
+   * reboot the same way a real one clears it.
+   */
+  private bootConfig = ['# Simulated Raspberry Pi firmware config', 'camera_auto_detect=1', ''].join('\n');
+  /** What the simulated system "booted" with — a simulated reboot catches this up. */
+  private bootedConfig = this.bootConfig;
+
+  async cameraModule(): Promise<CameraModuleStatus> {
+    const state = parseBootConfig(this.bootConfig);
+    return {
+      available: true,
+      configPath: '(simulated) /boot/firmware/config.txt',
+      moduleId: moduleIdFor(state),
+      overlay: state.overlay,
+      autoDetect: state.autoDetect,
+      rebootRequired: bootedStateChanged(parseBootConfig(this.bootedConfig), state),
+      message: null,
+    };
+  }
+
+  async setCameraModule(id: string, customOverlay?: string | null): Promise<ActionResult & { rebootRequired: boolean }> {
+    const mod = moduleById(id);
+    if (!mod) return { ok: false, message: `Unknown camera module "${id}".`, rebootRequired: false };
+    let overlay = mod.overlay;
+    if (id === 'custom') {
+      // Same syntax gate as the real system — an unvalidated name would be a genuine
+      // config.txt injection there, so the simulator must not pretend it is fine.
+      const want = (customOverlay ?? '').trim();
+      if (!validOverlayName(want)) {
+        return { ok: false, message: `"${want}" is not a valid overlay name.`, rebootRequired: (await this.cameraModule()).rebootRequired };
+      }
+      overlay = want;
+    }
+    this.bootConfig = applyCameraModule(this.bootConfig, overlay);
+    const pending = (await this.cameraModule()).rebootRequired;
+    return {
+      ok: true,
+      message: pending
+        ? `${mod.label} selected (simulated). Reboot to apply.`
+        : `${mod.label} selected — that is what the Pi already booted with, so no reboot is needed.`,
+      rebootRequired: pending,
+    };
+  }
+
   async reboot(): Promise<ActionResult> {
+    this.bootedConfig = this.bootConfig;
     return { ok: true, message: 'Reboot requested (simulated — no-op).' };
   }
 }

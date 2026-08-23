@@ -6,6 +6,19 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { createConnection } from 'node:net';
+import { parseCameraList, captureNodes, explainNoCamera } from './cameras.js';
+import {
+  applyCameraModule,
+  explainBootConfig,
+  moduleById,
+  moduleIdFor,
+  parseBootConfig,
+  recordIsCurrent,
+  bootedStateChanged,
+  validOverlayName,
+  overlayBaseName,
+  type CameraBootRecord,
+} from './bootConfig.js';
 import { promises as dns } from 'node:dns';
 import type {
   ActionResult,
@@ -26,6 +39,7 @@ import type {
   WifiStatus,
   WifiNetwork,
   HotspotConfig,
+  CameraModuleStatus,
 } from './SystemManager.js';
 import { normaliseWireguardConf, parseWifiScan, HOTSPOT_DEFAULTS } from './SystemManager.js';
 import {
@@ -838,15 +852,26 @@ export class RealSystem implements SystemManager {
     const modemPresent = /Modem\/\d+/.test((await sh('mmcli -L')).out);
     if (!modemPresent) notes.push('No LTE modem detected (mmcli -L).');
 
-    // Prefer libcamera (CSI) names; fall back to V4L2 /dev/video* nodes.
+    // Prefer libcamera (CSI) names; fall back to V4L2 capture nodes. Pi OS Bookworm
+    // renamed the tools to rpicam-*, so try that first and keep the old name for
+    // Bullseye — a hardcoded libcamera-hello silently reported "no cameras".
+    const camTool = await sh('command -v rpicam-hello || command -v libcamera-hello');
+    const toolFound = camTool.out.trim().length > 0;
     const cams: string[] = [];
-    const lc = await sh('libcamera-hello --list-cameras -t 1 2>/dev/null');
-    for (const m of lc.out.matchAll(/^\s*\d+\s*:\s*(.+)$/gm)) cams.push(m[1].trim());
+    if (toolFound) {
+      const lc = await sh(`${camTool.out.trim().split('\n')[0]} --list-cameras -t 1 2>&1`);
+      cams.push(...parseCameraList(lc.out));
+    }
     if (cams.length === 0) {
       const v4l = await sh('ls /dev/video* 2>/dev/null');
-      for (const d of v4l.out.split(/\s+/)) if (d.startsWith('/dev/video')) cams.push(d);
+      cams.push(...captureNodes(v4l.out.split(/\s+/)));
     }
-    if (cams.length === 0) notes.push('No cameras detected (libcamera / /dev/video*).');
+    if (cams.length === 0) {
+      notes.push(explainNoCamera(toolFound));
+      const boot = await this.readBootConfig();
+      const why = boot ? explainBootConfig(parseBootConfig(boot.text), 0) : null;
+      if (why) notes.push(why);
+    }
 
     // Serial candidates for a GPS receiver.
     const serial: string[] = [];
@@ -1384,6 +1409,129 @@ export class RealSystem implements SystemManager {
       output: logs.join('\n\n'),
       steps,
       restarting: true,
+    };
+  }
+
+  /** Locate and read the firmware config (Bookworm moved it under /boot/firmware). */
+  private async readBootConfig(): Promise<{ path: string; text: string } | null> {
+    for (const path of ['/boot/firmware/config.txt', '/boot/config.txt']) {
+      try {
+        return { path, text: readFileSync(path, 'utf8') };
+      } catch {
+        // try the next location
+      }
+    }
+    return null;
+  }
+
+  /** Where the booted-with record lives — under this box's configurable state dir. */
+  private bootRecordFile(): string {
+    return join(this.stateDir, 'camera-module.json');
+  }
+
+  private async bootId(): Promise<string> {
+    try {
+      return readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  async cameraModule(): Promise<CameraModuleStatus> {
+    const boot = await this.readBootConfig();
+    if (!boot) {
+      return {
+        available: false,
+        configPath: null,
+        moduleId: 'auto',
+        overlay: null,
+        autoDetect: true,
+        rebootRequired: false,
+        message: 'No Raspberry Pi firmware config found — this is not a Pi.',
+      };
+    }
+    const state = parseBootConfig(boot.text);
+    // The first read after a boot records what the running system actually booted with;
+    // from then on a pending reboot is simply "config.txt asks for something else".
+    const now = await this.bootId();
+    let stored: CameraBootRecord | null = null;
+    try {
+      stored = JSON.parse(readFileSync(this.bootRecordFile(), 'utf8')) as CameraBootRecord;
+    } catch {
+      stored = null;
+    }
+    let record: CameraBootRecord;
+    if (recordIsCurrent(stored, now)) {
+      record = stored as CameraBootRecord;
+    } else {
+      record = { bootId: now, booted: state };
+      try {
+        mkdirSync(dirname(this.bootRecordFile()), { recursive: true });
+        writeFileSync(this.bootRecordFile(), JSON.stringify(record), 'utf8');
+      } catch {
+        // read-only state dir: we just lose the reboot hint, not the feature
+      }
+    }
+    const pending = bootedStateChanged(record.booted, state);
+    return {
+      available: true,
+      configPath: boot.path,
+      moduleId: moduleIdFor(state),
+      overlay: state.overlay,
+      autoDetect: state.autoDetect,
+      rebootRequired: pending,
+      message: null,
+    };
+  }
+
+  /**
+   * Write the module choice into config.txt. The overlay never comes from free text
+   * unchecked: it is either a catalogue entry or a name that both passes the syntax
+   * check and exists as a .dtbo on this Pi.
+   */
+  async setCameraModule(id: string, customOverlay?: string | null): Promise<ActionResult & { rebootRequired: boolean }> {
+    const boot = await this.readBootConfig();
+    if (!boot) return { ok: false, message: 'No Raspberry Pi firmware config found.', rebootRequired: false };
+
+    const mod = moduleById(id);
+    if (!mod) return { ok: false, message: `Unknown camera module "${id}".`, rebootRequired: false };
+
+    let overlay: string | null = mod.overlay;
+    if (id === 'custom') {
+      const want = (customOverlay ?? '').trim();
+      if (!validOverlayName(want)) {
+        return { ok: false, message: `"${want}" is not a valid overlay name.`, rebootRequired: false };
+      }
+      const dtbo = `${dirname(boot.path)}/overlays/${overlayBaseName(want)}.dtbo`;
+      if (!existsSync(dtbo)) {
+        return { ok: false, message: `No overlay ${overlayBaseName(want)}.dtbo installed on this Pi.`, rebootRequired: false };
+      }
+      overlay = want;
+    }
+
+    const next = applyCameraModule(boot.text, overlay);
+    if (next === boot.text) {
+      return { ok: true, message: 'Already configured — nothing to change.', rebootRequired: false };
+    }
+    try {
+      // One backup of the state we found, kept forever: this file decides whether the Pi boots.
+      const backup = `${boot.path}.yonderrc-bak`;
+      if (!existsSync(backup)) writeFileSync(backup, boot.text, 'utf8');
+      writeFileSync(boot.path, next, 'utf8');
+    } catch (err) {
+      return {
+        ok: false,
+        message: `Could not write ${boot.path}: ${(err as Error).message} — the service needs write access to the boot partition.`,
+        rebootRequired: false,
+      };
+    }
+    const after = await this.cameraModule();
+    return {
+      ok: true,
+      message: after.rebootRequired
+        ? `${mod.label} selected. Reboot to apply — the firmware only reads config.txt at boot.`
+        : `${mod.label} selected — that is what the Pi already booted with, so no reboot is needed.`,
+      rebootRequired: after.rebootRequired,
     };
   }
 

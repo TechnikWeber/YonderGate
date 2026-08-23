@@ -85,6 +85,8 @@ export interface GatewayConfig {
   /** Path of the generated go2rtc config. */
   go2rtcConfigPath: string;
   /** Detected H.264 encoder for generated camera sources (set at startup). */
+  /** Detected Pi camera binary (rpicam-vid / libcamera-vid, set at startup). */
+  rpicamBin: string;
   h264Encoder: string;
   /** Where the persistent config file lives. */
   configPath: string;
@@ -288,6 +290,7 @@ export function loadConfig(): GatewayConfig {
       fileURLToPath(new URL('../../../.runtime/go2rtc.yaml', import.meta.url)),
     version: readVersion(),
     h264Encoder: 'libx264',
+    rpicamBin: 'rpicam-vid',
 
     // Env-only fields.
     host: process.env.YGW_HOST ?? '0.0.0.0',

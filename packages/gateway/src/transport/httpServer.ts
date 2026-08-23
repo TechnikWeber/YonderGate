@@ -77,7 +77,8 @@ export function startHttpServer(
     alerts,
     watchdog,
     uplink,
-    applyCameras: (cams) => applyCameras(cams, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder),
+    applyCameras: (cams) =>
+      applyCameras(cams, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder, config.rpicamBin),
     applyHilink: applyProxies,
     applyProxies,
     onConfigSaved: (patch) => console.log('[setup] config saved:', Object.keys(patch).join(', ')),

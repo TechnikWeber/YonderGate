@@ -1,6 +1,6 @@
 {
   "name": "@yondergate/protocol",
-  "version": "0.12.12",
+  "version": "0.13.0",
   "private": true,
   "type": "module",
   "description": "Shared pure types and helpers (sensor readings).",

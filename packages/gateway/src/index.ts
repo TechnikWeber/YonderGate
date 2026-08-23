@@ -6,7 +6,7 @@ import { AlertService } from './system/AlertService.js';
 import { WatchdogService } from './system/WatchdogService.js';
 import { UplinkService } from './system/UplinkService.js';
 import { describeWindow } from './system/uplink.js';
-import { applyCameras, detectH264Encoder } from './video/cameraManager.js';
+import { applyCameras, detectH264Encoder, detectRpicamBinary } from './video/cameraManager.js';
 import { startCaptivePortal } from './transport/captivePortal.js';
 import { activity, startHttpServer } from './transport/httpServer.js';
 
@@ -65,7 +65,14 @@ async function main() {
 
   // Generate go2rtc.yaml from the camera list (best effort at boot).
   config.h264Encoder = await detectH264Encoder();
-  await applyCameras(config.cameras, config.go2rtcConfigPath, config.videoBaseUrl, config.h264Encoder).catch(
+  config.rpicamBin = await detectRpicamBinary();
+  await applyCameras(
+    config.cameras,
+    config.go2rtcConfigPath,
+    config.videoBaseUrl,
+    config.h264Encoder,
+    config.rpicamBin,
+  ).catch(
     (e) => console.error('[video] initial camera generation failed:', (e as Error).message),
   );
 
