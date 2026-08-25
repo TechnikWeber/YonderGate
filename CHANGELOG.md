@@ -2,6 +2,22 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.18.1
+**English**
+- **Fixed: an unreadable sensor read as a healthy one.** `Number('')` is 0, not NaN — so
+  an empty `/sys/class/thermal/…/temp` came back as a comfortable **0 °C**, an empty
+  `/proc/loadavg` as an idle **0.00**, and an empty `/proc/uptime` as a box that booted
+  this instant. All three now check for an empty read first and report *unknown*. Found
+  by the tests written while porting these parsers to YonderRC.
+
+**Deutsch**
+- **Behoben: ein unlesbarer Sensor las sich wie ein gesunder.** `Number('')` ist 0, nicht
+  NaN — eine leere `/sys/class/thermal/…/temp` kam also als gemütliche **0 °C** zurück,
+  ein leerer `/proc/loadavg` als entspannte **0,00** und eine leere `/proc/uptime` als
+  gerade gebootete Box. Alle drei prüfen jetzt zuerst auf eine leere Antwort und melden
+  *unbekannt*. Gefunden von den Tests, die beim Portieren dieser Parser nach YonderRC
+  entstanden sind.
+
 ## v0.18.0
 **English**
 - **One device off the internet**, not just a whole interface. Each row in the site

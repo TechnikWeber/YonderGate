@@ -64,22 +64,33 @@ export function parseDf(out: string): { freeMb: number | null; usedPercent: numb
   };
 }
 
+/**
+ * `Number('')` is 0, not NaN — so an unreadable sensor used to read as a healthy
+ * 0 °C, an idle 0.00 load and a box that booted this instant. Empty is checked
+ * before the conversion in all three.
+ */
 /** `/sys/class/thermal/thermal_zone0/temp` is millidegrees. */
 export function parseCpuTemp(raw: string): number | null {
-  const v = Number((raw ?? '').trim());
+  const text = (raw ?? '').trim();
+  if (!text) return null;
+  const v = Number(text);
   if (!Number.isFinite(v)) return null;
   return Math.round((v / 1000) * 10) / 10;
 }
 
 /** `/proc/uptime` → seconds since boot. */
 export function parseUptime(raw: string): number | null {
-  const v = Number((raw ?? '').trim().split(/\s+/)[0]);
+  const first = (raw ?? '').trim().split(/\s+/)[0];
+  if (!first) return null;
+  const v = Number(first);
   return Number.isFinite(v) ? Math.round(v) : null;
 }
 
 /** `/proc/loadavg` → the 1-minute figure. */
 export function parseLoad(raw: string): number | null {
-  const v = Number((raw ?? '').trim().split(/\s+/)[0]);
+  const first = (raw ?? '').trim().split(/\s+/)[0];
+  if (!first) return null;
+  const v = Number(first);
   return Number.isFinite(v) ? v : null;
 }
 

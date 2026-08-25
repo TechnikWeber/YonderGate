@@ -1225,6 +1225,17 @@ async function main() {
     ok('and the header lines are not mistaken for one', counters.length === 2);
   }
 
+  // ---- an unreadable sensor is unknown, not zero ----
+  // Number('') is 0, so an empty read used to come back as a healthy 0 °C, an idle
+  // 0.00 load and a box that booted this instant. Found by the ported YonderRC tests.
+  {
+    const H2 = await import('../packages/gateway/src/system/health');
+    ok('no temperature reading is null', H2.parseCpuTemp('') === null);
+    ok('no uptime reading is null', H2.parseUptime('') === null);
+    ok('no load reading is null', H2.parseLoad('') === null);
+    ok('and a real reading still parses', H2.parseCpuTemp('54321') === 54.3 && H2.parseLoad('0.42 0.31 0.28') === 0.42);
+  }
+
   // ---- the setup page's tabs ----
   // Fourteen panels in one column were unfindable, so each panel declares the tab it
   // belongs to. Three ways that rots silently: a panel with no tab (invisible on every
