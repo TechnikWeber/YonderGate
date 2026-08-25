@@ -2,6 +2,38 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.16.1
+**English**
+- **Fixed: renaming the site looked like it had failed.** `POST /api/config` wrote the new
+  site name and video base URL to the file but never applied them, and `GET /api/config`
+  answers from the running config — so the next page load showed the old values back in
+  the fields, which is exactly what a dropped save looks like. Both are applied live now
+  (the alert sender takes the site name per message, the camera writer the URL per write,
+  so neither needs a restart). Same class of bug as YonderRC v1.60.1; a test now checks
+  that every field this endpoint accepts is applied, not only saved.
+- **The hardware guide says what the shunt field actually is**: a calibration factor, not
+  a datasheet value. Read the resistor off your own board (`R002` = 0.002 Ω) and correct
+  it against a reference meter — on a box that counts amp-hours for months, 5 % wrong in
+  that one field is 5 % wrong in everything it ever records. It also says where the I²C
+  address goes and why a second INA has to move off 0x40.
+
+**Deutsch**
+- **Behoben: Den Standort umzubenennen sah aus, als wäre es fehlgeschlagen.**
+  `POST /api/config` schrieb Standortname und Video-Basis-URL in die Datei, wandte sie aber
+  nie an, und `GET /api/config` antwortet aus der laufenden Konfiguration — der nächste
+  Seitenaufruf zeigte also wieder die alten Werte in den Feldern, was genau so aussieht wie
+  ein verlorener Speichervorgang. Beide werden jetzt sofort angewandt (der Alarmversand
+  nimmt den Standortnamen pro Nachricht, der Kamera-Schreiber die URL pro Schreibvorgang —
+  ein Neustart ist für keines von beiden nötig). Dieselbe Fehlerklasse wie YonderRC
+  v1.60.1; ein Test prüft jetzt, dass jedes Feld dieses Endpunkts angewandt und nicht bloß
+  gespeichert wird.
+- **Der Hardware-Leitfaden sagt, was das Shunt-Feld wirklich ist**: ein Kalibrierfaktor,
+  kein Datenblattwert. Den Widerstand von der eigenen Platine ablesen (`R002` = 0,002 Ω)
+  und danach gegen ein Referenzmessgerät korrigieren — bei einer Box, die monatelang
+  Amperestunden zählt, sind 5 % Fehler in diesem einen Feld 5 % Fehler in allem, was sie je
+  aufzeichnet. Dazu steht dort jetzt, wo die I²C-Adresse hingehört und warum ein zweiter
+  INA von 0x40 wegmuss.
+
 ## v0.16.0
 **English**
 - **The I²C chips are asked what they are, not guessed from their address** (ported from

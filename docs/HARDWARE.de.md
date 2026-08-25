@@ -178,6 +178,17 @@ Den INA228 **in die Batterieleitung** setzen, damit das Vorzeichen des Stroms La
 Entladen unterscheidet — erst das macht eine Ladezustandsanzeige überhaupt möglich. Sein
 85-V-Bereich heißt: 12 V oder 24 V brauchen keinen Teiler.
 
+**Das Shunt-Feld ist ein Kalibrierfaktor, kein Datenblattwert.** Wer unter Setup › Sensors
+`ina228` wählt, bekommt **0,002 Ω** und 20 A Messbereich eingetragen — das ist es, was die
+verbreiteten 85-V-Breakouts tragen; der Widerstand ist meist mit `R002` beschriftet
+(`R001` = 0,001 Ω). Lies deinen von der Platine ab, statt der Artikelbeschreibung zu
+glauben, und korrigiere den Wert danach gegen ein Referenzmessgerät: der angezeigte Strom
+skaliert direkt damit, und bei einer Box, die monatelang Amperestunden zählen soll, sind
+5 % Fehler in diesem einen Feld 5 % Fehler in jedem Wert, den sie je aufzeichnet. **Die
+I²C-Adresse** steht im Feld daneben — jeder INA2xx kommt ab Werk auf **0x40**, ein zweiter
+am selben Bus muss also umgezogen werden (dafür haben die Breakouts Lötbrücken), und
+*Detect hardware* benennt danach beide.
+
 ## Kameras
 
 **IP-Kameras mit RTSP.** Die reicht das Gateway direkt durch

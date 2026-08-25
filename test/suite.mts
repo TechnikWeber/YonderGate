@@ -1110,6 +1110,19 @@ async function main() {
   ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
   ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
 
+  // ---- the setup form must show what was SAVED ----
+  // GET /api/config answers from the running config, so anything the POST writes to the
+  // file without applying leaves the page showing the old value on the next load — and a
+  // rename that comes back as it was is indistinguishable from a save that failed.
+  {
+    const router = readFileSync('packages/gateway/src/transport/setupRouter.ts', 'utf8');
+    const post = router.slice(router.indexOf("url === '/api/config' && method === 'POST'"));
+    const body = post.slice(0, post.indexOf('return true;'));
+    for (const field of ['siteName', 'videoBaseUrl', 'theme', 'apiSecret']) {
+      ok(`POST /api/config applies ${field} live`, new RegExp(`ctx\\.config\\.${field} =`).test(body));
+    }
+  }
+
   // ---- the setup page's tabs ----
   // Fourteen panels in one column were unfindable, so each panel declares the tab it
   // belongs to. Three ways that rots silently: a panel with no tab (invisible on every

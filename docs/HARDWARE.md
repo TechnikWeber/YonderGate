@@ -171,6 +171,16 @@ Fit the INA228 **in the battery line**, so the sign of the current tells you cha
 from discharging — that is what makes a state-of-charge number possible at all. Its 85 V
 bus range means a 12 V or 24 V system needs no divider.
 
+**The shunt field is a calibration factor, not a datasheet value.** Picking `ina228` under
+Setup › Sensors fills in **0.002 Ω** and a 20 A range, which is what the common 85 V
+breakouts carry — the resistor is usually marked `R002` (`R001` = 0.001 Ω). Read yours off
+the board rather than trusting the listing, and then correct the number against a
+reference meter: the current the page shows scales directly with it, and on a box that is
+supposed to count amp-hours for months a 5 % error in that one field is a 5 % error in
+every reading it ever records. **Its I²C address** goes in the field next to it — every
+INA2xx leaves the factory on **0x40**, so a second one on the same bus has to be moved
+(the breakouts have solder bridges for it), and *Detect hardware* will then name both.
+
 ## Cameras
 
 **IP cameras with RTSP.** The gateway passes those straight through

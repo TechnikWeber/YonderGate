@@ -316,6 +316,14 @@ export async function handleSetup(
     if (patch.apiSecret !== undefined) ctx.config.apiSecret = patch.apiSecret;
     // The theme is pure presentation and applies live — nothing about it needs a restart.
     if (patch.theme) ctx.config.theme = patch.theme;
+    // …and so do these two, which is the whole point: GET /api/config answers from the
+    // running config, so anything saved to the file but not applied here comes back as
+    // the OLD value on the next page load — and a rename that reappears as it was is
+    // indistinguishable from a save that failed. Both consumers read at call time (the
+    // alert sender takes the site name per message, applyCameras the video URL per
+    // write), so there is nothing here that needs a restart.
+    if (patch.siteName !== undefined) ctx.config.siteName = patch.siteName;
+    if (patch.videoBaseUrl !== undefined) ctx.config.videoBaseUrl = patch.videoBaseUrl;
     ctx.onConfigSaved?.(patch);
     // Don't echo the secret back in `saved`.
     const { apiSecret: _omit, ...safeSaved } = saved;
