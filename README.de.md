@@ -17,14 +17,24 @@ diese Geräte und lässt dich zu ihnen durch.
 > Nichts davon lief bisher an einem echten Standort — die Hardware-Pfade (nmcli,
 > Ping-Sweeps, Tailscale-Routing) sind nur auf dem Pi selbst überprüfbar.
 
-![Setup-Seite von YonderGate: Systemstatus mit LTE, Fernzugriff und der Warnung zum offenen Hotspot, darunter das Panel „Site network" mit Gerätesuche und Tailscale-Subnetzrouten](docs/screenshots/Status_and_Network.png?v=1)
+![Setup-Seite von YonderGate, Reiter Overview: die Reiterleiste oben, darunter der Systemstatus — Modus, LTE-Modem und Betreiber, Fernzugriff, WLAN und die Warnung zum offenen Hotspot — sowie Name und Video-Basis-URL des Gateways](docs/screenshots/Status_and_Network.png?v=2)
+
+*Die Seite ist in Reiter geteilt — **Overview · Site network · Sensors · Camera · Network ·
+Remote access · Health & alerts · Design**, jeder davon eine URL (`…/setup#sensors`). Hell
+ist Standard, dunkel ist einen Klick entfernt unter *Design*; die Wahl liegt am Gateway,
+jedes Handy, das die Seite öffnet, sieht also dasselbe.*
 
 ## Was heute funktioniert
 
 - **Finden, was vor Ort ist**: *Scan* liest die Neighbour-Tabelle des Kernels (sofort),
   *Scan + sweep* pingt das ganze Subnetz für die Stillen ab. Die Liste zeigt Adresse,
   Hostname, Hersteller, was geantwortet hat, und eine einzeilige Vermutung, was das Gerät
-  ist.
+  ist. Jedes Gerät, das je geantwortet hat, trägt ein **„zuletzt gesehen"**, und jede
+  Zeile hat einen **Check**-Knopf, der genau dieses eine Gerät jetzt fragt. Beides
+  passiert, weil du danach fragst: nichts hier pollt im Hintergrund das Netz des
+  Standorts — bei getaktetem Volumen und Akkubetrieb ist das der Unterschied.
+
+  ![Das Panel „Site network": die Geräteliste mit Adresse, Name, was geantwortet hat, einer „zuletzt gesehen"-Zeile und einem Check-Knopf je Gerät, darunter die Tailscale-Subnetzrouten](docs/screenshots/SiteNetwork.png?v=1)
 - **Diese Geräte auf zwei Wegen erreichen**: **Tailscale-Subnetz-Routen** — die Netze des
   Standorts bekanntgeben, und jedes Gerät ist von überall im Tailnet unter seiner echten
   Adresse erreichbar — oder **ein einzelnes Gerät veröffentlichen**, auf einem Port des
@@ -76,7 +86,7 @@ diese Geräte und lässt dich zu ihnen durch.
   hat. NTP-Server werden auf der Seite gesetzt, eine DS3231-RTC wird erkannt, wenn du eine
   einbaust.
 
-  ![Zustandswerte des Standorts: Laufzeit, Plattenplatz, CPU-Temperatur, Last, Versorgung, Taktrate, Uhrsynchronität und verbrauchtes Mobilfunkvolumen](docs/screenshots/SiteHealth.png?v=1)
+  ![Zustandswerte des Standorts: Laufzeit, Plattenplatz, CPU-Temperatur, Last, Versorgung, Taktrate, Uhrsynchronität und verbrauchtes Mobilfunkvolumen](docs/screenshots/SiteHealth.png?v=2)
 - **Sauberes Herunterfahren von der Seite aus.** Einem Pi mitten im Schreibvorgang den
   Strom zu nehmen ist der Weg, auf dem eine SD-Karte in einer Box am Mast zu einer Anfahrt
   mit Kartenleser wird. *Shut down* fährt ihn vorher sauber herunter — mit der Warnung, die
@@ -331,6 +341,9 @@ abgedeckt.
 - [x] Gefundene Geräte zwischen Scans merken: Namen, Ports, und ein gespeichertes Gerät,
       das aufhört zu antworten, bleibt mit dem Zeitpunkt des letzten Lebenszeichens in der
       Liste
+- [x] **„Zuletzt gesehen" für jedes Gerät, das je geantwortet hat**, nicht nur für die
+      benannten, dazu ein **Check**-Knopf pro Gerät. Beides passiert nur, wenn jemand
+      danach fragt — nichts auf dieser Seite pollt das Netz des Standorts im Hintergrund
 - [ ] HTTPS-Geräte: Der Proxy spricht mit dem Ziel derzeit nur einfaches HTTP
 - [ ] mDNS-/Avahi-Namen in der Geräteliste, nicht nur Reverse-DNS
 
@@ -371,6 +384,14 @@ abgedeckt.
       Überschreitung eine Nachricht mehr, als sie sollte
 - [ ] Konfigurationssicherung / -wiederherstellung als eine Datei
 - [x] Kameravorschau auf der Setup-Seite (Standbild + Link zum Player von go2rtc)
+
+**Die Setup-Seite selbst**
+- [x] **I²C-Chips werden über ihr ID-Register identifiziert**, nicht aus der Adresse
+      geraten — ein INA2xx sagt, welcher er ist, und „Use these addresses" füllt das
+      Sensorformular mit dem, was tatsächlich geantwortet hat (portiert aus YonderRC v1.60.0)
+- [x] In **Reiter** geteilt, die langen Erklärungen hinter einer Zeile eingeklappt
+- [x] **Hell und dunkel**, am Gateway gewählt (Setup › Design), damit jedes Handy, das die
+      Seite öffnet, dasselbe sieht; hell ist Standard
 
 **Betrieb**
 - [ ] Die Lizenz entscheiden, bevor das hier Mitwirkende bekommt (siehe docs/CONCEPT.md)

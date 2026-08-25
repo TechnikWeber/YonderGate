@@ -22,9 +22,18 @@ import { HOTSPOT_DEFAULTS } from './system/SystemManager.js';
  * defaults so the appliance keeps its settings across reboots. Env still wins for
  * host/port/system so docker + dev stay predictable.
  */
+/** Which of the two palettes the setup page paints itself in. */
+export type UiTheme = 'dark' | 'light';
+
 export interface GatewayConfig {
   /** What this installation is called — shows up in the UI and the banner. */
   siteName: string;
+  /**
+   * Which palette the setup page wears. It belongs to the GATEWAY, not to the
+   * browser: this box is set up once and then opened from whatever phone is to hand,
+   * and a per-browser toggle would mean the same box looks different every time.
+   */
+  theme: UiTheme;
   host: string;
   port: number;
   /** Base URL of the go2rtc video server, or null for pure sim without video. */
@@ -158,6 +167,8 @@ export const DATA_DEFAULTS: DataSettings = {
 /** The subset the setup UI can edit and persist. */
 export interface PersistentConfig {
   siteName?: string;
+  /** 'light' (default) or 'dark' — applied to the setup page. */
+  theme?: UiTheme;
   videoBaseUrl?: string | null;
   /** @deprecated migrated into `lte.apn`; still read for backward compatibility. */
   apn?: string | null;
@@ -239,6 +250,7 @@ export function loadConfig(): GatewayConfig {
   return {
     // Persistent fields: file overrides env-default.
     siteName: p.siteName ?? process.env.YGW_NAME ?? 'YonderGate',
+    theme: p.theme ?? 'light',
     videoBaseUrl:
       p.videoBaseUrl !== undefined
         ? p.videoBaseUrl

@@ -107,6 +107,61 @@ async function main() {
   ok('with the time it was last seen', gone?.lastSeen === '2026-08-01T10:00:00.000Z');
   ok('while the one that answered is marked seen', knownCam?.seen === true && knownCam?.known === true);
 
+  // ---- remembering everything that answered, so "last seen" means something ----
+  // A device nobody named is still a device you want a date on: "the panel controller
+  // last answered on Tuesday" is the whole question when you are not on site.
+  {
+    const found = [
+      { ip: '192.168.4.23', mac: 'ec:71:db:aa:bb:cc', iface: 'wlan0', vendor: null, hostname: 'cam-shed', openPorts: [80], self: false },
+      { ip: '192.168.4.77', mac: '00:11:22:33:44:55', iface: 'wlan0', vendor: null, hostname: null, openPorts: [], self: false },
+      { ip: '192.168.4.1', mac: null, iface: 'wlan0', vendor: null, hostname: null, openPorts: [80], self: true },
+    ];
+    const t1 = '2026-08-25T10:00:00.000Z';
+    const remembered = D.rememberSeen([], found, t1);
+    ok('every device that answered is remembered', remembered.length === 2, `${remembered.length}`);
+    ok('the gateway does not remember itself', !remembered.some((d) => d.ip === '192.168.4.1'));
+    ok('remembered is not the same as named', remembered.every((d) => d.label === ''));
+    ok('and each one carries the time it answered', remembered.every((d) => d.lastSeen === t1));
+
+    // A name survives a rescan; the address moves with DHCP.
+    const named = remembered.map((d) => (d.ip === '192.168.4.23' ? { ...d, label: 'shed camera' } : d));
+    const t2 = '2026-08-25T12:00:00.000Z';
+    const again = D.rememberSeen(named, [{ ...found[0], ip: '192.168.4.90' }], t2);
+    const cam = again.find((d) => d.label === 'shed camera')!;
+    ok('a named device keeps its name across a scan', !!cam);
+    ok('and follows its address', cam.ip === '192.168.4.90' && cam.lastSeen === t2);
+    ok('one that did not answer keeps its older timestamp',
+      again.find((d) => d.ip === '192.168.4.77')!.lastSeen === t1);
+
+    // The list must not grow forever on a site with visitors.
+    const many = Array.from({ length: 70 }, (_, i) => ({
+      id: `ip:10.0.0.${i}`, label: '', mac: null, ip: `10.0.0.${i}`, port: 80,
+      lastSeen: `2026-08-${String(10 + (i % 20)).padStart(2, '0')}T00:00:00.000Z`,
+    }));
+    const capped = D.capSeen([...many, { id: 'mac:aa', label: 'pump', mac: 'aa', ip: '10.0.0.9', port: 80, lastSeen: '2020-01-01T00:00:00.000Z' }]);
+    ok('unnamed devices are capped', capped.filter((d) => !d.label).length === D.SEEN_LIMIT);
+    ok('a named one is never evicted, however old', capped.some((d) => d.label === 'pump'));
+    ok('and it is the oldest unnamed ones that go',
+      !capped.some((d) => !d.label && d.lastSeen === '2026-08-10T00:00:00.000Z'));
+
+    // The per-device check: one timestamp moves, nothing else.
+    const marked = D.markSeen(capped, 'mac:aa', '2026-08-25T13:00:00.000Z');
+    ok('a check moves only that device', marked.find((d) => d.id === 'mac:aa')!.lastSeen === '2026-08-25T13:00:00.000Z'
+      && marked.filter((d) => d.lastSeen === '2026-08-25T13:00:00.000Z').length === 1);
+
+    // A remembered-but-unnamed device must not claim to be saved, and must not clutter
+    // the list once it stops answering — that is a phone that left, not news.
+    const merged = D.mergeKnown([found[1]], [
+      { id: 'mac:00:11:22:33:44:55', label: '', mac: '00:11:22:33:44:55', ip: '192.168.4.77', port: 80, lastSeen: t1 },
+      { id: 'mac:de:ad:be:ef:00:01', label: '', mac: 'de:ad:be:ef:00:01', ip: '192.168.4.55', port: 80, lastSeen: t1 },
+      { id: 'mac:de:ad:be:ef:00:02', label: 'gate motor', mac: 'de:ad:be:ef:00:02', ip: '192.168.4.56', port: 80, lastSeen: t1 },
+    ]);
+    ok('an unnamed device is not shown as saved', merged.find((d) => d.ip === '192.168.4.77')!.known === false);
+    ok('a silent unnamed device drops out of the list', !merged.some((d) => d.ip === '192.168.4.55'));
+    ok('a silent NAMED device stays, which is the point of naming it',
+      merged.some((d) => d.ip === '192.168.4.56' && !d.seen && d.label === 'gate motor'));
+  }
+
   const rolled = D.updateKnown(knownList, foundNow, '2026-08-21T18:00:00.000Z');
   ok('a scan moves the saved address along', rolled[0].ip === '192.168.4.99' && rolled[0].lastSeen === '2026-08-21T18:00:00.000Z');
   ok('and leaves the silent one untouched', rolled[1].ip === '192.168.4.45' && rolled[1].lastSeen === '2026-08-01T10:00:00.000Z');
@@ -717,8 +772,36 @@ async function main() {
   const addrs = DET.parseI2cAddresses(i2cSample);
   ok('i2c addresses parsed', addrs.length === 3 && addrs[0] === 0x40 && addrs[1] === 0x41 && addrs[2] === 0x48, `=${addrs.map((a) => a.toString(16))}`);
   const sugg = DET.suggestI2c(addrs);
-  ok('i2c suggest PCA9685 @0x40', sugg[0].address === '0x40' && /PCA9685/.test(sugg[0].hint));
+  ok('i2c suggest INA @0x40', sugg[0].address === '0x40' && /INA2xx/.test(sugg[0].hint));
   ok('i2c suggest ADS @0x48', sugg[2].hint.includes('ADS'));
+
+  // ---- and the chips that CAN say what they are, get asked ----
+  // The address is a guess: every INA2xx ships on 0x40, and 0x48–0x4b is ADS1x15 or
+  // TMP117. On a box an hour away that difference is the whole point of the page.
+  const probe40 = DET.probesFor(0x40);
+  ok('0x40 is probed for both INA register layouts',
+    probe40.some((p) => p.key === 'inaManufA' && p.reg === 0x3e) && probe40.some((p) => p.key === 'inaManufB' && p.reg === 0xfe));
+  ok('an address with nothing to ask gets no probes', DET.probesFor(0x36).length === 0);
+  ok('i2ctransfer args write the pointer then read',
+    DET.i2cTransferArgs(1, { key: 'x', address: 0x40, reg: 0x3f, bytes: 2 }).join(' ') === '-y 1 w1@0x40 0x3f r2');
+  ok('two bytes combine big-endian', DET.parseI2cTransfer('0x22 0x81') === 0x2281);
+  ok('no bytes read is null, not zero', DET.parseI2cTransfer('Error: Read failed') === null);
+  ok('INA228 by manufacturer + die',
+    DET.identifyI2c(0x40, { inaManufA: DET.TI_MANUFACTURER, inaDieA: 0x2281 }).kind === 'ina228');
+  ok('and it says so, with the revision',
+    /INA228 rev 1 — identified/.test(DET.identifyI2c(0x40, { inaManufA: DET.TI_MANUFACTURER, inaDieA: 0x2281 }).hint));
+  ok('INA226 sits in the other register pair',
+    DET.identifyI2c(0x41, { inaManufB: DET.TI_MANUFACTURER, inaDieB: 0x2260 }).kind === 'ina226');
+  ok('TMP117 by device id', DET.identifyI2c(0x48, { tmp117Id: 0x0117 }).kind === 'tmp117');
+  ok('MCP9808 by manufacturer + device', DET.identifyI2c(0x18, { mcpManuf: 0x0054, mcpDevice: 0x0400 }).kind === 'mcp9808');
+  ok('BME280 and BMP280 differ by one byte',
+    DET.identifyI2c(0x76, { bmpChipId: 0x60 }).kind === 'bme280' && DET.identifyI2c(0x76, { bmpChipId: 0x58 }).kind === 'bmp280');
+  // A chip that answers junk must fall back to the guess, never to a wrong name.
+  const junk = DET.identifyI2c(0x40, { inaManufA: 0x1234, inaDieA: 0x9999 });
+  ok('junk reads stay an unconfirmed guess', junk.kind === null && junk.confirmed === false);
+  const mixed = DET.suggestI2c([0x40, 0x48], new Map([[0x40, { inaManufA: DET.TI_MANUFACTURER, inaDieA: 0x2381 }]]));
+  ok('a scan mixes identified and guessed rows',
+    mixed[0].kind === 'ina238' && mixed[0].confirmed === true && mixed[1].confirmed === false);
   ok('sim detect finds 0x40', (await sys.detectHardware()).i2c.some((x) => x.address === '0x40'));
   ok('sim detect lists serial', (await sys.detectHardware()).serial.length > 0);
 
@@ -1026,6 +1109,29 @@ async function main() {
   const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
   ok('the gateway reads its version from package.json', readVersion() === pkgVersion, `${readVersion()} vs ${pkgVersion}`);
   ok('no hardcoded version left in the gateway banner', !/YonderGate gateway service {2}v\d/.test(readFileSync('packages/gateway/src/index.ts', 'utf8')));
+
+  // ---- the setup page's tabs ----
+  // Fourteen panels in one column were unfindable, so each panel declares the tab it
+  // belongs to. Three ways that rots silently: a panel with no tab (invisible on every
+  // tab), a tab only a panel knows (a button that shows nothing), and a button the
+  // switcher's own list does not contain (a dead tab).
+  {
+    const html = readFileSync('packages/gateway/src/setup/setup.html', 'utf8');
+    const panels = [...html.matchAll(/<section class="panel"([^>]*)>/g)].map((m) => m[1]);
+    const tabsOf = panels.map((a) => /data-tab="([a-z]+)"/.exec(a)?.[1] ?? null);
+    const buttons = [...html.matchAll(/<button class="tab"[^>]*data-for="([a-z]+)"/g)].map((m) => m[1]);
+    const listed = /const TABS = \[([^\]]*)\]/.exec(html)?.[1] ?? '';
+    const inList = [...listed.matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+    ok('every setup panel names a tab', tabsOf.length > 0 && tabsOf.every((t) => t !== null), `${tabsOf.filter((t) => !t).length} without`);
+    ok('every panel tab has a button', tabsOf.every((t) => t !== null && buttons.includes(t)));
+    ok('every tab button has a panel', buttons.length > 0 && buttons.every((b) => tabsOf.includes(b)));
+    ok('the switcher knows exactly those tabs', inList.join(',') === buttons.join(','), `${inList} vs ${buttons}`);
+    ok('the overview carries the system status', /data-tab="overview"[\s\S]{0,200}id="status"/.test(html));
+    // Both palettes live in the stylesheet, and the page stamps one before the first
+    // paint — otherwise a light box flashes dark on every load.
+    ok('the page has a light palette', /:root\[data-theme='light'\]\s*\{[^}]*--bg:/.test(html));
+    ok('and stamps it before the first paint', html.indexOf("dataset.theme = t === 'dark'") < html.indexOf('<body'));
+  }
 
   // ---- the two READMEs must not drift apart ----
   // A translation that lags is worse than none: it states as current something the

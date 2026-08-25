@@ -2,6 +2,65 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.16.0
+**English**
+- **The I²C chips are asked what they are, not guessed from their address** (ported from
+  YonderRC v1.60.0). Every INA2xx leaves the factory on 0x40 and 0x48–0x4b is shared by
+  ADS1x15 and TMP117 — so "0x40" was never an answer. `probesFor` + `identifyI2c` read the
+  ID registers, a confirmed row is marked **✓ INA228 rev 1 — identified from its ID
+  register**, and **Use these addresses** fills the sensor form from what actually
+  answered. Pure and unit-tested; the `i2ctransfer` reads are hardware-only-verifiable.
+- **Picking a sensor fills in values instead of empty fields**: `ina228` brings the 2 mΩ
+  shunt the common 85 V breakouts carry and a 20 A range, and the **I²C address** is now a
+  field on every voltage and current channel — it was temperature-only.
+- **The setup page is eight tabs** — Overview · Site network · Sensors · Camera · Network ·
+  Remote access · Health & alerts · **Design** — each one a URL (`…/setup#sensors`). The
+  long explanations are folded behind a one-line summary, and the strip wraps rather than
+  scrolling, because a mouse wheel cannot scroll a horizontal box.
+- **Light and dark, chosen on the gateway.** Light is the default. The choice is stored in
+  `config.theme`, not in the browser: this box is set up once and then opened from whatever
+  phone is to hand, and a per-browser toggle would mean it looks different every time.
+- **Last seen for every device that ever answered**, not just the named ones, with a
+  per-device **Check** button that probes that one address now. Both only ever run because
+  someone asked — nothing polls the site's network in the background. Devices nobody named
+  are remembered too, capped at 64 so a site with visitors cannot grow the config forever.
+- Fixed: the Tailscale route rows stacked their checkbox, CIDR and interface on three
+  lines. `.route` set `display:flex` but never overrode the `flex-direction: column` it
+  inherited from the `label` rule above it.
+- Sensor copy that came from a model aircraft is gone: no more blackbox columns, no OSD,
+  no `ESC` as an example label.
+
+**Deutsch**
+- **Die I²C-Chips werden gefragt, was sie sind, statt aus der Adresse geraten** (portiert
+  aus YonderRC v1.60.0). Jeder INA2xx kommt ab Werk auf 0x40, und 0x48–0x4b teilen sich
+  ADS1x15 und TMP117 — „0x40" war also nie eine Antwort. `probesFor` + `identifyI2c` lesen
+  die ID-Register, eine bestätigte Zeile trägt **✓ INA228 rev 1 — identified from its ID
+  register**, und **Use these addresses** füllt das Sensorformular mit dem, was tatsächlich
+  geantwortet hat. Pur und unit-getestet; die `i2ctransfer`-Zugriffe sind nur auf Hardware
+  überprüfbar.
+- **Einen Sensor zu wählen füllt Werte ein statt leerer Felder**: `ina228` bringt den 2-mΩ-
+  Shunt der verbreiteten 85-V-Breakouts und 20 A Messbereich mit, und die **I²C-Adresse**
+  ist jetzt ein Feld an jedem Spannungs- und Stromkanal — bisher gab es sie nur bei der
+  Temperatur.
+- **Die Setup-Seite hat acht Reiter** — Overview · Site network · Sensors · Camera ·
+  Network · Remote access · Health & alerts · **Design** — jeder eine URL
+  (`…/setup#sensors`). Die langen Erklärungen liegen hinter einer Zeile eingeklappt, und
+  die Leiste bricht um, statt zu scrollen: ein Mausrad scrollt keine horizontale Box.
+- **Hell und dunkel, am Gateway gewählt.** Hell ist Standard. Die Wahl liegt in
+  `config.theme`, nicht im Browser: diese Box wird einmal eingerichtet und danach von dem
+  Handy geöffnet, das gerade da ist — ein Schalter pro Browser hieße, sie sieht jedes Mal
+  anders aus.
+- **„Zuletzt gesehen" für jedes Gerät, das je geantwortet hat**, nicht nur für die
+  benannten, dazu ein **Check**-Knopf pro Gerät, der genau diese eine Adresse jetzt prüft.
+  Beides läuft nur, wenn jemand danach fragt — nichts pollt das Netz des Standorts im
+  Hintergrund. Auch unbenannte Geräte werden gemerkt, gedeckelt bei 64, damit ein Standort
+  mit Besuch die Konfiguration nicht endlos wachsen lässt.
+- Behoben: Die Tailscale-Routenzeilen stapelten Checkbox, CIDR und Interface auf drei
+  Zeilen. `.route` setzte `display:flex`, überschrieb aber nie das `flex-direction: column`,
+  das es von der `label`-Regel darüber erbte.
+- Sensor-Texte aus dem Modellbau sind weg: keine Blackbox-Spalten, kein OSD, kein `ESC`
+  als Beispiel-Label.
+
 ## v0.15.1
 **English**
 - **The READMEs have screenshots now** — they had none at all, which for a project whose

@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>YonderGate — Setup</title>
+    <script>
+      // Before the first paint, or the page flashes the other palette on its way. The
+      // gateway is still the authority — this is only last session's answer, and
+      // loadConfig() overwrites it a moment later. Light is the default; the dark
+      // palette is what plain :root carries, so the attribute is stamped either way.
+      try {
+        var t = localStorage.getItem('yondergate.theme.v1');
+        document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    </script>
     <style>
       :root {
         --bg: #0b0f14; --panel: #121821; --panel-2: #0f141b; --line: #1e2833;
@@ -11,6 +23,21 @@
         --go: #46d17f; --idle: #f2b74a; --bad: #ff5d5d;
         --mono: ui-monospace, Menlo, Consolas, monospace;
         --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color-scheme: dark;
+      }
+      /*
+       * The light palette — the default. Two looks and no "follow the system" third:
+       * this box is set up once and looked at from whatever phone is to hand, so the
+       * choice belongs to the gateway (Setup › Design, persisted as `theme`), not to
+       * the browser. Nothing else on this page names a colour, which is why a whole
+       * second look is eleven lines. Contrast on the light panel: text 16:1, muted
+       * 6.2:1, the four state colours 5.2–5.9:1.
+       */
+      :root[data-theme='light'] {
+        --bg: #eef2f6; --panel: #ffffff; --panel-2: #f4f7fa; --line: #dde5ec;
+        --line-b: #c2ceda; --text: #16202a; --muted: #56636f; --accent: #0b7a70;
+        --go: #147a41; --idle: #8a5a00; --bad: #c0322c;
+        color-scheme: light;
       }
       * { box-sizing: border-box; }
       body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
@@ -60,7 +87,11 @@
        * and took the whole page with it. min-width:0 lets them shrink, and the wrap
        * rules break the string instead of the layout.
        */
-      html, body { max-width: 100%; overflow-x: hidden; }
+      html { max-width: 100%; overflow-x: hidden; }
+      /* clip, not hidden: overflow-x:hidden makes body a scroll container of its own, and
+         the sticky tab strip inside it then has nothing to stick to — the viewport is
+         what scrolls, so the strip would scroll away with the page. */
+      body { max-width: 100%; overflow-x: clip; }
       .row .k, .row .v { min-width: 0; overflow-wrap: anywhere; }
       .msg, .log, .mono, .item { overflow-wrap: anywhere; }
       @media (max-width: 520px) {
@@ -79,7 +110,7 @@
       .chk span, .chk b { flex: 1 1 auto; }
       /* Headings need room before the controls that belong to them. */
       .eyebrow { margin-bottom: 10px; }
-      .route { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+      .route { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
       .route:first-of-type { border-top: 0; }
       .route .cidr { font-family: var(--mono); min-width: 10.5em; }
       .route .where { color: var(--muted); flex: 1 1 auto; }
@@ -97,6 +128,67 @@
       /* WiFi scan results: one full-width row per network, signal right-aligned. */
       .wifi-row { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; margin-bottom: 6px; font-weight: 500; }
       .wifi-sig { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+      /*
+       * Tabs. Fourteen panels in one column meant everything was on screen at once and
+       * nothing was findable. The panels themselves are untouched; each carries a
+       * data-tab and only one group is displayed at a time. Hidden panels stay in the
+       * DOM: handlers read fields across groups, so removing them would break those.
+       *
+       * The strip WRAPS. A single scrolling row is fine under a thumb and a trap under
+       * a mouse — eight tabs are wider than the 640px column and a wheel does not scroll
+       * a horizontal box, which left the last tab unreachable on a PC.
+       */
+      .tabs {
+        display: flex; flex-wrap: wrap; gap: 6px;
+        position: sticky; top: 0; z-index: 5; padding: 8px 16px;
+        background: var(--bg); margin: 0 -16px;
+      }
+      @media (max-width: 520px) {
+        .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+      }
+      .tab {
+        appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+        font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+        padding: 8px 14px; border-radius: 999px; cursor: pointer;
+      }
+      .tab[aria-selected='true'] { border-color: var(--accent); color: var(--accent); background: var(--panel-2); }
+      .panel[hidden] { display: none; }
+      /*
+       * Collapsible explanation, and a foldable group of settings. Both keep the one line
+       * worth reading at a glance in the summary and put the rest behind it — these
+       * paragraphs are worth having, but open they were most of the page's height.
+       */
+      .hint { margin-top: 8px; }
+      .hint > summary, details.group > summary {
+        cursor: pointer; list-style: none; display: flex; gap: 6px; align-items: baseline;
+        padding: 2px 0; font-size: 12.5px; color: var(--muted);
+      }
+      .hint > summary::-webkit-details-marker, details.group > summary::-webkit-details-marker { display: none; }
+      .hint > summary::before, details.group > summary::before {
+        content: '›'; color: var(--accent); font-weight: 700; display: inline-block; transition: transform .12s;
+      }
+      .hint[open] > summary::before, details.group[open] > summary::before { transform: rotate(90deg); }
+      .hint > summary:hover, details.group > summary:hover { color: var(--text); }
+      .hint p { font-size: 13px; color: var(--muted); margin: 6px 0 0 14px; }
+      details.group { margin-top: 12px; }
+      details.group > summary { align-items: center; }
+      /* State that has to stay readable while a group is folded. */
+      .group-badge {
+        font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: none;
+        letter-spacing: 0; border: 1px solid currentColor; border-radius: 5px; padding: 0 5px;
+      }
+      .group-badge.go { color: var(--go); } .group-badge.idle { color: var(--idle); }
+      /* Design picker: the swatches are literal hex — they are a picture of a palette,
+         not part of the one in force, and must keep showing the other one. */
+      .theme-card {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+        border: 1px solid var(--line-b); background: var(--panel-2); color: var(--text);
+        font: inherit; font-weight: 600; padding: 12px; border-radius: 10px; cursor: pointer;
+      }
+      .theme-card[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
+      .theme-swatch { display: inline-flex; gap: 4px; padding: 5px; border-radius: 7px; }
+      .theme-swatch i { width: 15px; height: 15px; border-radius: 4px; display: block; }
     </style>
   </head>
   <body>
@@ -108,22 +200,205 @@
         <a class="btn tiny" id="ground-link" href="/" style="display:none">Control ↗</a>
       </div>
 
-      <section class="panel">
+      <nav class="tabs" role="tablist">
+        <button class="tab" role="tab" data-for="overview" onclick="showTab('overview')">Overview</button>
+        <button class="tab" role="tab" data-for="site" onclick="showTab('site')">Site network</button>
+        <button class="tab" role="tab" data-for="sensors" onclick="showTab('sensors')">Sensors</button>
+        <button class="tab" role="tab" data-for="camera" onclick="showTab('camera')">Camera</button>
+        <button class="tab" role="tab" data-for="network" onclick="showTab('network')">Network</button>
+        <button class="tab" role="tab" data-for="remote" onclick="showTab('remote')">Remote access</button>
+        <button class="tab" role="tab" data-for="health" onclick="showTab('health')">Health &amp; alerts</button>
+        <button class="tab" role="tab" data-for="design" onclick="showTab('design')">Design</button>
+      </nav>
+
+      <section class="panel" data-tab="overview">
         <div class="eyebrow">System status</div>
         <div id="status"><div class="row"><span class="k">loading…</span></div></div>
       </section>
 
-      <section class="panel">
-        <details>
-        <summary class="eyebrow" style="cursor:pointer;list-style:revert">Cameras</summary>
+      <section class="panel" data-tab="overview">
+        <div class="eyebrow">Gateway</div>
+        <label>Site name<input id="siteName" placeholder="Holiday plot" /></label>
+        <label>Video base URL<input id="videoBaseUrl" placeholder="http://gateway:1984" /></label>
+        <div class="btns">
+          <button class="btn primary" onclick="run(this, () => saveConfig())">Save</button>
+        </div>
+        <div class="msg" id="cfg-msg"></div>
+      </section>
+
+      <section class="panel" data-tab="overview">
+        <div class="eyebrow">Software update</div>
+        <div id="upd-status"><div class="msg">Press <b>Check for updates</b> — that only looks, it changes nothing.</div></div>
+        <div class="btns">
+          <button class="btn" onclick="run(this, () => checkUpdate())">Check for updates</button>
+          <button class="btn primary" id="upd-apply" style="display:none" onclick="run(this, () => applyUpdate())">Update &amp; restart</button>
+        </div>
+        <div class="eyebrow2" style="margin-top:12px">Update source</div>
+        <div class="grid2">
+          <label>Remote or URL<input id="updSource" placeholder="origin" /></label>
+          <label>Branch<input id="updBranch" placeholder="main" /></label>
+        </div>
+        <div class="btns"><button class="btn" onclick="run(this, () => saveUpdateSource())">Save source</button></div>
+        <p class="msg">Defaults to this gateway's own <span class="mono">origin</span> / <span class="mono">main</span>. Point it at a fork or a branch by entering a git remote name or a full URL (e.g. <span class="mono">https://github.com/you/YonderGate.git</span>) — useful for testing your own build on the gateway.</p>
+        <p class="msg">Does what an SSH session would: <span class="mono">git pull --ff-only</span>, installs changed dependencies, rebuilds the control app when it changed, then restarts the gateway service — so you can update from a site with nothing but this page. The gateway needs <b>internet</b> for it. If a step fails, it stops there and keeps running the version you have.</p>
+        <div class="msg" id="upd-msg"></div>
+        <div class="log" id="upd-log" style="display:none"></div>
+      </section>
+
+      <section class="panel" data-tab="overview">
+        <div class="eyebrow">System</div>
+        <div class="btns">
+          <button class="btn bad" onclick="run(this, () => reboot())">Reboot gateway</button>
+          <button class="btn bad" onclick="run(this, () => shutdown())">Shut down gateway</button>
+          <button class="btn bad" onclick="run(this, () => factoryReset())">Factory reset</button>
+        </div>
+        <p class="msg">
+          <b>Shut down</b> parks the SD card and powers the Pi off — the safe way before you
+          disconnect the battery or store the box for the winter, instead of pulling the
+          supply mid-write. <b>It does not come back on its own.</b> On a remote site that
+          means someone has to travel out and power-cycle it, so only do this if you can
+          reach the box or are about to.
+        </p>
+        <p class="msg">Factory reset clears all saved gateway settings (incl. the API secret) — restart to apply defaults.</p>
+        <div class="msg" id="sys-msg"></div>
+      </section>
+
+      <section class="panel" data-tab="site">
+        <div class="eyebrow">Site network</div>
+        <div class="btns">
+          <button class="btn primary" onclick="run(this, () => scanNet(false))">Scan</button>
+          <button class="btn" onclick="run(this, () => scanNet(true))">Scan + sweep</button>
+        </div>
+        <details class="hint">
+          <summary>Scan is instant; sweep also wakes the quiet ones</summary>
+          <p><b>Scan</b> reads the kernel's neighbour table — it already knows everything that has spoken recently. <b>Scan + sweep</b> also pings every address in the subnet, which finds the devices that have been silent and takes a few seconds. Both are things you ask for: nothing here runs on its own, and each device's <b>Check</b> button asks that one alone.</p>
+        </details>
+        <div id="scan-out"><div class="msg">Not scanned yet.</div></div>
+        <div class="msg" id="scan-msg"></div>
+
+        <div class="eyebrow2" style="margin-top:14px">Reach these networks over Tailscale</div>
+        <div id="routes-out"><div class="msg">…</div></div>
+        <div class="btns"><button class="btn primary" onclick="run(this, () => saveRoutes())">Apply routes</button></div>
+        <details class="hint">
+          <summary>A route has to be approved once in the tailnet admin console</summary>
+          <p>Advertising a network lets any device on your tailnet talk to <b>every device here at its real address</b> — no per-device setup, and the gateway turns on IP forwarding for it. But the route has to be approved once (Machines → this gateway → Edit route settings), and until then it exists and carries nothing.</p>
+        </details>
+        <div class="msg" id="routes-msg"></div>
+      </section>
+
+      <section class="panel" data-tab="sensors">
+        <div class="eyebrow">Sensors</div>
+        <div id="sensor-now"><div class="msg">…</div></div>
+        <div class="btns" style="margin-top:8px">
+          <button class="btn tiny" onclick="run(this, () => loadHistory('hour'))">Hour</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('day'))">Day</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('week'))">Week</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('month'))">Month</button>
+          <button class="btn tiny" onclick="run(this, () => loadHistory('year'))">Year</button>
+        </div>
+        <div id="sensor-history"><div class="msg">Recording starts with the gateway — a fresh box has nothing to show yet.</div></div>
+        <label class="chk" style="margin-top:10px"><input type="checkbox" id="historyEnabled" onchange="run(this, () => saveHistorySettings())" /> <b>Record history</b> — off by default, because it is the only thing that writes to the card continuously</label>
+        <details class="hint">
+          <summary>One value a minute, kept for 13 months</summary>
+          <p>About 21 MB a year, in <span class="mono">/var/lib/yondergate/history</span>. Longer views are averaged when you ask for them, and the band behind the line is the <b>minimum and maximum</b> inside each step — on a battery the dip under load is the part an average hides.</p>
+        </details>
+
+        <div class="eyebrow2" style="margin-top:14px">Configuration</div>
+        <div class="grid2">
+          <label>Source
+            <select id="telSource">
+              <option value="off">off (no telemetry)</option>
+              <option value="sim">sim (fake values)</option>
+              <option value="real">real sensors</option>
+            </select>
+          </label>
+          <label>Sample rate (Hz)<input id="telHz" type="number" placeholder="10" /></label>
+        </div>
+        <div class="eyebrow2">Voltage channels</div>
+        <div id="volt-list"></div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addVolt())">+ Voltage</button></div>
+        <div class="eyebrow2">Current channels</div>
+        <div id="curr-list"></div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addCurr())">+ Current</button></div>
+        <details class="hint">
+          <summary>What “primary” decides</summary>
+          <p>The channel marked primary is the one the summary line, the charge counting and the alert rules use. With one channel of a kind there is nothing to choose; with several, mark the one that measures the battery — the others stay recorded and graphed.</p>
+        </details>
+        <div class="eyebrow2">Temperature channels</div>
+        <div id="temp-list"></div>
+        <div class="btns"><button class="btn" onclick="run(this, () => addTemp())">+ Temperature</button></div>
+        <details class="hint">
+          <summary>Optional — and worth having on a box in a shed</summary>
+          <p>Temperatures are recorded and graphed like the other readings. Give short labels (<code>Battery</code>, <code>Cabinet</code>, <code>Outside</code>) — they are only shown once a kind has more than one channel.</p>
+        </details>
+        <div class="grid2">
+          <label>Battery capacity (mAh)<input id="capacity" type="number" placeholder="e.g. 2200" /></label>
+          <label>Capacity display
+            <select id="displayMode">
+              <option value="remaining">x/x mAh remaining</option>
+              <option value="consumed">x/x mAh consumed</option>
+            </select>
+          </label>
+        </div>
+        <label class="chk"><input type="checkbox" id="countCapacity" /> Count consumed capacity (coulomb counting)</label>
+        <label>Charge counter
+          <select id="chargeSource">
+            <option value="auto">auto — the sensor's own counter when it has one (INA228)</option>
+            <option value="sensor">sensor — INA228 CHARGE/ENERGY registers</option>
+            <option value="pi">pi — integrate the sampled current here</option>
+          </select>
+        </label>
+        <details class="hint">
+          <summary>Only the INA228 counts charge in hardware</summary>
+          <p>It integrates charge and energy at ADC rate, so the mAh do not depend on the polling rate or on samples this loop missed — which matters on a box that is meant to run for months. Every other sensor (incl. INA237/238) is integrated on the Pi, and "sensor" then falls back to "pi".</p>
+        </details>
+        <div class="grid2">
+          <label>Full pack voltage (V, optional)<input id="voltageFullV" type="number" step="0.1" placeholder="e.g. 16.8" /></label>
+          <label>Empty pack voltage (V, optional)<input id="voltageEmptyV" type="number" step="0.1" placeholder="e.g. 13.2" /></label>
+        </div>
+        <label>Battery % source (mAh is always shown)
+          <select id="percentSource">
+            <option value="clamp">clamp — lower of coulomb &amp; voltage (safe)</option>
+            <option value="coulomb">coulomb — consumed mAh vs capacity</option>
+            <option value="voltage">voltage — from the full/empty curve</option>
+          </select>
+        </label>
+        <details class="hint">
+          <summary>This only changes the percentage, never the mAh</summary>
+          <p>"voltage" and "clamp" need the full &amp; empty voltage above. On a battery that is charged and discharged every day, "voltage" is usually the honest one: coulomb counting drifts unless something tells it when the pack is full.</p>
+        </details>
+        <div class="btns">
+          <button class="btn primary" onclick="run(this, () => saveTelemetry())">Save</button>
+          <button class="btn" onclick="run(this, () => resetCapacity())">Reset mAh</button>
+        </div>
+        <div class="msg" id="tel-msg"></div>
+      </section>
+
+      <section class="panel" data-tab="sensors">
+        <div class="eyebrow">Sensor hardware</div>
+        <div class="eyebrow2">Native sensor module</div>
+        <div id="hwdeps"><div class="msg">Reading module status…</div></div>
+        <details class="hint">
+          <summary>Installed from here — the gateway needs internet, and it takes a minute</summary>
+          <p><span class="mono">i2c-bus</span> is compiled on the Pi, so it needs an uplink (WiFi or LTE — its own hotspot has none). Without it the I²C sensors fall back to <b>sim</b> values, which is the state a fresh box is in.</p>
+        </details>
+        <div class="msg" id="hw-msg"></div>
+        <div class="log" id="hw-out" style="display:none"></div>
+
+        <div class="btns">
+          <button class="btn" onclick="run(this, () => detectHw())">Detect hardware</button>
+        </div>
+        <div id="detect-out"></div>
+      </section>
+
+      <section class="panel" data-tab="camera">
+        <div class="eyebrow">Cameras</div>
         <div class="item">
           <div class="eyebrow">CSI camera module</div>
-          <p class="msg">
-            Which sensor sits on the Pi's camera port. Only the official Raspberry Pi cameras are
-            found automatically; an Arducam needs an explicit device-tree overlay, which lives in
-            the firmware config and is therefore only read at boot. Picking one here writes that
-            for you — no SSH — and tells you when a reboot is due.
-          </p>
+          <details class="hint">
+            <summary>Only official Pi cameras are found automatically</summary>
+            <p>An Arducam needs an explicit device-tree overlay, which lives in the firmware config and is therefore only read at boot. Picking one here writes that for you — no SSH — and tells you when a reboot is due.</p>
+          </details>
           <div class="grid2">
             <label>Module<select id="csi-module" onchange="onCsiModuleChange()"></select></label>
             <label id="csi-custom-wrap" style="display:none">Overlay name<input id="csi-overlay" placeholder="e.g. imx296" /></label>
@@ -145,102 +420,9 @@
         <div class="eyebrow2" style="margin-top:12px">Live view</div>
         <div id="cam-preview"><div class="msg">Save a camera, then Refresh preview.</div></div>
         <p class="msg">Streams are served by <b>go2rtc</b> on the video base URL above (default port 1984), not by this page — the gateway only writes its configuration. A still image means the camera works; <b>Open stream ↗</b> gives you the live player. Locally: <span class="mono">npm run dev:video</span>.</p>
-        </details>
       </section>
 
-      <section class="panel">
-        <details id="sensor-details">
-        <summary class="eyebrow" style="cursor:pointer;list-style:revert">Sensors</summary>
-        <div id="sensor-now"><div class="msg">…</div></div>
-        <div class="btns" style="margin-top:8px">
-          <button class="btn tiny" onclick="run(this, () => loadHistory('hour'))">Hour</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('day'))">Day</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('week'))">Week</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('month'))">Month</button>
-          <button class="btn tiny" onclick="run(this, () => loadHistory('year'))">Year</button>
-        </div>
-        <div id="sensor-history"><div class="msg">Recording starts with the gateway — a fresh box has nothing to show yet.</div></div>
-        <label class="chk" style="margin-top:10px"><input type="checkbox" id="historyEnabled" onchange="run(this, () => saveHistorySettings())" /> <b>Record history</b> — off by default, because it is the only thing that writes to the card continuously</label>
-        <p class="msg">One averaged value per minute is recorded, kept for 13 months (about 21 MB a year) in <span class="mono">/var/lib/yondergate/history</span>. Longer views are averaged when you ask for them, and the band behind the line is the <b>minimum and maximum</b> inside each step — on a battery the dip under load is the part an average hides.</p>
-
-        <div class="eyebrow2" style="margin-top:14px">Configuration</div>
-        <div class="grid2">
-          <label>Source
-            <select id="telSource">
-              <option value="off">off (no telemetry)</option>
-              <option value="sim">sim (fake values)</option>
-              <option value="real">real sensors</option>
-            </select>
-          </label>
-          <label>Sample rate (Hz)<input id="telHz" type="number" placeholder="10" /></label>
-        </div>
-        <div class="eyebrow2">Voltage channels</div>
-        <div id="volt-list"></div>
-        <div class="btns"><button class="btn" onclick="run(this, () => addVolt())">+ Voltage</button></div>
-        <div class="eyebrow2">Current channels</div>
-        <div id="curr-list"></div>
-        <div class="btns"><button class="btn" onclick="run(this, () => addCurr())">+ Current</button></div>
-        <p class="msg">The channel marked <b>primary</b> drives the battery %, the mAh/Wh counting, the low-battery warning and the blackbox columns. With one channel of a kind there is nothing to choose; with several, mark the one that measures the pack.</p>
-        <div class="eyebrow2">Temperature channels</div>
-        <div id="temp-list"></div>
-        <div class="btns"><button class="btn" onclick="run(this, () => addTemp())">+ Temperature</button></div>
-        <p class="msg">Optional. Shown in the status page below voltage/current; each value can be hidden per ground device under video › ⚙ › <i>Sensor values</i>. Give short labels (<code>T1</code>, <code>Motor</code>, <code>ESC</code>) — they are only shown once a kind has more than one channel.</p>
-        <div class="grid2">
-          <label>Battery capacity (mAh)<input id="capacity" type="number" placeholder="e.g. 2200" /></label>
-          <label>Capacity display
-            <select id="displayMode">
-              <option value="remaining">x/x mAh remaining</option>
-              <option value="consumed">x/x mAh consumed</option>
-            </select>
-          </label>
-        </div>
-        <label class="chk"><input type="checkbox" id="countCapacity" /> Count consumed capacity (coulomb counting)</label>
-        <label>Charge counter
-          <select id="chargeSource">
-            <option value="auto">auto — the sensor's own counter when it has one (INA228)</option>
-            <option value="sensor">sensor — INA228 CHARGE/ENERGY registers</option>
-            <option value="pi">pi — integrate the sampled current here</option>
-          </select>
-        </label>
-        <p class="msg">The <b>INA228</b> integrates charge and energy in hardware at ADC rate, so the mAh no longer depend on the polling rate or on samples this loop missed. Every other sensor (incl. INA237/238) is integrated on the Pi — "sensor" then falls back to "pi".</p>
-        <div class="grid2">
-          <label>Full pack voltage (V, optional)<input id="voltageFullV" type="number" step="0.1" placeholder="e.g. 16.8" /></label>
-          <label>Empty pack voltage (V, optional)<input id="voltageEmptyV" type="number" step="0.1" placeholder="e.g. 13.2" /></label>
-        </div>
-        <label>Battery % source (drives the top-right % display; mAh is always shown)
-          <select id="percentSource">
-            <option value="clamp">clamp — lower of coulomb &amp; voltage (safe)</option>
-            <option value="coulomb">coulomb — consumed mAh vs capacity</option>
-            <option value="voltage">voltage — from the full/empty curve</option>
-          </select>
-        </label>
-        <p class="msg">"voltage"/"clamp" need the full &amp; empty voltage above. mAh (consumed/remaining) is unaffected — this only changes what the % gauge uses.</p>
-        <div class="btns">
-          <button class="btn primary" onclick="run(this, () => saveTelemetry())">Save</button>
-          <button class="btn" onclick="run(this, () => resetCapacity())">Reset mAh</button>
-        </div>
-        <div class="msg" id="tel-msg"></div>
-        </details>
-      </section>
-
-      <section class="panel">
-        <div class="eyebrow">Site network</div>
-        <div class="btns">
-          <button class="btn primary" onclick="run(this, () => scanNet(false))">Scan</button>
-          <button class="btn" onclick="run(this, () => scanNet(true))">Scan + sweep</button>
-        </div>
-        <p class="msg"><b>Scan</b> reads the kernel's neighbour table — instant, and it already knows everything that has spoken recently. <b>Scan + sweep</b> also pings every address in the subnet, which finds the quiet ones and takes a few seconds.</p>
-        <div id="scan-out"><div class="msg">Not scanned yet.</div></div>
-        <div class="msg" id="scan-msg"></div>
-
-        <div class="eyebrow2" style="margin-top:14px">Reach these networks over Tailscale</div>
-        <div id="routes-out"><div class="msg">…</div></div>
-        <div class="btns"><button class="btn primary" onclick="run(this, () => saveRoutes())">Apply routes</button></div>
-        <p class="msg">Advertising a network lets any device on your tailnet talk to <b>every device here at its real address</b> — no per-device setup. The gateway turns on IP forwarding for it. One catch worth knowing before you rely on it: a route has to be <b>approved once in the tailnet admin console</b> (Machines → this gateway → Edit route settings), and until then it exists but carries nothing.</p>
-        <div class="msg" id="routes-msg"></div>
-      </section>
-
-      <section class="panel">
+      <section class="panel" data-tab="network">
         <div class="eyebrow">LTE</div>
         <div class="msg" id="lte-hilink-note" style="display:none;color:var(--idle)"></div>
         <div class="btns" id="lte-toggle" style="display:none;margin-bottom:10px">
@@ -286,7 +468,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-tab="network">
         <div class="eyebrow">LTE stick (HiLink)</div>
         <p class="msg">Huawei sticks like the <b>E3372h-320</b> are their own little router: they dial by themselves and never appear in ModemManager, so the LTE panel above stays empty for them. This reads the stick's own API instead. The interface is found through the <b>routing table</b>, so a LAN on another <span class="mono">eth</span> can't be mistaken for it.</p>
         <div id="hilink-status"><div class="msg">Reading…</div></div>
@@ -303,7 +485,7 @@
         <div class="msg" id="hilink-msg"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" data-tab="network">
         <div class="eyebrow">WiFi</div>
         <div id="wifi-status" class="msg">…</div>
 
@@ -364,7 +546,33 @@
         <div class="msg" id="ap-msg"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="sec-panel" data-tab="network">
+        <div class="eyebrow">Security (optional)</div>
+        <p class="msg">One shared secret for this gateway. With it set, <b>changing anything</b> — here, and through the device proxy — needs it; this page prompts you once and remembers it for the tab. Reading stays open, so the page always loads and you can never lock yourself out of it. <b>Off by default</b>, because first-time setup should need nothing.</p>
+        <p class="msg">Worth setting when the site's network isn't only yours: an <b>open hotspot</b>, a marina or campsite WiFi, a shared LAN. Not needed when the box is reachable only over Tailscale or your own network — a page from the internet is refused either way (see below).</p>
+        <div id="sec-unlock" style="display:none">
+          <div class="eyebrow2">Enter the secret</div>
+          <p class="msg">This browser tab has to know it before it can change anything. Reading needs nothing, so the page you are looking at loaded fine either way.</p>
+          <label>Secret<input id="secretIn" type="password" placeholder="the secret you set" autocomplete="current-password" /></label>
+          <div class="btns">
+            <button class="btn primary" onclick="run(this, () => unlockSecret())">Unlock this tab</button>
+          </div>
+          <div class="msg" id="sec-unlock-msg"></div>
+          <div class="sep"></div>
+        </div>
+        <div class="eyebrow2" id="sec-set-head">Set a secret</div>
+        <label>API secret<input id="apiSecret" type="password" placeholder="leave empty = off" autocomplete="new-password" /></label>
+        <div class="btns">
+          <button class="btn" onclick="run(this, () => generateSecret())">Generate</button>
+          <button class="btn primary" onclick="run(this, () => applySecret())">Apply secret</button>
+          <button class="btn" onclick="run(this, () => clearSecret())">Disable</button>
+        </div>
+        <p class="msg" id="sec-gen"></p>
+        <div class="msg" id="sec-msg"></div>
+        <p class="msg"><b>What protects you without a secret:</b> the gateway refuses any request a page somewhere else caused. A website you happen to open — while your phone is on this hotspot — cannot reboot the box or switch a relay through the device proxy, even though it can reach the address. Accepted are requests with no browser behind them (curl, scripts) and pages served from this network, from Tailscale, or by the gateway itself. That is not a substitute for a secret on a network full of strangers: anyone who can <i>open this page</i> can still change things.</p>
+      </section>
+
+      <section class="panel" data-tab="remote">
         <div class="eyebrow">Remote access (reach the gateway over LTE / behind CGNAT)</div>
         <label>Method
           <select id="remoteKind" onchange="renderRemote()">
@@ -448,52 +656,7 @@
         <div class="msg" id="up-state"></div>
       </section>
 
-      <section class="panel">
-        <div class="eyebrow">Gateway</div>
-        <label>Site name<input id="siteName" placeholder="Holiday plot" /></label>
-        <label>Video base URL<input id="videoBaseUrl" placeholder="http://gateway:1984" /></label>
-
-        <div class="eyebrow2" style="margin-top:12px">Native sensor module</div>
-        <div id="hwdeps"><div class="msg">Reading module status…</div></div>
-        <p class="msg">Installed here, not in a terminal. <span class="mono">i2c-bus</span> is compiled on the Pi, so the gateway needs <b>internet</b> for it (WiFi or LTE — its own hotspot has no uplink), and it takes a minute. Without it the I²C sensors fall back to <b>sim</b> values.</p>
-        <div class="msg" id="hw-msg"></div>
-        <div class="log" id="hw-out" style="display:none"></div>
-
-        <div class="btns">
-          <button class="btn primary" onclick="run(this, () => saveConfig())">Save</button>
-          <button class="btn" onclick="run(this, () => detectHw())">Detect hardware</button>
-        </div>
-        <div class="msg" id="cfg-msg"></div>
-        <div id="detect-out"></div>
-      </section>
-
-      <section class="panel" id="sec-panel">
-        <div class="eyebrow">Security (optional)</div>
-        <p class="msg">One shared secret for this gateway. With it set, <b>changing anything</b> — here, and through the device proxy — needs it; this page prompts you once and remembers it for the tab. Reading stays open, so the page always loads and you can never lock yourself out of it. <b>Off by default</b>, because first-time setup should need nothing.</p>
-        <p class="msg">Worth setting when the site's network isn't only yours: an <b>open hotspot</b>, a marina or campsite WiFi, a shared LAN. Not needed when the box is reachable only over Tailscale or your own network — a page from the internet is refused either way (see below).</p>
-        <div id="sec-unlock" style="display:none">
-          <div class="eyebrow2">Enter the secret</div>
-          <p class="msg">This browser tab has to know it before it can change anything. Reading needs nothing, so the page you are looking at loaded fine either way.</p>
-          <label>Secret<input id="secretIn" type="password" placeholder="the secret you set" autocomplete="current-password" /></label>
-          <div class="btns">
-            <button class="btn primary" onclick="run(this, () => unlockSecret())">Unlock this tab</button>
-          </div>
-          <div class="msg" id="sec-unlock-msg"></div>
-          <div class="sep"></div>
-        </div>
-        <div class="eyebrow2" id="sec-set-head">Set a secret</div>
-        <label>API secret<input id="apiSecret" type="password" placeholder="leave empty = off" autocomplete="new-password" /></label>
-        <div class="btns">
-          <button class="btn" onclick="run(this, () => generateSecret())">Generate</button>
-          <button class="btn primary" onclick="run(this, () => applySecret())">Apply secret</button>
-          <button class="btn" onclick="run(this, () => clearSecret())">Disable</button>
-        </div>
-        <p class="msg" id="sec-gen"></p>
-        <div class="msg" id="sec-msg"></div>
-        <p class="msg"><b>What protects you without a secret:</b> the gateway refuses any request a page somewhere else caused. A website you happen to open — while your phone is on this hotspot — cannot reboot the box or switch a relay through the device proxy, even though it can reach the address. Accepted are requests with no browser behind them (curl, scripts) and pages served from this network, from Tailscale, or by the gateway itself. That is not a substitute for a secret on a network full of strangers: anyone who can <i>open this page</i> can still change things.</p>
-      </section>
-
-      <section class="panel">
+      <section class="panel" data-tab="health">
         <div class="eyebrow">Site health &amp; alerts</div>
         <div id="health-out"><div class="msg">…</div></div>
 
@@ -644,41 +807,26 @@
 
       </section>
 
-      <section class="panel">
-        <div class="eyebrow">Software update</div>
-        <div id="upd-status"><div class="msg">Press <b>Check for updates</b> — that only looks, it changes nothing.</div></div>
-        <div class="btns">
-          <button class="btn" onclick="run(this, () => checkUpdate())">Check for updates</button>
-          <button class="btn primary" id="upd-apply" style="display:none" onclick="run(this, () => applyUpdate())">Update &amp; restart</button>
-        </div>
-        <div class="eyebrow2" style="margin-top:12px">Update source</div>
-        <div class="grid2">
-          <label>Remote or URL<input id="updSource" placeholder="origin" /></label>
-          <label>Branch<input id="updBranch" placeholder="main" /></label>
-        </div>
-        <div class="btns"><button class="btn" onclick="run(this, () => saveUpdateSource())">Save source</button></div>
-        <p class="msg">Defaults to this gateway's own <span class="mono">origin</span> / <span class="mono">main</span>. Point it at a fork or a branch by entering a git remote name or a full URL (e.g. <span class="mono">https://github.com/you/YonderGate.git</span>) — useful for testing your own build on the gateway.</p>
-        <p class="msg">Does what an SSH session would: <span class="mono">git pull --ff-only</span>, installs changed dependencies, rebuilds the control app when it changed, then restarts the gateway service — so you can update from a site with nothing but this page. The gateway needs <b>internet</b> for it. If a step fails, it stops there and keeps running the version you have.</p>
-        <div class="msg" id="upd-msg"></div>
-        <div class="log" id="upd-log" style="display:none"></div>
-      </section>
-
-      <section class="panel">
-        <div class="eyebrow">System</div>
-        <div class="btns">
-          <button class="btn bad" onclick="run(this, () => reboot())">Reboot gateway</button>
-          <button class="btn bad" onclick="run(this, () => shutdown())">Shut down gateway</button>
-          <button class="btn bad" onclick="run(this, () => factoryReset())">Factory reset</button>
-        </div>
-        <p class="msg">
-          <b>Shut down</b> parks the SD card and powers the Pi off — the safe way before you
-          disconnect the battery or store the box for the winter, instead of pulling the
-          supply mid-write. <b>It does not come back on its own.</b> On a remote site that
-          means someone has to travel out and power-cycle it, so only do this if you can
-          reach the box or are about to.
-        </p>
-        <p class="msg">Factory reset clears all saved gateway settings (incl. the API secret) — restart to apply defaults.</p>
-        <div class="msg" id="sys-msg"></div>
+      <section class="panel" data-tab="design">
+        <div class="eyebrow">Design</div>
+        <button class="theme-card" data-theme-pick="light" aria-pressed="true" onclick="pickTheme('light')">
+          <span>Light</span>
+          <span class="theme-swatch" style="background:#eef2f6">
+            <i style="background:#ffffff"></i><i style="background:#0b7a70"></i><i style="background:#16202a"></i><i style="background:#8a5a00"></i>
+          </span>
+        </button>
+        <div style="height:10px"></div>
+        <button class="theme-card" data-theme-pick="dark" aria-pressed="false" onclick="pickTheme('dark')">
+          <span>Dark</span>
+          <span class="theme-swatch" style="background:#0b0f14">
+            <i style="background:#121821"></i><i style="background:#35d0c3"></i><i style="background:#c7d1dc"></i><i style="background:#f2b74a"></i>
+          </span>
+        </button>
+        <details class="hint">
+          <summary>The gateway remembers it, not the browser</summary>
+          <p><b>Light is the default</b> — this page is usually opened outdoors, on a phone, at the site. Dark is easier at night and on a screen next to a camera feed. The choice is stored on the gateway, so every phone that opens this page gets the same one; each browser also keeps a copy of the last answer so a cold start does not flash the other palette on its way.</p>
+        </details>
+        <div class="msg" id="theme-msg"></div>
       </section>
 
       <div class="foot">YonderGate setup · configure headless, then connect from the setup page</div>
@@ -696,6 +844,52 @@
        * NetworkManager ends up in a half-built state. The button is disabled and
        * labelled for the whole call, and restored even if the handler throws.
        */
+      // ---- tabs ----
+      /**
+       * One group of panels at a time. The hash makes a tab linkable and survives the
+       * reload after a restart, so "open the sensors page" is a URL and not a click
+       * path. Unknown or empty hash → Overview.
+       */
+      const TABS = ['overview', 'site', 'sensors', 'camera', 'network', 'remote', 'health', 'design'];
+      function showTab(id, opts) {
+        const tab = TABS.includes(id) ? id : 'overview';
+        document.querySelectorAll('.panel[data-tab]').forEach((p) => { p.hidden = p.dataset.tab !== tab; });
+        document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.for === tab)));
+        // replaceState, not location.hash: setting the hash scrolls the page to whatever
+        // matches it, and there is nothing to scroll to here.
+        history.replaceState(null, '', '#' + tab);
+        document.querySelector(`.tab[data-for="${tab}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        if (!(opts && opts.keepScroll)) window.scrollTo(0, 0);
+      }
+      window.addEventListener('hashchange', () => showTab(location.hash.slice(1), { keepScroll: true }));
+
+      // ---- design ----
+      /**
+       * Two palettes, no third "follow the system" option: the gateway decides, so every
+       * phone that opens this page sees the same one. Applied immediately, remembered
+       * locally so the next load does not flash the other one.
+       */
+      let theme = 'light';
+      function applyTheme(t) {
+        theme = t === 'dark' ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
+        try { localStorage.setItem('yondergate.theme.v1', theme); } catch {}
+        document.querySelectorAll('[data-theme-pick]').forEach((b) => {
+          b.setAttribute('aria-pressed', String(b.dataset.themePick === theme));
+        });
+      }
+      async function pickTheme(t) {
+        const before = theme;
+        applyTheme(t); // show the answer while the gateway is still being told
+        const r = await post('/api/config', { theme: t });
+        if (r && r.ok === false) {
+          applyTheme(before);
+          $('theme-msg').textContent = r.message || 'Not saved — the gateway refused it.';
+          return;
+        }
+        $('theme-msg').textContent = 'Saved on the gateway.';
+      }
+
       async function run(btn, fn) {
         if (!btn || btn.disabled) return;
         const label = btn.textContent;
@@ -828,6 +1022,7 @@
         const c = await getJSON('/api/config');
         $('siteName').value = c.siteName || '';
         $('videoBaseUrl').value = c.videoBaseUrl || '';
+        applyTheme(c.theme || 'light');
         updateSecState(!!c.authRequired);
       }
       // ---- native sensor module (i2c-bus) ----
@@ -888,11 +1083,52 @@
         setTimeout(() => { loadHwDeps(); refresh(); }, 6000);
       }
 
+      /**
+       * Fill the sensor forms from what the chips actually said. Only ever from a
+       * confirmed identification — a guess from the address is exactly what this is
+       * meant to replace. Nothing is saved; the operator still presses Save.
+       */
+      let lastDetect = null;
+      function applyDetected() {
+        const list = (lastDetect && lastDetect.i2c) || [];
+        const inas = list.filter((x) => x.confirmed && x.kind && x.kind.indexOf('ina') === 0);
+        const temps2 = list.filter((x) => x.confirmed && ['mcp9808', 'tmp117', 'bmp280', 'bme280'].includes(x.kind));
+        const done = [];
+        if (inas.length === 1) {
+          const ina = inas[0];
+          const fill = (ch) => {
+            if (ch.kind !== 'sim' && !C_I2C.includes(ch.kind)) return false;
+            ch.kind = ina.kind;
+            ch.address = hexAddr(ina.address);
+            applyKindDefaults(ch);
+            return true;
+          };
+          let n = 0;
+          for (const ch of [...volts, ...currs]) if (fill(ch)) n++;
+          if (n) { renderVolts(); renderCurrs(); done.push(`${n} sensor channel(s) → ${ina.device} @ ${ina.address}`); }
+        } else if (inas.length > 1) {
+          done.push('more than one INA found — set those addresses by hand');
+        }
+        if (temps2.length === 1 && temps.length) {
+          const t = temps2[0];
+          const ch = temps.find((x) => x.kind === 'sim' || T_I2C.includes(x.kind));
+          if (ch) {
+            ch.kind = t.kind;
+            ch.address = hexAddr(t.address);
+            renderTemps();
+            done.push(`temperature → ${t.device} @ ${t.address}`);
+          }
+        }
+        $('detect-msg').textContent = done.length
+          ? `Filled in: ${done.join(' · ')}. Nothing is saved yet — press Save under Sensors.`
+          : 'Nothing to fill in — no chip was identified by its ID register.';
+      }
       async function detectHw() {
         $('detect-out').innerHTML = '<div class="msg">Probing hardware…</div>';
         try {
           const d = await getJSON('/api/detect');
-          const i2c = (d.i2c || []).map((x) => `<div class="row"><span class="k">${x.address}</span><span class="v">${x.hint}</span></div>`).join('') || '<div class="msg">no I²C devices</div>';
+          lastDetect = d;
+          const i2c = (d.i2c || []).map((x) => `<div class="row"><span class="k">${x.address}</span><span class="v">${x.confirmed ? '✓ ' : ''}${x.hint}</span></div>`).join('') || '<div class="msg">no I²C devices</div>';
           const cams = (d.cameras || []).length ? (d.cameras).map((c) => `<div class="row"><span class="k">camera</span><span class="v">${c}</span></div>`).join('') : '';
           const serial = (d.serial || []).map((s) => `<div class="row"><span class="k">serial (GPS?)</span><span class="v">${s}</span></div>`).join('');
           const modem = `<div class="row"><span class="k">LTE modem</span><span class="v ${d.modemPresent ? 'go' : 'warn'}">${d.modemPresent ? 'present' : 'not found'}</span></div>`;
@@ -900,9 +1136,15 @@
           // A detected I²C device is useless while the module that talks to it is
           // missing — say so here, where the operator is actually looking.
           const needI2c = (d.i2c || []).length && !hwDepInstalled('i2c-bus')
-            ? '<div class="msg" style="color:var(--idle)">⚠ <b class="mono">i2c-bus</b> is not installed — the <b>pca9685</b> driver and the INA/ADS sensors would fall back to <b>sim</b>. Install it under “Native driver modules” above.</div>'
+            ? '<div class="msg" style="color:var(--idle)">⚠ <b class="mono">i2c-bus</b> is not installed — the INA/ADS sensors would fall back to <b>sim</b>. Install it under “Native sensor module”.</div>'
             : '';
-          $('detect-out').innerHTML = `<div class="eyebrow2" style="margin-top:8px">Detected</div>${i2c}${cams}${serial}${modem}${notes}${needI2c}<div class="msg">Suggestions only — set the driver/sensors above accordingly, then Save.</div>`;
+          // ✓ = read back from the chip's own ID register; the rest is a guess from the
+          // address, which cannot tell an INA2xx from an ADS1x15 in the 0x48 range.
+          const canApply = (d.i2c || []).some((x) => x.confirmed && x.kind);
+          const applyBtn = canApply
+            ? '<div class="btns"><button class="btn tiny" onclick="applyDetected()">Use these addresses</button></div>'
+            : '';
+          $('detect-out').innerHTML = `<div class="eyebrow2" style="margin-top:8px">Detected</div>${i2c}${cams}${serial}${modem}${notes}${needI2c}${applyBtn}<div class="msg" id="detect-msg">✓ = identified from the chip's ID register. Unmarked rows are guesses from the address alone — set the sensors accordingly, then Save.</div>`;
         } catch {
           $('detect-out').innerHTML = '<div class="msg">Detection failed.</div>';
         }
@@ -1526,6 +1768,35 @@
         $('scan-msg').textContent = (r.notes || []).join(' ');
       }
 
+      /**
+       * "3 min ago" reads faster than a timestamp when the question is "is it still
+       * there?". The exact time stays in the title attribute for when it matters.
+       */
+      function agoText(iso) {
+        if (!iso) return null;
+        const t = new Date(iso).getTime();
+        if (!Number.isFinite(t)) return null;
+        const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+        if (s < 45) return 'just now';
+        if (s < 5400) return `${Math.round(s / 60)} min ago`;
+        if (s < 172800) return `${Math.round(s / 3600)} h ago`;
+        return `${Math.round(s / 86400)} days ago`;
+      }
+      /**
+       * Ask one device whether it is there. On demand only — the list is otherwise as
+       * fresh as the last scan, and this box is on a data budget; nothing here polls.
+       */
+      async function checkDevice(i) {
+        const d = (scanned.devices || [])[i];
+        if (!d) return;
+        const r = await post('/api/devices/check', { ip: d.ip, mac: d.mac, port: d.port || 80 });
+        if (r && r.ok === false) { $('scan-msg').textContent = r.message || 'Check failed.'; return; }
+        d.seen = !!r.seen;
+        if (r.lastSeen) d.lastSeen = r.lastSeen;
+        if (r.seen) d.known = d.known || !!d.label;
+        renderScan();
+        $('scan-msg').textContent = `${d.label || d.ip}: ${r.message}`;
+      }
       function renderScan() {
         if (!scanned) return;
         const rows = (scanned.devices || []).map((d, i) => {
@@ -1535,6 +1806,7 @@
           const direct = d.seen ? deviceUrl(d) : null;
           const publishable = !d.self && (direct || d.known);
           const buttons = [
+            d.self ? '' : `<button class="btn tiny" onclick="run(this, () => checkDevice(${i}))" title="Ask this one device whether it answers, now">Check</button>`,
             direct ? `<a class="btn tiny" href="${esc(direct)}" target="_blank" rel="noopener">Open ↗</a>` : '',
             !publishable ? '' :
               via
@@ -1549,7 +1821,15 @@
             : !d.seen
               ? `<span class="v bad">not answering</span>`
               : d.known ? '<span class="v go">saved</span>' : '';
-          const seenAt = !d.seen && d.lastSeen ? `<br><span style="color:var(--idle)">last seen ${esc(new Date(d.lastSeen).toLocaleString())}</span>` : '';
+          // Every device that has ever answered says when — not just the saved ones
+          // that are currently silent. That is the field you look for first when you
+          // are not on site.
+          const ago = agoText(d.lastSeen);
+          const seenAt = d.self ? '' : d.seen
+            ? `<br><span style="color:var(--go)" title="${esc(d.lastSeen || '')}">seen ${esc(ago || 'in this scan')}</span>`
+            : ago
+              ? `<br><span style="color:var(--idle)" title="${esc(d.lastSeen)}">last seen ${esc(ago)}</span>`
+              : '<br><span style="color:var(--muted)">never answered</span>';
           const namer = d.self ? '' : `
             <div class="grid3" style="margin-top:6px">
               <input id="dev-name-${i}" placeholder="name it (e.g. shed camera)" value="${esc(d.label || '')}" />
@@ -2072,6 +2352,42 @@
       const C_KINDS = ['sim', 'ina219', 'ina226', 'ina260', 'ina3221', 'ina228', 'ina237', 'ina238', 'acs712', 'acs758'];
       // These three need a calibration write, so they get the extra fields below.
       const CAL_KINDS = ['ina228', 'ina237', 'ina238'];
+      // Kinds that sit on I²C and therefore have an address the operator may have to
+      // change: every INA2xx leaves the factory on 0x40, so two of them on one bus
+      // means one has to move — and on a box an hour away, that is a field on a page,
+      // not a soldering iron and a drive.
+      const C_I2C = ['ina219', 'ina226', 'ina260', 'ina3221', 'ina228', 'ina237', 'ina238'];
+      const V_I2C = [...C_I2C, 'ads1115', 'ads1015'];
+      const addrPlaceholder = (k) => (k === 'ads1115' || k === 'ads1015' ? '0x48' : '0x40');
+      /** "0x41" and a bare "41" both mean 0x41; empty → undefined (keep the default). */
+      function hexAddr(val) {
+        const raw = String(val ?? '').trim();
+        if (!raw) return undefined;
+        const n = /^0x/i.test(raw) ? Number(raw) : parseInt(raw, 16);
+        return Number.isFinite(n) ? n : undefined;
+      }
+      const hexStr = (n) => (n == null ? '' : '0x' + Number(n).toString(16));
+      const addrField = (kind, addr, fn) =>
+        `<label>I²C address (hex)<input value="${hexStr(addr)}" placeholder="${addrPlaceholder(kind)} (default)" oninput="${fn}(this.value)" /></label>`;
+      /**
+       * What a freshly picked sensor should start with — real values, not empty fields.
+       * Only ever fills what is still unset, so it can never overwrite something the
+       * operator typed. The shunts are what the common breakouts actually carry: 2 mΩ on
+       * the 85 V parts (marked R002 on the board), 0.1 Ω on the small INA219/3221 modules.
+       */
+      const KIND_DEFAULTS = {
+        ina228: { shuntOhms: 0.002, maxCurrentA: 20 },
+        ina237: { shuntOhms: 0.002, maxCurrentA: 20 },
+        ina238: { shuntOhms: 0.002, maxCurrentA: 20 },
+        ina226: { shuntOhms: 0.002 },
+        ina219: { shuntOhms: 0.1 },
+        ina3221: { shuntOhms: 0.1 },
+      };
+      function applyKindDefaults(ch) {
+        const d = KIND_DEFAULTS[ch.kind];
+        if (!d) return;
+        for (const [k, v] of Object.entries(d)) if (ch[k] == null || ch[k] === '') ch[k] = v;
+      }
       // Low range picked but the shunt voltage doesn't fit in it → the current clips.
       const cOverrange = (c) => !!c.lowShuntRange && c.maxCurrentA * c.shuntOhms * 1000 > 40.96;
       const T_KINDS = [
@@ -2102,11 +2418,11 @@
         $('volt-list').innerHTML = volts.map((v, i) => `
           <div class="item"><div class="grid3">
             <label>Label<input value="${v.label || ''}" oninput="vSet(${i},'label',this.value)" /></label>
-            <label>Sensor<select onchange="vSet(${i},'kind',this.value)">
+            <label>Sensor<select onchange="vSet(${i},'kind',this.value); renderVolts()">
               ${V_KINDS.map((k) => `<option value="${k}" ${v.kind === k ? 'selected' : ''}>${k}</option>`).join('')}
             </select></label>
             <label>Channel<input type="number" value="${v.channel ?? 0}" oninput="vSet(${i},'channel',+this.value)" /></label>
-          </div>${primaryRow(volts, i, 'vPrimary')}<div class="btns"><button class="btn tiny" onclick="run(this, () => vDel(${i}))">Remove</button></div></div>`).join('');
+          </div>${V_I2C.includes(v.kind) ? addrField(v.kind, v.address, `vSetAddr(${i}, `) : ''}${primaryRow(volts, i, 'vPrimary')}<div class="btns"><button class="btn tiny" onclick="run(this, () => vDel(${i}))">Remove</button></div></div>`).join('');
       }
       function renderCurrs() {
         $('curr-list').innerHTML = currs.map((c, i) => `
@@ -2115,8 +2431,8 @@
             <label>Sensor<select onchange="cSet(${i},'kind',this.value); renderCurrs()">
               ${C_KINDS.map((k) => `<option value="${k}" ${c.kind === k ? 'selected' : ''}>${k}</option>`).join('')}
             </select></label>
-            <label>Shunt Ω<input type="number" step="0.0001" value="${c.shuntOhms ?? ''}" placeholder="0.001" oninput="cSet(${i},'shuntOhms',+this.value)" /></label>
-          </div>${CAL_KINDS.includes(c.kind) ? `<div class="grid2">
+            <label>Shunt Ω<input type="number" step="0.0001" value="${c.shuntOhms ?? ''}" placeholder="0.002 (R002)" oninput="cSet(${i},'shuntOhms',+this.value)" /></label>
+          </div>${C_I2C.includes(c.kind) ? addrField(c.kind, c.address, `cSetAddr(${i}, `) : ''}${CAL_KINDS.includes(c.kind) ? `<div class="grid2">
             <label>Max current A<input type="number" step="1" value="${c.maxCurrentA ?? ''}" placeholder="50" oninput="cSet(${i},'maxCurrentA',+this.value)" /></label>
             <label>Shunt range<select onchange="cSet(${i},'lowShuntRange',this.value==='low'); renderCurrs()">
               <option value="high" ${c.lowShuntRange ? '' : 'selected'}>±163.84 mV (default)</option>
@@ -2171,9 +2487,11 @@
           <div class="btns"><button class="btn tiny" onclick="run(this, () => tDel(${i}))">Remove</button></div></div>`;
         }).join('');
       }
-      function vSet(i, k, val) { volts[i][k] = val; }
-      function cSet(i, k, val) { currs[i][k] = val; }
+      function vSet(i, k, val) { volts[i][k] = val; if (k === 'kind') applyKindDefaults(volts[i]); }
+      function cSet(i, k, val) { currs[i][k] = val; if (k === 'kind') applyKindDefaults(currs[i]); }
       function tSet(i, k, val) { temps[i][k] = val; }
+      function vSetAddr(i, val) { volts[i].address = hexAddr(val); }
+      function cSetAddr(i, val) { currs[i].address = hexAddr(val); }
       // The site is labelled hex: "0x48" and a bare "48" both mean 0x48.
       function tSetAddr(i, val) {
         const raw = String(val).trim();
@@ -2354,6 +2672,7 @@
       });
 
       wdCost();
+      showTab(location.hash.slice(1), { keepScroll: true });
       loadConfig();
       loadHealth();
       poll(loadHealth, 30000);

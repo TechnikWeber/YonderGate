@@ -15,13 +15,23 @@ WiFi for the devices there, finds those devices, and lets you through to them.
 > what is still missing. Nothing here has run on a real site yet — the hardware paths
 > (nmcli, ping sweeps, Tailscale routing) are only verifiable on the Pi itself.
 
-![YonderGate setup page: system status with LTE, remote access and the open-hotspot warning, and the site network panel with device discovery and Tailscale subnet routes](docs/screenshots/Status_and_Network.png?v=1)
+![YonderGate setup page, Overview tab: the tab strip across the top, then system status — mode, LTE modem and operator, remote access, WiFi and the open-hotspot warning — and the gateway's own name and video base URL](docs/screenshots/Status_and_Network.png?v=2)
+
+*The page is split into tabs — **Overview · Site network · Sensors · Camera · Network ·
+Remote access · Health & alerts · Design**, each one a URL (`…/setup#sensors`). Light is
+the default and dark is one click away under *Design*; the choice is stored on the
+gateway, so every phone that opens the page gets the same one.*
 
 ## What works today
 
 - **Find what is on site**: *Scan* reads the kernel's neighbour table (instant),
   *Scan + sweep* pings the whole subnet for the quiet ones. The list shows address,
-  hostname, vendor, what answered, and a one-line guess at what a device is.
+  hostname, vendor, what answered, and a one-line guess at what a device is. Every device
+  that has ever answered carries a **last seen**, and each row has a **Check** button that
+  asks that one device now. Both happen because you asked: nothing here polls the site's
+  network in the background, which on a metered link and a battery matters.
+
+  ![The site network panel: the device list with address, name, what answered, a last-seen line and a Check button per device, and below it the Tailscale subnet routes](docs/screenshots/SiteNetwork.png?v=1)
 - **Reach those devices two ways**: **Tailscale subnet routes** — advertise the
   site's networks and every device is reachable at its real address from anywhere on
   your tailnet — or **publish a single device** on a port of the gateway, which needs
@@ -67,7 +77,7 @@ WiFi for the devices there, finds those devices, and lets you through to them.
   the timestamps came from a box that booted in 1970. NTP servers are set from the page; a
   DS3231 RTC is detected if you fit one.
 
-  ![Site health readings: uptime, disk, CPU temperature, load, supply, clock speed, clock synchronisation and mobile data used](docs/screenshots/SiteHealth.png?v=1)
+  ![Site health readings: uptime, disk, CPU temperature, load, supply, clock speed, clock synchronisation and mobile data used](docs/screenshots/SiteHealth.png?v=2)
 - **A clean shutdown from the page.** Cutting power to a Pi mid-write is how an SD card in
   a box on a pole becomes a drive out there with a card reader. *Shut down* parks it
   first — with the warning it deserves, because nothing brings it back but someone at the
@@ -309,6 +319,9 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [ ] Verify all of the above **on the real Pi** — sweeps, `tailscale set`, forwarding
 - [x] Remember discovered devices between scans: names, ports, and a saved device that
       stops answering stays in the list with the time it was last seen
+- [x] **Last seen for every device that ever answered**, not just the named ones, plus a
+      per-device **Check** button. Both only ever run because someone asked — nothing on
+      this page polls the site's network in the background
 - [ ] HTTPS devices: the proxy currently talks plain HTTP to the target
 - [ ] mDNS/avahi names in the device list, not just reverse DNS
 
@@ -348,6 +361,14 @@ The living list of what is open. Ticked items are done and covered by tests.
       one more message than it should
 - [ ] Config backup / restore as one file
 - [x] Camera preview on the setup page (still frame + link to go2rtc's player)
+
+**The setup page itself**
+- [x] **I²C chips identified by their ID register**, not guessed from their address — an
+      INA2xx says which one it is, and "Use these addresses" fills the sensor form from
+      what actually answered (ported from YonderRC v1.60.0)
+- [x] Split into **tabs**, with the long explanations folded behind a one-line summary
+- [x] **Light and dark**, chosen on the gateway (Setup › Design) so every phone that opens
+      the page sees the same one; light is the default
 
 **Operations**
 - [ ] Decide the license before this gets contributors (see docs/CONCEPT.md)

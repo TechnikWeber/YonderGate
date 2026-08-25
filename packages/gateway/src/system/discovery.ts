@@ -186,9 +186,13 @@ export function describeDevice(d: Device): string {
 }
 
 /**
- * A device the operator has named or published. Keyed by **MAC where there is one**:
- * addresses come from DHCP and move, while the hardware behind them does not — a
- * camera that comes back on a different address is still the camera you named.
+ * A device the gateway remembers. Keyed by **MAC where there is one**: addresses come
+ * from DHCP and move, while the hardware behind them does not — a camera that comes
+ * back on a different address is still the camera you named.
+ *
+ * An empty `label` means "seen once, never named". Those are remembered too, because
+ * "when did this last answer?" is a question about every device on the site, not only
+ * the ones worth naming — but they are the ones `capSeen` evicts when the list grows.
  */
 export interface KnownDevice {
   id: string;
@@ -231,15 +235,19 @@ export function mergeKnown(found: Device[], known: KnownDevice[], now = new Date
     if (k) byKey.delete(k.id);
     return {
       ...d,
-      label: k?.label ?? null,
+      label: k?.label || null,
       port: k?.port ?? 80,
-      known: !!k,
+      // "Saved" is about the operator having named it, not about us remembering it.
+      known: !!(k && k.label),
       seen: true,
       lastSeen: now,
     };
   });
-  // Whatever is left was saved but did not answer this time.
+  // Whatever is left did not answer this time. A named device belongs in the list —
+  // "the camera I named is silent" is the point of naming it. One we merely remember
+  // does not: an unnamed absence is a phone that left, not news.
   for (const k of byKey.values()) {
+    if (!k.label) continue;
     out.push({
       ip: k.ip,
       mac: k.mac,
@@ -256,6 +264,57 @@ export function mergeKnown(found: Device[], known: KnownDevice[], now = new Date
     });
   }
   return out;
+}
+
+/**
+ * How many merely-seen devices to keep. Named ones are never counted or evicted; this
+ * is only about the phones and laptops that pass through, which would otherwise grow
+ * the config file forever on a site with visitors.
+ */
+export const SEEN_LIMIT = 64;
+
+/**
+ * Fold a scan into the remembered list: known devices get their address and last-seen
+ * moved on, and anything new is remembered with a timestamp and no name. That is what
+ * makes "last seen" answerable for a device nobody bothered to name — and it only ever
+ * happens when someone asks for a scan, never in the background.
+ */
+export function rememberSeen(
+  known: KnownDevice[],
+  found: Device[],
+  now = new Date().toISOString(),
+  limit = SEEN_LIMIT,
+): KnownDevice[] {
+  const byId = new Map(known.map((k) => [k.id, k]));
+  for (const d of found) {
+    if (d.self) continue; // the gateway is not a discovery
+    const id = deviceKey(d);
+    const prev = byId.get(id);
+    byId.set(id, {
+      id,
+      label: prev?.label ?? '',
+      mac: d.mac ?? prev?.mac ?? null,
+      ip: d.ip,
+      port: prev?.port ?? 80,
+      lastSeen: now,
+    });
+  }
+  return capSeen([...byId.values()], limit);
+}
+
+/** Keep every named device, and only the most recently seen `limit` unnamed ones. */
+export function capSeen(devices: KnownDevice[], limit = SEEN_LIMIT): KnownDevice[] {
+  const named = devices.filter((d) => d.label);
+  const seen = devices
+    .filter((d) => !d.label)
+    .sort((a, b) => (b.lastSeen ?? '').localeCompare(a.lastSeen ?? ''))
+    .slice(0, limit);
+  return [...named, ...seen];
+}
+
+/** Mark one device as answering right now — what the per-device "Check" button does. */
+export function markSeen(known: KnownDevice[], id: string, now = new Date().toISOString()): KnownDevice[] {
+  return known.map((k) => (k.id === id ? { ...k, lastSeen: now } : k));
 }
 
 /** Fold a scan back into the saved list: addresses and last-seen move on. */

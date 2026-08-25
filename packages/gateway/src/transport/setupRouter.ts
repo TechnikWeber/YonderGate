@@ -46,7 +46,7 @@ import { isIpv4 } from '../system/hilink.js';
 import { isGitBranch, isGitSource, UPDATE_SOURCE_DEFAULT } from '../system/update.js';
 import { isCidr } from '../system/tailscale.js';
 import { nextListenPort, proxyId, validateProxy, type ProxyCfg } from './deviceProxy.js';
-import { deviceKey, updateKnown, type KnownDevice } from '../system/discovery.js';
+import { deviceKey, rememberSeen, markSeen, type KnownDevice } from '../system/discovery.js';
 import { encodeBody, etagFor, etagMatches } from './metered.js';
 
 const SETUP_HTML = fileURLToPath(new URL('../setup/setup.html', import.meta.url));
@@ -296,6 +296,7 @@ export async function handleSetup(
     const c = ctx.config;
     json(res, 200, {
       siteName: c.siteName,
+      theme: c.theme,
       cameras: c.cameras,
       videoBaseUrl: c.videoBaseUrl,
       apn: c.lte.apn,
@@ -313,6 +314,8 @@ export async function handleSetup(
     const saved = savePersisted(ctx.config.configPath, patch);
     // Apply the secret live so the gate takes effect immediately (no restart).
     if (patch.apiSecret !== undefined) ctx.config.apiSecret = patch.apiSecret;
+    // The theme is pure presentation and applies live — nothing about it needs a restart.
+    if (patch.theme) ctx.config.theme = patch.theme;
     ctx.onConfigSaved?.(patch);
     // Don't echo the secret back in `saved`.
     const { apiSecret: _omit, ...safeSaved } = saved;
@@ -786,9 +789,12 @@ export async function handleSetup(
   if (url === '/api/scan' && method === 'POST') {
     const body = (await readBody(req)) as { active?: unknown };
     const result = await ctx.system.scanNetwork({ active: body.active === true, known: ctx.config.devices });
-    // A scan is also the moment to learn where a saved device moved to: DHCP hands
-    // out new addresses, and a name is worth nothing if it points at the old one.
-    const devices = updateKnown(ctx.config.devices, result.devices.filter((d) => d.seen));
+    // A scan is also the moment to learn where a saved device moved to (DHCP hands out
+    // new addresses, and a name is worth nothing if it points at the old one) — and the
+    // moment to remember everything else that answered, so "last seen" can be shown for
+    // a device nobody named. This happens because someone asked for a scan; nothing
+    // updates these timestamps in the background.
+    const devices = rememberSeen(ctx.config.devices, result.devices.filter((d) => d.seen));
     if (JSON.stringify(devices) !== JSON.stringify(ctx.config.devices)) {
       savePersisted(ctx.config.configPath, { devices });
       ctx.config.devices = devices;
@@ -836,6 +842,44 @@ export async function handleSetup(
     savePersisted(ctx.config.configPath, { devices });
     ctx.config.devices = devices;
     json(res, 200, { ok: true, message: `Saved as "${label}".`, device: entry, devices });
+    return true;
+  }
+
+  /**
+   * Ask ONE device whether it is there, right now. The list is otherwise only as fresh
+   * as the last scan, and a scan is seconds of pinging a whole subnet — this is a port
+   * probe and a ping of a single address, run because someone pressed the button. The
+   * page never polls it.
+   */
+  if (url === '/api/devices/check' && method === 'POST') {
+    const body = (await readBody(req)) as { ip?: unknown; mac?: unknown; port?: unknown };
+    const ip = String(body.ip ?? '');
+    if (!isIpv4(ip)) {
+      json(res, 400, { ok: false, message: 'A device needs an IPv4 address.' });
+      return true;
+    }
+    const mac = typeof body.mac === 'string' && body.mac ? body.mac.toLowerCase() : null;
+    const id = deviceKey({ mac, ip });
+    const known = ctx.config.devices.find((d) => d.id === id);
+    const port = Number(body.port) || known?.port || 80;
+    const probe: KnownDevice = { id, label: known?.label ?? '', mac, ip, port, lastSeen: known?.lastSeen ?? null };
+    const answered = (await ctx.system.probeDevices([probe]))[id] === true;
+    const now = new Date().toISOString();
+    if (answered) {
+      // Remember it even if this is the first time we have heard from it: that is
+      // exactly the device whose "last seen" was empty a moment ago.
+      const devices = known
+        ? markSeen(ctx.config.devices, id, now)
+        : [...ctx.config.devices, { ...probe, lastSeen: now }];
+      savePersisted(ctx.config.configPath, { devices });
+      ctx.config.devices = devices;
+    }
+    json(res, 200, {
+      ok: true,
+      seen: answered,
+      lastSeen: answered ? now : known?.lastSeen ?? null,
+      message: answered ? 'Answering now.' : 'No answer — it is off, asleep, or gone.',
+    });
     return true;
   }
 

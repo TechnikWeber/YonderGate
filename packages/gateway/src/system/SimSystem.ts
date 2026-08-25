@@ -274,9 +274,23 @@ export class SimSystem implements SystemManager {
 
   async detectHardware() {
     return {
+      // What a real bus looks like once the chips have been asked: the INA says what
+      // it is, the ADC has no ID register and stays a guess.
       i2c: [
-        { address: '0x40', hint: 'INA2xx current sensor (219/226/228/237/238) — or a PCA9685' },
-        { address: '0x41', hint: 'INA2xx current sensor (219/226/228/237/238/3221)' },
+        {
+          address: '0x40',
+          hint: 'INA228 rev 1 — identified from its ID register',
+          device: 'INA228',
+          kind: 'ina228',
+          confirmed: true,
+        },
+        {
+          address: '0x48',
+          hint: 'ADS1015/1115 ADC (voltage) — or INA2xx, or a TMP117',
+          device: null,
+          kind: null,
+          confirmed: false,
+        },
       ],
       modemPresent: this.lte.present,
       cameras: ['/dev/video0 (simulated)'],

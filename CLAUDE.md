@@ -53,6 +53,30 @@ npx tsc --noEmit -p packages/gateway/tsconfig.json
 - Hardware paths (I²C, nmcli, mmcli, rfkill) are **hardware-only-verifiable**. Say
   so instead of claiming they are proven.
 
+## Conventions / gotchas — the setup page
+- **It is tabbed** (v0.16.0): every `<section class="panel">` declares a `data-tab`
+  (overview / site / sensors / camera / network / remote / health / design) and
+  `showTab` shows one group at a time, keyed off the URL hash. A new panel without a
+  `data-tab` is invisible on every tab — the suite checks panels, buttons and the
+  switcher's own list against each other. **Hidden panels stay in the DOM** (`hidden`,
+  not removed): handlers read fields across groups.
+- **Long explanations go in `<details class="hint">`** with the one-line takeaway as the
+  `<summary>`, never in an always-open `<p class="msg">`. The tab strip **wraps**; only
+  under 520px is it a single scrolling row, because a mouse wheel cannot scroll a
+  horizontal box and the last tab was then unreachable on a PC.
+- **`body` keeps `overflow-x: clip`, not `hidden`** — `hidden` makes it a scroll
+  container and the sticky tab strip then has nothing to stick to.
+- **The theme belongs to the gateway** (`config.theme`, 'light' default), not to the
+  browser: this box is set up once and opened from whatever phone is to hand. Each
+  browser caches the last answer only so a cold start does not flash the other palette.
+- **I²C chips are identified, not guessed** (`system/detect.ts`, ported from YonderRC
+  v1.60.0): `probesFor` + `identifyI2c` read the ID registers, RealSystem does the
+  `i2ctransfer` reads, and the setup page marks a confirmed row with ✓ and offers "Use
+  these addresses". An address alone cannot separate an INA2xx from an ADS1x15.
+- **Nothing polls the site's network.** Discovery, the per-device *Check* and the
+  last-seen timestamps all run because someone pressed something. This box is on a data
+  budget and often on a battery; a background sweep is both.
+
 ## Style
 German UI copy is fine in chat with the owner; **code, comments and identifiers
 stay in English**. Docs are English-first with `.de.md` siblings.

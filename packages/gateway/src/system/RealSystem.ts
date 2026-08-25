@@ -65,7 +65,14 @@ import {
 } from './wifi.js';
 import { parseModemId, parseModemInfo, parseSimId, lteStateLabel } from './lte.js';
 import { parseWifiSignalDbm, dbmToQualityPct } from './signal.js';
-import { parseI2cAddresses, suggestI2c } from './detect.js';
+import {
+  parseI2cAddresses,
+  suggestI2c,
+  probesFor,
+  i2cTransferArgs,
+  parseI2cTransfer,
+  type I2cReads,
+} from './detect.js';
 import { parseHilinkXml as parseHilinkXmlText } from './hilink.js';
 import {
   advertiseRoutesArgs,
@@ -846,7 +853,27 @@ export class RealSystem implements SystemManager {
     const notes: string[] = [];
     const i2cOut = await sh('i2cdetect -y 1');
     if (!i2cOut.ok) notes.push('i2cdetect failed — is i2c-tools installed and I²C enabled?');
-    const i2c = suggestI2c(parseI2cAddresses(i2cOut.out));
+    const addresses = parseI2cAddresses(i2cOut.out);
+    // Ask each chip what it is. Every INA2xx ships on 0x40 and 0x48–0x4b is shared by
+    // ADS1x15 and TMP117, so the address alone can't say which one is on the bus — but
+    // their ID registers can, and that is the difference between a suggestion and an
+    // answer for someone reading this page an hour's drive from the hardware.
+    const reads = new Map<number, I2cReads>();
+    const canProbe = (await sh('command -v i2ctransfer')).out.trim().length > 0;
+    if (addresses.length && !canProbe) {
+      notes.push('i2ctransfer not found — install i2c-tools to identify the chips, not just their addresses.');
+    }
+    if (canProbe) {
+      for (const address of addresses) {
+        const r: I2cReads = {};
+        for (const probe of probesFor(address)) {
+          const out = await shArgs('i2ctransfer', i2cTransferArgs(1, probe));
+          r[probe.key] = out.ok ? parseI2cTransfer(out.out) : null;
+        }
+        reads.set(address, r);
+      }
+    }
+    const i2c = suggestI2c(addresses, reads);
     if (i2cOut.ok && i2c.length === 0) notes.push('No I²C devices found on bus 1 — check wiring/power.');
 
     const modemPresent = /Modem\/\d+/.test((await sh('mmcli -L')).out);
