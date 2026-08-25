@@ -10,6 +10,7 @@ import type { AlertService } from '../system/AlertService.js';
 import type { WatchdogService } from '../system/WatchdogService.js';
 import type { UplinkService } from '../system/UplinkService.js';
 import { isUplinkMode, describeWindow } from '../system/uplink.js';
+import { isInterfaceName } from '../system/passthrough.js';
 import { isProbeTarget, dayName } from '../system/watchdog.js';
 import { switchId, validateSwitch, SWITCH_DEFAULT_CYCLE_S, type PowerSwitch } from '../system/power.js';
 import { isNtfyUrl, maskNtfyUrl, unmaskNtfyUrl } from '../system/alerts.js';
@@ -41,7 +42,14 @@ import {
   type WireguardFields,
 } from '../system/wireguard.js';
 import { HW_DEPS, isHwDep } from '../system/hwDeps.js';
-import { isCountryCode } from '../system/wifi.js';
+import {
+  isCountryCode,
+  isApAddress,
+  apSubnetOf,
+  HOTSPOT_ADDRESS,
+  subnetCollisionRisk,
+  AP_SUBNET_CHOICES,
+} from '../system/wifi.js';
 import { isIpv4 } from '../system/hilink.js';
 import { isGitBranch, isGitSource, UPDATE_SOURCE_DEFAULT } from '../system/update.js';
 import { isCidr } from '../system/tailscale.js';
@@ -891,8 +899,43 @@ export async function handleSetup(
     return true;
   }
 
+  /**
+   * Who may reach the internet through this box. Reachability from the tailnet is
+   * untouched either way — that is the whole point of switching it per interface
+   * rather than pulling the route.
+   */
+  if (url === '/api/internet' && method === 'POST') {
+    const body = (await readBody(req)) as { ap?: unknown; lan?: unknown; lanIface?: unknown };
+    const iface = body.lanIface === undefined ? ctx.config.internet.lanIface : String(body.lanIface).trim();
+    if (!isInterfaceName(iface)) {
+      json(res, 400, { ok: false, message: `"${iface}" is not an interface name.` });
+      return true;
+    }
+    const internet = {
+      ap: body.ap === undefined ? ctx.config.internet.ap : body.ap === true,
+      lan: body.lan === undefined ? ctx.config.internet.lan : body.lan === true,
+      lanIface: iface,
+    };
+    savePersisted(ctx.config.configPath, { internet });
+    ctx.config.internet = internet;
+    const r = await ctx.system.setInternetPassthrough(internet);
+    // Switching the AP's internet off makes it an internet-less network, which is what
+    // the captive portal is for — so the portal has to be re-decided here too.
+    if (r.ok) await ctx.system.syncCaptivePortal().catch(() => undefined);
+    json(res, r.ok ? 200 : 500, r);
+    return true;
+  }
+
   if (url === '/api/routes' && method === 'GET') {
-    json(res, 200, await ctx.system.subnetRoutes());
+    const state = await ctx.system.subnetRoutes();
+    // A route only reaches the site if nothing at the other end claims the same
+    // addresses. We cannot see the other end — but we can say which ranges are the
+    // ones people's own routers hand out, which is where this goes wrong.
+    json(res, 200, {
+      ...state,
+      available: state.available.map((n) => ({ ...n, risk: subnetCollisionRisk(n.cidr) })),
+      internet: ctx.config.internet,
+    });
     return true;
   }
 
@@ -1015,6 +1058,10 @@ export async function handleSetup(
         ssid: ctx.config.hotspot.ssid,
         hasPassword: !!ctx.config.hotspot.password,
         mode: ctx.config.hotspot.mode ?? 'auto',
+        address: ctx.config.hotspot.address ?? HOTSPOT_ADDRESS,
+        // Offered with their collision risk attached, because the familiar ranges are
+        // exactly the ones a Tailscale subnet route is likely to clash with.
+        choices: AP_SUBNET_CHOICES,
       },
     });
     return true;
@@ -1053,6 +1100,7 @@ export async function handleSetup(
       ssid?: string;
       password?: string | null;
       mode?: 'auto' | 'always' | 'off';
+      address?: string;
       start?: boolean;
       stop?: boolean;
     };
@@ -1061,10 +1109,22 @@ export async function handleSetup(
       json(res, 400, { ok: false, message: 'A WiFi password needs at least 8 characters — leave it empty for an open hotspot.' });
       return true;
     }
+    // The subnet is a routing decision, not decoration: it is what Tailscale carries
+    // to your tailnet, so it must not collide with the network you connect from.
+    const previous = ctx.config.hotspot.address ?? HOTSPOT_ADDRESS;
+    const address = body.address === undefined ? previous : String(body.address).trim();
+    if (!isApAddress(address)) {
+      json(res, 400, {
+        ok: false,
+        message: `"${address}" is not a usable private address. Use something like 192.168.4.1 or 10.83.7.1 — a /24 is assumed, and the last part must be 1–254.`,
+      });
+      return true;
+    }
     const hotspot = {
       ssid: (body.ssid ?? ctx.config.hotspot.ssid).trim() || HOTSPOT_DEFAULTS.ssid,
       password,
       mode: body.mode ?? ctx.config.hotspot.mode ?? 'auto',
+      address,
     };
     savePersisted(ctx.config.configPath, { hotspot });
     ctx.config.hotspot = hotspot;
@@ -1083,9 +1143,11 @@ export async function handleSetup(
         : hotspot.mode === 'off'
           ? ' It will not start on its own any more.'
           : ' It starts on its own only when the Pi has no uplink.';
+    // Compared against what it was BEFORE the save, or the note never fires.
+    const moved = address !== previous ? ` Its subnet is now ${apSubnetOf(address)} — once it restarts, rejoin it and open http://${address}:8080/setup.` : '';
     json(res, 200, {
       ok: true,
-      message: `Saved. ${password ? 'The hotspot will use the new password' : 'The hotspot will be open'} the next time it starts.${modeNote}`,
+      message: `Saved. ${password ? 'The hotspot will use the new password' : 'The hotspot will be open'} the next time it starts.${modeNote}${moved}`,
     });
     return true;
   }

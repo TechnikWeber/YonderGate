@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # YonderGate onboarding: if the Pi has no usable network shortly after boot (no LTE,
 # no known WiFi), bring up a NetworkManager hotspot so you can reach the setup UI
-# headless at http://192.168.4.1:8080/setup — and from there put the Pi on your
+# headless at http://192.168.4.1:8080/setup (or whatever subnet was configured) — and from there put the Pi on your
 # WiFi (Setup › WiFi › Scan) or configure LTE. Once it has a normal connection the
 # hotspot won't start again.
 #
@@ -16,6 +16,10 @@ IFACE="${YGW_WIFI_IFACE:-wlan0}"
 SSID="YonderGate-setup"
 PASS=""
 MODE="always" # always | auto | off — see HotspotConfig.mode (default: always)
+# The AP's own address. Changeable because a Tailscale subnet route carries the site's
+# real addresses to the tailnet, and two networks with the same range can't both be
+# reached — see AP_SUBNET_CHOICES in gateway/system/wifi.ts.
+ADDR="192.168.4.1"
 
 # Read SSID/password from the persisted config, if the setup UI wrote any. Two
 # separate lines, so an SSID with spaces survives; an empty line means "not set".
@@ -30,11 +34,16 @@ except Exception:
 print((h.get('ssid') or '').strip())
 print((h.get('password') or '').strip())
 print((h.get('mode') or '').strip())
+print((h.get('address') or '').strip())
 PY
 ) || true
   [ -n "${cfg[0]:-}" ] && SSID="${cfg[0]}"
   [ -n "${cfg[1]:-}" ] && PASS="${cfg[1]}"
   [ -n "${cfg[2]:-}" ] && MODE="${cfg[2]}"
+  # Only a plain dotted quad; anything else falls back to the documented default.
+  case "${cfg[3]:-}" in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) ADDR="${cfg[3]}" ;;
+  esac
 fi
 
 # Give normal connections a chance first.
@@ -92,7 +101,7 @@ fi
 # hotspotCommands() in gateway/system/wifi.ts.
 nmcli connection delete Hotspot >/dev/null 2>&1 || true
 if ! nmcli connection add type wifi ifname "$IFACE" con-name Hotspot autoconnect no ssid "$SSID" \
-    802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared ipv4.addresses 192.168.4.1/24; then
+    802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared ipv4.addresses "$ADDR/24"; then
   echo "[onboard] could not create the hotspot profile (is $IFACE available?)"
   exit 0
 fi
@@ -119,7 +128,7 @@ if have_route; then
   echo "[onboard] uplink present — sharing it, DNS left alone (no captive portal)"
 else
   mkdir -p "$NMDIR"
-  echo 'address=/#/192.168.4.1' > "$CAPTIVE"
+  echo "address=/#/$ADDR" > "$CAPTIVE"
 fi
 
 nmcli connection up Hotspot || {
@@ -128,7 +137,7 @@ nmcli connection up Hotspot || {
 }
 
 if [ -f "$CAPTIVE" ]; then
-  echo "[onboard] hotspot up — connect and the control page opens by itself (http://192.168.4.1:8080/)"
+  echo "[onboard] hotspot up — connect and the control page opens by itself (http://$ADDR:8080/)"
 else
-  echo "[onboard] hotspot up — connect and open http://192.168.4.1:8080/ (uplink shared, no auto-open)"
+  echo "[onboard] hotspot up — connect and open http://$ADDR:8080/ (uplink shared, no auto-open)"
 fi

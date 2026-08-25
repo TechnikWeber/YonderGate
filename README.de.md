@@ -344,6 +344,12 @@ abgedeckt.
 - [x] **„Zuletzt gesehen" für jedes Gerät, das je geantwortet hat**, nicht nur für die
       benannten, dazu ein **Check**-Knopf pro Gerät. Beides passiert nur, wenn jemand
       danach fragt — nichts auf dieser Seite pollt das Netz des Standorts im Hintergrund
+- [x] **Das eigene Subnetz des APs ist änderbar**, mit dem Kollisionsrisiko jeder Wahl
+      ausgeschrieben — eine Tailscale-Subnetzroute trägt die echten Adressen des
+      Standorts, ein Bereich wie der, aus dem man sich verbindet, ist also nie erreichbar
+- [x] **Internet je Schnittstelle**: Hotspot und kabelgebundenes LAN getrennt, per
+      Voreinstellung an. Aus heißt: kein Internet für diese Geräte, erreichbar über das
+      Tailnet bleiben sie
 - [ ] HTTPS-Geräte: Der Proxy spricht mit dem Ziel derzeit nur einfaches HTTP
 - [ ] mDNS-/Avahi-Namen in der Geräteliste, nicht nur Reverse-DNS
 

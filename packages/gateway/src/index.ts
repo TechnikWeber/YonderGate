@@ -84,6 +84,16 @@ async function main() {
   startHttpServer(config, system, telemetry, history, alerts, watchdog, uplink);
   console.log(`  setup UI  : http://<gateway>:${config.port}/setup  (system: ${config.systemKind})`);
 
+  // The internet switches are firewall rules, and a firewall rule does not survive a
+  // reboot. Re-applying at every start is what makes "off" mean off — including after
+  // the power cut that an off-grid box has every few weeks.
+  system
+    .setInternetPassthrough(config.internet)
+    .then((r) => {
+      if (r.blocked.length || !r.ok) console.log(`[internet] ${r.message}`);
+    })
+    .catch((e) => console.warn(`[internet] could not apply: ${(e as Error).message}`));
+
   // Captive portal for AP-mode onboarding (binds :80; skipped if not permitted).
   if (config.systemKind === 'real') startCaptivePortal(config.port);
 

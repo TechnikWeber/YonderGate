@@ -60,6 +60,7 @@ import {
   radioIsUsable,
   wifiCountryArgs,
   HOTSPOT_ADDRESS,
+  isApAddress,
   HOTSPOT_CON_NAME,
   type WifiRadioStatus,
 } from './wifi.js';
@@ -125,6 +126,15 @@ import {
   type KnownDevice,
 } from './discovery.js';
 import {
+  blockedInterfaces,
+  ensureChainArgs,
+  linkChainArgs,
+  passthroughRules,
+  apSharesInternet,
+  INTERNET_DEFAULTS,
+  type InternetConfig,
+} from './passthrough.js';
+import {
   classifyChanges,
   describeCheck,
   gitArgs,
@@ -159,6 +169,9 @@ const runFile = promisify(execFile);
 /** Shell helper — ONLY for static commands (pipes/grep). Never pass user input. */
 /** The Pi's built-in WiFi. Same assumption as the signal readout. */
 const WIFI_IFACE = 'wlan0';
+/** The AP's own address: what the operator configured, or the documented default. */
+const apAddress = (cfg: { address?: string | null }) =>
+  isApAddress(cfg.address ?? '') ? (cfg.address as string) : HOTSPOT_ADDRESS;
 
 /**
  * Every command we parse runs in the C locale. git, nmcli and friends translate
@@ -298,6 +311,13 @@ async function shSlow(
  */
 export class RealSystem implements SystemManager {
   readonly kind = 'real';
+
+  /**
+   * The internet switches as last applied. Kept here because the captive-portal
+   * decision needs them too: an AP with its internet off is an internet-less network
+   * whether or not the box itself has an uplink.
+   */
+  private internet: InternetConfig = { ...INTERNET_DEFAULTS };
 
   async status(): Promise<SystemStatus> {
     const [ts, mm, wifi] = await Promise.all([
@@ -554,7 +574,7 @@ export class RealSystem implements SystemManager {
       };
     };
 
-    const cmds = hotspotCommands({ ssid: cfg.ssid, password: cfg.password }, WIFI_IFACE);
+    const cmds = hotspotCommands({ ssid: cfg.ssid, password: cfg.password, address: cfg.address }, WIFI_IFACE);
     const up = cmds.pop()!; // run last, after the captive-portal decision
     for (const cmd of cmds) {
       const r = await shArgs('nmcli', cmd.args);
@@ -564,7 +584,9 @@ export class RealSystem implements SystemManager {
     // Decide about the captive portal BEFORE the profile comes up, so dnsmasq starts
     // with the right config and nobody has to be kicked off to apply it.
     const uplink = await this.hasUplink();
-    const captive = this.applyCaptiveConf(shouldHijackDns(uplink));
+    // An AP whose internet is switched off IS an internet-less network, whatever the
+    // gateway's own uplink is doing — so the portal belongs there too.
+    const captive = this.applyCaptiveConf(shouldHijackDns(apSharesInternet(this.internet, uplink)));
 
     const upRes = await shArgs('nmcli', up.args);
     if (!upRes.ok) return failed(upRes.out);
@@ -582,7 +604,7 @@ export class RealSystem implements SystemManager {
       ok: true,
       message:
         `${notes.join(' ')} Hotspot "${cfg.ssid}" is up (${secured ? `WPA2, key ${psk}` : 'open'}) — ` +
-        `join it and open http://${HOTSPOT_ADDRESS}:8080/`,
+        `join it and open http://${apAddress(cfg)}:8080/`,
       psk,
       radio,
     };
@@ -600,7 +622,7 @@ export class RealSystem implements SystemManager {
   async syncCaptivePortal(): Promise<{ changed: boolean; captive: boolean; message: string }> {
     const status = await this.wifiStatus();
     const present = existsSync(CAPTIVE_CONF_PATH);
-    const change = captiveChange(status.mode === 'ap', await this.hasUplink(), present);
+    const change = captiveChange(status.mode === 'ap', apSharesInternet(this.internet, await this.hasUplink()), present);
     if (change === 'none') return { changed: false, captive: present, message: 'unchanged' };
     const captive = this.applyCaptiveConf(change === 'enable');
     const down = await shArgs('nmcli', ['connection', 'down', HOTSPOT_CON_NAME]);
@@ -1297,6 +1319,45 @@ export class RealSystem implements SystemManager {
     const missing = devices.filter((d) => !d.seen).length;
     if (missing) notes.push(`${missing} saved device${missing === 1 ? '' : 's'} did not answer.`);
     return { subnets, devices, active: !!opts.active, notes };
+  }
+
+  /**
+   * Apply the internet switches. Everything the rules need is built in
+   * passthrough.ts, so what happens here is: make sure our chain exists and hangs off
+   * FORWARD, then rebuild its contents from scratch. Rebuilding rather than patching
+   * is what makes this safe to call at boot, after a config change, and twice in a row.
+   */
+  async setInternetPassthrough(cfg: InternetConfig): Promise<ActionResult & { blocked: string[] }> {
+    this.internet = { ...cfg };
+    const blocked = blockedInterfaces(cfg, WIFI_IFACE);
+    const [create, test] = ensureChainArgs();
+    await shArgs('iptables', create.args);
+    const linked = await shArgs('iptables', test.args);
+    if (!linked.ok) {
+      const link = await shArgs('iptables', linkChainArgs());
+      if (!link.ok) {
+        return {
+          ok: false,
+          blocked: [],
+          message: `Could not hook the filter into FORWARD: ${link.out.trim() || 'iptables failed'}. ` +
+            'Is iptables installed, and is the service running as root?',
+        };
+      }
+    }
+    for (const args of passthroughRules(blocked)) {
+      const r = await shArgs('iptables', args);
+      // A flush of a chain that has just been created is allowed to be boring.
+      if (!r.ok && args[0] !== '-F') {
+        return { ok: false, blocked: [], message: `iptables ${args.join(' ')} failed: ${r.out.trim()}` };
+      }
+    }
+    return {
+      ok: true,
+      blocked,
+      message: blocked.length
+        ? `No internet for ${blocked.join(' and ')} — they stay reachable from the tailnet and from here.`
+        : 'Internet passed through on every interface.',
+    };
   }
 
   async subnetRoutes(): Promise<SubnetRouteState> {

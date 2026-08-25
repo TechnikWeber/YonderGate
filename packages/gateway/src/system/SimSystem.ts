@@ -29,7 +29,8 @@ import {
   validOverlayName,
   bootedStateChanged,
 } from './bootConfig.js';
-import { HOTSPOT_ADDRESS, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
+import { HOTSPOT_ADDRESS, isApAddress, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
+import { blockedInterfaces, type InternetConfig } from './passthrough.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
 import type { WatchdogAction } from './watchdog.js';
@@ -144,11 +145,12 @@ export class SimSystem implements SystemManager {
     if (!radioIsUsable(this.radio)) {
       return { ok: false, message: 'Hotspot not started — the WiFi radio is blocked (simulated).', fix: 'Press “Enable WiFi radio”.', radio: { ...this.radio } };
     }
-    this.wifi = { mode: 'ap', ssid: cfg.ssid, ip: HOTSPOT_ADDRESS };
+    const address = isApAddress(cfg.address ?? '') ? (cfg.address as string) : HOTSPOT_ADDRESS;
+    this.wifi = { mode: 'ap', ssid: cfg.ssid, ip: address };
     const psk = cfg.password && cfg.password.length >= 8 ? cfg.password : null;
     return {
       ok: true,
-      message: `Hotspot "${cfg.ssid}" is up (${psk ? `WPA2, key ${psk}` : 'open'}) — join it and open http://${HOTSPOT_ADDRESS}:8080/ (simulated).`,
+      message: `Hotspot "${cfg.ssid}" is up (${psk ? `WPA2, key ${psk}` : 'open'}) — join it and open http://${address}:8080/ (simulated).`,
       psk,
       radio: { ...this.radio },
     };
@@ -412,6 +414,17 @@ export class SimSystem implements SystemManager {
     // Creeps upwards like a real counter, so the monthly total actually moves.
     this.simCounter += 12e6;
     return this.simCounter;
+  }
+
+  async setInternetPassthrough(cfg: InternetConfig): Promise<ActionResult & { blocked: string[] }> {
+    const blocked = blockedInterfaces(cfg, 'wlan0');
+    return {
+      ok: true,
+      blocked,
+      message: blocked.length
+        ? `No internet for ${blocked.join(' and ')} — they stay reachable from the tailnet and from here (simulated).`
+        : 'Internet passed through on every interface (simulated).',
+    };
   }
 
   async probeDevices(devices: KnownDevice[]): Promise<Record<string, boolean>> {

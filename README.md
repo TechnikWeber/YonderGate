@@ -322,6 +322,11 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [x] **Last seen for every device that ever answered**, not just the named ones, plus a
       per-device **Check** button. Both only ever run because someone asked — nothing on
       this page polls the site's network in the background
+- [x] **The AP's own subnet is changeable**, with the collision risk of each choice spelled
+      out — a Tailscale subnet route carries the site's real addresses, so a range that
+      matches the network you connect from can never be reached
+- [x] **Internet per interface**: hotspot and wired LAN separately, on by default. Off
+      means no internet for those devices while they stay reachable from the tailnet
 - [ ] HTTPS devices: the proxy currently talks plain HTTP to the target
 - [ ] mDNS/avahi names in the device list, not just reverse DNS
 

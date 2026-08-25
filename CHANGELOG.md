@@ -2,6 +2,52 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.17.0
+**English**
+- **The hotspot's own subnet is now a setting**, and it matters more than it looks. A
+  Tailscale subnet route carries the site's **real** addresses to your tailnet — a camera
+  on 192.168.4.15 here is 192.168.4.15 from your laptop at home. That is what makes the
+  route worth having, and it collapses if the network you are sitting in uses the same
+  range: the address is already something on your own desk and the route can never win.
+  Five choices are offered with their collision risk written out — 192.168.4.0/24 (what
+  every Pi hotspot uses), 192.168.1.0/24 and 192.168.178.0/24 (marked as likely to be the
+  network you connect *from*), plus **10.83.7.0/24** and **172.29.13.0/24**, which are
+  deliberately obscure. Anything private can be typed instead. The subnet-routes list now
+  flags a risky range where you actually decide to advertise it.
+- **Internet per interface, on by default**: the hotspot and the wired site LAN can each
+  be switched off. Off means no internet for those devices — while they stay reachable
+  from the tailnet and from this page, which is the whole reason to switch it there
+  rather than pull the route. Useful for a camera that phones home, or a plug that
+  decides to pull firmware over a metered SIM. The filter matches on **destination**, so
+  it survives a failover between LTE and Ethernet, and it is re-applied at every start
+  because a firewall rule does not survive a reboot.
+- **An AP with its internet off gets the captive portal back.** It is an internet-less
+  network whatever the gateway's uplink is doing, so a phone joining it now lands on the
+  setup page instead of silently failing at every connection.
+
+**Deutsch**
+- **Das eigene Subnetz des Hotspots ist jetzt einstellbar**, und das ist wichtiger, als es
+  aussieht. Eine Tailscale-Subnetzroute trägt die **echten** Adressen des Standorts ins
+  Tailnet — eine Kamera auf 192.168.4.15 ist von zu Hause aus 192.168.4.15. Genau das
+  macht die Route wertvoll, und genau das bricht zusammen, wenn das Netz, in dem man
+  sitzt, denselben Bereich benutzt: die Adresse ist dann schon etwas auf dem eigenen
+  Schreibtisch, und die Route kann nie gewinnen. Fünf Vorschläge stehen zur Wahl, jeder
+  mit seinem Kollisionsrisiko im Klartext — 192.168.4.0/24 (was jeder Pi-Hotspot nimmt),
+  192.168.1.0/24 und 192.168.178.0/24 (markiert als wahrscheinlich *das* Netz, aus dem du
+  dich verbindest), dazu **10.83.7.0/24** und **172.29.13.0/24**, die bewusst abwegig
+  sind. Jede private Adresse lässt sich auch von Hand eintragen. Die Routenliste warnt
+  jetzt dort, wo man das Advertisen tatsächlich entscheidet.
+- **Internet je Schnittstelle, per Voreinstellung an**: Hotspot und kabelgebundenes
+  Standort-LAN lassen sich einzeln abschalten. Aus heißt: kein Internet für diese Geräte —
+  erreichbar über das Tailnet und von dieser Seite bleiben sie, und genau deshalb schaltet
+  man es dort ab, statt die Route zu ziehen. Praktisch für eine Kamera, die nach Hause
+  telefoniert, oder eine Steckdose, die über die getaktete SIM Firmware ziehen will. Der
+  Filter greift am **Ziel**, überlebt also einen Wechsel zwischen LTE und Ethernet, und er
+  wird bei jedem Start neu gesetzt — eine Firewall-Regel überlebt keinen Neustart.
+- **Ein AP ohne Internet bekommt das Captive Portal zurück.** Er ist ein Netz ohne
+  Internet, egal was der Uplink der Box macht — ein Handy landet jetzt also auf der
+  Setup-Seite, statt stillschweigend an jeder Verbindung zu scheitern.
+
 ## v0.16.1
 **English**
 - **Fixed: renaming the site looked like it had failed.** `POST /api/config` wrote the new

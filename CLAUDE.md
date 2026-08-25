@@ -53,6 +53,24 @@ npx tsc --noEmit -p packages/gateway/tsconfig.json
 - Hardware paths (I²C, nmcli, mmcli, rfkill) are **hardware-only-verifiable**. Say
   so instead of claiming they are proven.
 
+## Conventions / gotchas — the site's network
+- **The AP's subnet is a routing decision.** Tailscale subnet routes carry the site's
+  *real* addresses to the tailnet, so an AP range that matches the network the operator
+  connects from can never be reached. `AP_SUBNET_CHOICES` (wifi.ts) offers five, marking
+  the familiar ones as risky *because* they are familiar; `hotspot.address` persists the
+  choice and `onboard.sh` reads the same field. Never hardcode 192.168.4.1 again — it is
+  a default, not a constant.
+- **Internet is filtered by DESTINATION, not by uplink interface**
+  (`system/passthrough.ts`). Naming the uplink would need re-applying on every LTE↔eth
+  failover; naming the destination does not, and it is what keeps devices reachable from
+  the tailnet with their internet switched off. REJECT, not DROP: a device that is told
+  "no" gives up at once, one that is ignored looks broken for a minute.
+- **Firewall rules do not survive a reboot** — `index.ts` re-applies them at every start.
+  Anything else that writes iptables must do the same.
+- **An AP with its internet switched off is an internet-less network**, so the captive
+  portal belongs there too: the portal decision takes `apSharesInternet(cfg, hasUplink)`,
+  not the uplink alone.
+
 ## Conventions / gotchas — the setup page
 - **It is tabbed** (v0.16.0): every `<section class="panel">` declares a `data-tab`
   (overview / site / sensors / camera / network / remote / health / design) and

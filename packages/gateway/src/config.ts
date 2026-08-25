@@ -15,6 +15,7 @@ import { UPLINK_DEFAULTS, type UplinkConfig } from './system/uplink.js';
 import type { PowerSwitch } from './system/power.js';
 import { defaultRules } from './system/alerts.js';
 import { HOTSPOT_DEFAULTS } from './system/SystemManager.js';
+import { INTERNET_DEFAULTS, type InternetConfig } from './system/passthrough.js';
 
 /**
  * Config is env-defaulted and file-persisted. The on-Pi setup UI writes a small
@@ -44,8 +45,10 @@ export interface GatewayConfig {
   lte: LteConfig;
   /** Remote access (Tailscale / ZeroTier / WireGuard); brought up at boot if kind≠none. */
   remoteAccess: RemoteAccessConfig;
-  /** Onboarding hotspot settings (SSID, optional password). */
+  /** Onboarding hotspot settings (SSID, optional password, subnet). */
   hotspot: HotspotConfig;
+  /** Who may reach the internet through this box (see system/passthrough.ts). */
+  internet: InternetConfig;
   /** Huawei HiLink LTE stick (its own router; not a ModemManager modem). */
   hilink: HilinkSettings;
   /** Where "Software update" pulls from (remote name or URL + branch). */
@@ -177,6 +180,8 @@ export interface PersistentConfig {
   remoteAccess?: RemoteAccessConfig;
   /** Onboarding hotspot (open by default — see HotspotConfig). */
   hotspot?: HotspotConfig;
+  /** Internet pass-through per interface; both on unless someone turns one off. */
+  internet?: InternetConfig;
   hilink?: HilinkSettings;
   update?: UpdateSource;
   proxies?: ProxyCfg[];
@@ -261,7 +266,8 @@ export function loadConfig(): GatewayConfig {
     lte: p.lte ?? { apn: p.apn ?? process.env.YGW_APN ?? null },
     apiSecret: (p.apiSecret ?? process.env.YGW_API_SECRET ?? null) || null,
     remoteAccess: p.remoteAccess ?? { kind: 'none' },
-    hotspot: p.hotspot ?? { ...HOTSPOT_DEFAULTS },
+    hotspot: { ...HOTSPOT_DEFAULTS, ...(p.hotspot ?? {}) },
+    internet: { ...INTERNET_DEFAULTS, ...(p.internet ?? {}) },
     hilink: { ...HILINK_SETTINGS_DEFAULT, ...(p.hilink ?? {}) },
     update: { ...UPDATE_SOURCE_DEFAULT, ...(p.update ?? {}) },
     proxies: p.proxies ?? [],

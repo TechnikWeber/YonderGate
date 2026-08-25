@@ -21,6 +21,89 @@ export const HOTSPOT_CON_NAME = 'Hotspot';
 /** Documented address of the setup page in AP mode (NM would default to 10.42.0.1). */
 export const HOTSPOT_ADDRESS = '192.168.4.1';
 
+/**
+ * The AP's subnet is a **routing decision**, not decoration.
+ *
+ * Tailscale subnet routes carry the site's real addresses onto your tailnet: a camera
+ * on 192.168.4.15 here is 192.168.4.15 from your laptop at home. That is the whole
+ * appeal — and it collapses the moment the network you are sitting in uses the same
+ * range, because then 192.168.4.15 is already something on your own desk and the
+ * route can never win. There is no clever fix for that from this end; the fix is to
+ * not collide in the first place, which means being able to change the range here.
+ *
+ * `risky` marks the ranges a consumer router is likely to hand out — offered because
+ * people recognise them, flagged because recognising them is exactly the problem.
+ */
+export interface ApSubnetChoice {
+  address: string;
+  label: string;
+  risky: boolean;
+  why: string;
+}
+export const AP_SUBNET_CHOICES: ApSubnetChoice[] = [
+  {
+    address: '192.168.4.1',
+    label: '192.168.4.0/24',
+    risky: true,
+    why: 'What Raspberry Pi hotspots traditionally use — including every other YonderGate.',
+  },
+  {
+    address: '192.168.1.1',
+    label: '192.168.1.0/24',
+    risky: true,
+    why: 'The most common home-router range there is. Expect a collision.',
+  },
+  {
+    address: '192.168.178.1',
+    label: '192.168.178.0/24',
+    risky: true,
+    why: 'The FritzBox default — very likely to be the network you connect FROM.',
+  },
+  {
+    address: '10.83.7.1',
+    label: '10.83.7.0/24',
+    risky: false,
+    why: 'Deliberately obscure. Consumer routers that use 10/8 at all take 10.0.0.x.',
+  },
+  {
+    address: '172.29.13.1',
+    label: '172.29.13.0/24',
+    risky: false,
+    why: 'The least-used private block: almost no home router hands out 172.16–31.',
+  },
+];
+
+/** IPv4 dotted quad, and not a network or broadcast address for its /24. */
+export function isApAddress(v: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(v ?? '').trim());
+  if (!m) return false;
+  const [a, b, c, d] = m.slice(1).map(Number);
+  if ([a, b, c, d].some((n) => n > 255)) return false;
+  // Private space only: a public range here would black-hole the real internet for
+  // everything on the AP, and nobody would connect the two facts.
+  const priv = a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  return priv && d >= 1 && d <= 254;
+}
+
+/** The /24 an AP address sits in — what gets advertised over Tailscale. */
+export function apSubnetOf(address: string): string {
+  const p = address.split('.');
+  return `${p[0]}.${p[1]}.${p[2]}.0/24`;
+}
+
+/**
+ * A subnet route only reaches the site if nothing at the other end claims the same
+ * addresses. Nothing here can see the other end, so this says what is *likely* —
+ * which is the only honest thing to say, and enough to steer the choice.
+ */
+export function subnetCollisionRisk(cidr: string): string | null {
+  const known = AP_SUBNET_CHOICES.find((c) => c.label === cidr && c.risky);
+  if (known) return known.why;
+  if (/^192\.168\.(0|1|2|178|188)\.0\/24$/.test(cidr)) return 'A very common home-router range — likely to be the network you connect from.';
+  if (/^10\.0\.0\.0\/24$/.test(cidr)) return 'A common default on routers that use 10/8.';
+  return null;
+}
+
 export interface RfkillState {
   softBlocked: boolean;
   hardBlocked: boolean;
@@ -148,6 +231,8 @@ export interface HotspotProfile {
   ssid: string;
   /** null/'' = a genuinely OPEN network (no security settings on the profile). */
   password: string | null;
+  /** The gateway's own address in the AP subnet; /24 is implied. See AP_SUBNET_CHOICES. */
+  address?: string | null;
 }
 
 /**
@@ -160,6 +245,7 @@ export interface HotspotProfile {
  */
 export function hotspotCommands(cfg: HotspotProfile, iface = 'wlan0'): { args: string[]; optional: boolean }[] {
   const ssid = (cfg.ssid || 'YonderGate-setup').trim() || 'YonderGate-setup';
+  const address = isApAddress(cfg.address ?? '') ? (cfg.address as string) : HOTSPOT_ADDRESS;
   const secured = !!cfg.password && cfg.password.length >= 8;
   const cmds: { args: string[]; optional: boolean }[] = [
     // A stale profile from an earlier run would keep its old SSID/security.
@@ -175,7 +261,7 @@ export function hotspotCommands(cfg: HotspotProfile, iface = 'wlan0'): { args: s
         '802-11-wireless.mode', 'ap',
         '802-11-wireless.band', 'bg',
         'ipv4.method', 'shared',
-        'ipv4.addresses', `${HOTSPOT_ADDRESS}/24`,
+        'ipv4.addresses', `${address}/24`,
       ],
       optional: false,
     },

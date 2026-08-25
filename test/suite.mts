@@ -1123,6 +1123,58 @@ async function main() {
     }
   }
 
+  // ---- the AP's subnet is a routing decision ----
+  // Tailscale carries the site's real addresses to the tailnet, so an AP range that
+  // matches the network you connect FROM can never be reached. Hence: changeable.
+  {
+    const W = await import('../packages/gateway/src/system/wifi');
+    ok('the default is offered, and flagged as common', W.AP_SUBNET_CHOICES.some((c) => c.address === '192.168.4.1' && c.risky));
+    ok('two of the choices are deliberately obscure', W.AP_SUBNET_CHOICES.filter((c) => !c.risky).length === 2);
+    ok('and those two are outside the ranges home routers hand out',
+      W.AP_SUBNET_CHOICES.filter((c) => !c.risky).every((c) => /^(10|172)\./.test(c.address)));
+    ok('a private address is accepted', W.isApAddress('10.83.7.1') && W.isApAddress('172.29.13.1') && W.isApAddress('192.168.4.1'));
+    ok('a public one is not — it would black-hole the real internet', !W.isApAddress('8.8.8.8'));
+    ok('nor is a network or broadcast address', !W.isApAddress('192.168.4.0') && !W.isApAddress('192.168.4.255'));
+    ok('nor is junk', !W.isApAddress('') && !W.isApAddress('192.168.4') && !W.isApAddress('999.1.1.1'));
+    ok('the /24 falls out of the address', W.apSubnetOf('10.83.7.1') === '10.83.7.0/24');
+    ok('the hotspot profile carries the configured address',
+      W.hotspotCommands({ ssid: 'x', password: null, address: '10.83.7.1' }).some((c) => c.args.includes('10.83.7.1/24')));
+    ok('and falls back to the documented default when it is junk',
+      W.hotspotCommands({ ssid: 'x', password: null, address: 'nonsense' }).some((c) => c.args.includes('192.168.4.1/24')));
+    ok('the captive portal follows the address', W.captivePortalConf('10.83.7.1') === 'address=/#/10.83.7.1\n');
+    ok('a common range is called out', !!W.subnetCollisionRisk('192.168.1.0/24'));
+    ok('an obscure one is not', W.subnetCollisionRisk('10.83.7.0/24') === null);
+  }
+
+  // ---- internet per interface, without losing reachability ----
+  {
+    const P = await import('../packages/gateway/src/system/passthrough');
+    ok('everything is passed through by default', P.blockedInterfaces(P.INTERNET_DEFAULTS, 'wlan0').length === 0);
+    ok('switching the AP off names the AP interface',
+      P.blockedInterfaces({ ...P.INTERNET_DEFAULTS, ap: false }, 'wlan0').join() === 'wlan0');
+    ok('switching the LAN off names its interface',
+      P.blockedInterfaces({ ap: true, lan: false, lanIface: 'eth0' }, 'wlan0').join() === 'eth0');
+    ok('an interface name is checked, not trusted',
+      P.blockedInterfaces({ ap: true, lan: false, lanIface: 'eth0; reboot' }, 'wlan0').length === 0);
+
+    const rules = P.passthroughRules(['wlan0']);
+    ok('the chain is flushed first, so applying twice is applying once', rules[0].join(' ') === `-F ${P.PASSTHROUGH_CHAIN}`);
+    // The whole point: local and tailnet destinations survive, the internet does not.
+    for (const dest of ['192.168.4.0/16', '10.0.0.0/8', '100.64.0.0/10']) {
+      const d = dest === '192.168.4.0/16' ? '192.168.0.0/16' : dest;
+      ok(`${d} stays reachable`, rules.some((r) => r.includes(d) && r.includes('RETURN')));
+    }
+    const last = rules[rules.length - 1];
+    ok('everything else is rejected', last.includes('REJECT') && last.includes('-i') && last.includes('wlan0'));
+    ok('rejected, not dropped — a device that is told no gives up at once', last.includes('icmp-net-prohibited'));
+    ok('nothing is written for an interface that stays on', P.passthroughRules([]).length === 1);
+    // An AP with no internet IS an internet-less network — the portal belongs there.
+    ok('the portal follows the switch, not just the uplink',
+      P.apSharesInternet({ ap: true, lan: true, lanIface: 'eth0' }, true) === true &&
+      P.apSharesInternet({ ap: false, lan: true, lanIface: 'eth0' }, true) === false &&
+      P.apSharesInternet({ ap: true, lan: true, lanIface: 'eth0' }, false) === false);
+  }
+
   // ---- the setup page's tabs ----
   // Fourteen panels in one column were unfindable, so each panel declares the tab it
   // belongs to. Three ways that rots silently: a panel with no tab (invisible on every

@@ -8,6 +8,7 @@ import type { KnownDevice, ScannedDevice, Subnet } from './discovery.js';
 import type { Health, NetInterface } from './health.js';
 import type { WatchdogAction } from './watchdog.js';
 import type { PowerSwitch } from './power.js';
+import type { InternetConfig } from './passthrough.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -153,6 +154,13 @@ export interface HotspotConfig {
   /** null/'' = open network. WPA2 needs at least 8 characters. */
   password: string | null;
   /**
+   * The gateway's own address in the AP subnet (/24 implied), e.g. '192.168.4.1'.
+   * Changeable because a Tailscale subnet route carries the site's real addresses to
+   * your tailnet, and two networks with the same range can't both be reached — see
+   * AP_SUBNET_CHOICES in wifi.ts.
+   */
+  address?: string | null;
+  /**
    * When the onboarding hotspot starts at boot:
    *  - always : whenever the WiFi radio is free — **the default since v1.41.0**. A
    *             gateway you can always walk up to beats one that is only reachable
@@ -168,7 +176,7 @@ export interface HotspotConfig {
 
 export type HotspotMode = 'auto' | 'always' | 'off';
 
-export const HOTSPOT_DEFAULTS: HotspotConfig = { ssid: 'YonderGate-setup', password: null, mode: 'always' };
+export const HOTSPOT_DEFAULTS: HotspotConfig = { ssid: 'YonderGate-setup', password: null, mode: 'always', address: '192.168.4.1' };
 
 /**
  * Should the boot-time onboarding start the hotspot? Pure so the decision is
@@ -393,6 +401,11 @@ export interface SystemManager {
   subnetRoutes(): Promise<SubnetRouteState>;
   /** Advertise exactly these CIDRs over Tailscale (empty list = stop routing). */
   setSubnetRoutes(cidrs: string[]): Promise<ActionResult & { state: SubnetRouteState }>;
+  /**
+   * Apply "may these devices reach the internet" for the AP and the wired LAN. Their
+   * reachability from the tailnet is untouched either way — see system/passthrough.ts.
+   */
+  setInternetPassthrough(cfg: InternetConfig): Promise<ActionResult & { blocked: string[] }>;
   /** What an update would change — fetches, changes nothing. */
   updateCheck(src?: UpdateSource): Promise<UpdateCheck>;
   /** Apply the update (pull, install/rebuild if needed) and restart. */

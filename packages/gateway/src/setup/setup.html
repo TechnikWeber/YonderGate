@@ -279,6 +279,15 @@
         <div class="eyebrow2" style="margin-top:14px">Reach these networks over Tailscale</div>
         <div id="routes-out"><div class="msg">…</div></div>
         <div class="btns"><button class="btn primary" onclick="run(this, () => saveRoutes())">Apply routes</button></div>
+        <div class="eyebrow2" style="margin-top:14px">Internet for the devices here</div>
+        <label class="chk"><input type="checkbox" id="netAp" onchange="run(this, () => saveInternet())" /> <span><b>Hotspot</b> — devices on the gateway's own WiFi may reach the internet</span></label>
+        <label class="chk"><input type="checkbox" id="netLan" onchange="run(this, () => saveInternet())" /> <span><b>Site LAN</b> <span class="mono" id="netLanIface">(eth0)</span> — devices on the wired network may reach the internet</span></label>
+        <div class="msg" id="net-msg"></div>
+        <details class="hint">
+          <summary>Switching it off does not make anything unreachable</summary>
+          <p>Both are <b>on</b> by default. Off means: that interface's devices can still talk to everything local and to your <b>tailnet</b> — you reach them exactly as before — but not to the internet. Useful for a camera that phones home, or a plug that decides to pull firmware over a metered SIM. It is a filter on <i>forwarded</i> traffic by destination, so it survives a switch between LTE and Ethernet and does not touch the setup page or the device proxy. The wired switch does nothing while that interface is the gateway's own uplink — there is nothing behind it to filter. Rules are re-applied at every start, because a firewall rule does not survive a reboot.</p>
+        </details>
+
         <details class="hint">
           <summary>A route has to be approved once in the tailnet admin console</summary>
           <p>Advertising a network lets any device on your tailnet talk to <b>every device here at its real address</b> — no per-device setup, and the gateway turns on IP forwarding for it. But the route has to be approved once (Machines → this gateway → Edit route settings), and until then it exists and carries nothing.</p>
@@ -530,6 +539,17 @@
           <label>SSID<input id="apSsid" placeholder="YonderGate-setup" /></label>
           <label>Password<input id="apPass" type="password" autocomplete="new-password" placeholder="empty = open network" /></label>
         </div>
+        <label>Its own network
+          <select id="apSubnet" onchange="onApSubnetChange()"></select>
+        </label>
+        <label id="apAddrWrap" style="display:none">Gateway address (a /24 is assumed)
+          <input id="apAddr" placeholder="10.83.7.1" />
+        </label>
+        <div class="msg" id="ap-subnet-note"></div>
+        <details class="hint">
+          <summary>Why the range matters more here than on a home router</summary>
+          <p>Tailscale carries the site's <b>real</b> addresses to your tailnet: a camera on 192.168.4.15 here is 192.168.4.15 from your laptop at home. That is what makes the route worth having — and it collapses if the network you are sitting in uses the same range, because then that address is already something on your own desk and the route can never win. Nothing at this end can fix that; the fix is to not collide, which is why the range is a setting. The unusual ones are unusual on purpose. <b>Changing it moves this page</b>: rejoin the hotspot and open the new address.</p>
+        </details>
         <label>When to start it
           <select id="apMode">
             <option value="always">always — whenever WiFi is free, so you can always walk up to it (default)</option>
@@ -1916,7 +1936,24 @@
         }
       }
 
+      /**
+       * The internet switches. Saved and applied in one call — a firewall rule that is
+       * only written down is not a firewall rule.
+       */
+      async function saveInternet() {
+        const r = await post('/api/internet', { ap: $('netAp').checked, lan: $('netLan').checked });
+        $('net-msg').textContent = r.message || (r.ok === false ? 'Failed.' : 'Applied.');
+        $('net-msg').style.color = r.ok === false ? 'var(--bad)' : '';
+      }
+      function renderInternet(cfg) {
+        if (!cfg) return;
+        $('netAp').checked = cfg.ap !== false;
+        $('netLan').checked = cfg.lan !== false;
+        $('netLanIface').textContent = `(${cfg.lanIface || 'eth0'})`;
+      }
+
       function renderRoutes(st) {
+        renderInternet(st.internet);
         const nets = st.available || [];
         if (!nets.length) {
           $('routes-out').innerHTML = '<div class="msg">No networks to advertise.</div>';
@@ -1928,8 +1965,14 @@
           const state = !on ? '' : approved
             ? '<span class="v go">advertised · approved</span>'
             : '<span class="v warn">advertised · waiting for approval</span>';
+          // The risk is about the network you connect FROM, which nothing here can
+          // see — so it is phrased as what is likely, and only for the ranges that
+          // actually are likely. Silence means "nothing known against it".
+          const risk = n.risk
+            ? `<div class="msg" style="color:var(--idle);margin:0 0 6px 26px">⚠ ${esc(n.risk)} Two networks with the same range cannot both be reached — change it under Network › WiFi › Setup hotspot, or advertise a different one.</div>`
+            : '';
           return `<label class="route"><input type="checkbox" class="route-cb" value="${esc(n.cidr)}"${on ? ' checked' : ''} />
-            <span class="cidr">${esc(n.cidr)}</span><span class="where">on ${esc(n.iface)}</span>${state}</label>`;
+            <span class="cidr">${esc(n.cidr)}</span><span class="where">on ${esc(n.iface)}</span>${state}</label>${risk}`;
         }).join('') +
         `<div class="row"><span class="k">IP forwarding</span><span class="v ${st.forwarding ? 'go' : 'warn'}">${st.forwarding ? 'on' : 'off'}</span></div>`;
       }
@@ -2007,9 +2050,43 @@
               : `${st.mode === 'client' ? 'Connected' : 'WiFi'} · ${st.ssid || '—'}${st.ip ? ' · ' + st.ip : ''}`;
           $('apSsid').value = (w.hotspot && w.hotspot.ssid) || '';
           $('apMode').value = (w.hotspot && w.hotspot.mode) || 'auto';
+          renderApSubnets(w.hotspot || {});
           $('apPass').placeholder = w.hotspot && w.hotspot.hasPassword ? 'stored — leave empty to keep' : 'empty = open network';
           renderRadio(w.radio);
         } catch {}
+      }
+
+      /**
+       * The AP's subnet, offered as a short list plus "something else". The presets carry
+       * their own collision risk, because the ranges people recognise are exactly the ones
+       * a Tailscale subnet route is likely to clash with.
+       */
+      let apChoices = [];
+      function renderApSubnets(h) {
+        apChoices = h.choices || [];
+        const addr = h.address || '192.168.4.1';
+        const known = apChoices.some((c) => c.address === addr);
+        $('apSubnet').innerHTML =
+          apChoices.map((c) => `<option value="${esc(c.address)}" ${c.address === addr ? 'selected' : ''}>${esc(c.label)} — ${c.risky ? 'common' : 'unusual, safer'}</option>`).join('') +
+          `<option value="custom" ${known ? '' : 'selected'}>something else…</option>`;
+        $('apAddr').value = known ? '' : addr;
+        onApSubnetChange();
+      }
+      function onApSubnetChange() {
+        const v = $('apSubnet').value;
+        const custom = v === 'custom';
+        $('apAddrWrap').style.display = custom ? '' : 'none';
+        const c = apChoices.find((x) => x.address === v);
+        $('ap-subnet-note').innerHTML = custom
+          ? 'Any private address works: 10.x, 172.16–31.x or 192.168.x, ending in 1–254. A /24 is assumed.'
+          : c
+            ? `${c.risky ? '⚠ ' : '✓ '}${esc(c.why)}`
+            : '';
+        $('ap-subnet-note').style.color = c && c.risky ? 'var(--idle)' : 'var(--muted)';
+      }
+      function apAddressValue() {
+        const v = $('apSubnet').value;
+        return v === 'custom' ? $('apAddr').value.trim() : v;
       }
 
       // ---- WiFi radio (rfkill + regulatory country) ----
@@ -2085,7 +2162,7 @@
         }
       }
       async function saveHotspot(opts) {
-        const body = { ssid: $('apSsid').value.trim(), mode: $('apMode').value, ...(opts || {}) };
+        const body = { ssid: $('apSsid').value.trim(), mode: $('apMode').value, address: apAddressValue(), ...(opts || {}) };
         const pw = $('apPass').value;
         if (pw !== '') body.password = pw; // empty = keep what's stored
         const r = await post('/api/wifi/hotspot', body);
