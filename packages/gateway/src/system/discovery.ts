@@ -204,6 +204,17 @@ export interface KnownDevice {
   port: number;
   /** ISO timestamp of the last scan that saw it. */
   lastSeen: string | null;
+  /**
+   * This one device may not reach the internet. Matched by MAC, so it follows the
+   * device across DHCP leases — and so it only works for devices on a network the
+   * gateway itself serves, because a MAC does not survive a router in between.
+   */
+  noInternet?: boolean;
+}
+
+/** MACs to keep off the internet — the input for the per-device firewall rules. */
+export function blockedMacs(devices: KnownDevice[]): string[] {
+  return devices.filter((d) => d.noInternet && d.mac).map((d) => (d.mac as string).toLowerCase());
 }
 
 /** MAC if we have one, address otherwise. See KnownDevice. */
@@ -226,6 +237,8 @@ export interface ScannedDevice extends Device {
   /** Did it answer in THIS scan? */
   seen: boolean;
   lastSeen: string | null;
+  /** This device is kept off the internet (see KnownDevice.noInternet). */
+  noInternet?: boolean;
 }
 
 export function mergeKnown(found: Device[], known: KnownDevice[], now = new Date().toISOString()): ScannedDevice[] {
@@ -237,6 +250,7 @@ export function mergeKnown(found: Device[], known: KnownDevice[], now = new Date
       ...d,
       label: k?.label || null,
       port: k?.port ?? 80,
+      noInternet: !!k?.noInternet,
       // "Saved" is about the operator having named it, not about us remembering it.
       known: !!(k && k.label),
       seen: true,
@@ -261,6 +275,7 @@ export function mergeKnown(found: Device[], known: KnownDevice[], now = new Date
       known: true,
       seen: false,
       lastSeen: k.lastSeen,
+      noInternet: !!k.noInternet,
     });
   }
   return out;
@@ -297,6 +312,7 @@ export function rememberSeen(
       ip: d.ip,
       port: prev?.port ?? 80,
       lastSeen: now,
+      ...(prev?.noInternet ? { noInternet: true } : {}),
     });
   }
   return capSeen([...byId.values()], limit);

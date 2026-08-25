@@ -30,7 +30,8 @@ import {
   bootedStateChanged,
 } from './bootConfig.js';
 import { HOTSPOT_ADDRESS, isApAddress, isCountryCode, radioIsUsable, type WifiRadioStatus } from './wifi.js';
-import { blockedInterfaces, type InternetConfig } from './passthrough.js';
+import { blockedInterfaces, describePassthrough, type InternetConfig } from './passthrough.js';
+import type { InterfaceCounter } from './usage.js';
 import { type HilinkStatus } from './hilink.js';
 import { classifyChanges, describeCheck, type UpdateCheck } from './update.js';
 import type { WatchdogAction } from './watchdog.js';
@@ -416,15 +417,19 @@ export class SimSystem implements SystemManager {
     return this.simCounter;
   }
 
-  async setInternetPassthrough(cfg: InternetConfig): Promise<ActionResult & { blocked: string[] }> {
+  /** A plausible split: the AP busiest, the LAN behind it, the uplink smallest. */
+  async interfaceCounters(): Promise<InterfaceCounter[]> {
+    const up = Math.round(Date.now() / 1000) % 100000;
+    return [
+      { name: 'wlan0', rx: 412_000_000 + up * 900, tx: 88_000_000 + up * 210 },
+      { name: 'eth0', rx: 96_000_000 + up * 300, tx: 240_000_000 + up * 500 },
+      { name: 'eth1', rx: 31_000_000 + up * 40, tx: 12_000_000 + up * 15 },
+    ];
+  }
+
+  async setInternetPassthrough(cfg: InternetConfig, macs: string[] = []): Promise<ActionResult & { blocked: string[] }> {
     const blocked = blockedInterfaces(cfg, 'wlan0');
-    return {
-      ok: true,
-      blocked,
-      message: blocked.length
-        ? `No internet for ${blocked.join(' and ')} — they stay reachable from the tailnet and from here (simulated).`
-        : 'Internet passed through on every interface (simulated).',
-    };
+    return { ok: true, blocked, message: `${describePassthrough(blocked, macs.length)} (simulated)` };
   }
 
   async probeDevices(devices: KnownDevice[]): Promise<Record<string, boolean>> {

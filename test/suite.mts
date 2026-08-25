@@ -1175,6 +1175,56 @@ async function main() {
       P.apSharesInternet({ ap: true, lan: true, lanIface: 'eth0' }, false) === false);
   }
 
+  // ---- one device off the internet, and where the volume comes from ----
+  {
+    const P = await import('../packages/gateway/src/system/passthrough');
+    const D2 = await import('../packages/gateway/src/system/discovery');
+    const U = await import('../packages/gateway/src/system/usage');
+
+    const devs = [
+      { id: 'mac:aa:bb:cc:dd:ee:ff', label: 'chatty camera', mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.4.23', port: 80, lastSeen: null, noInternet: true },
+      { id: 'mac:11:22:33:44:55:66', label: 'pump', mac: '11:22:33:44:55:66', ip: '192.168.4.24', port: 80, lastSeen: null },
+      { id: 'ip:192.168.4.99', label: 'behind a router', mac: null, ip: '192.168.4.99', port: 80, lastSeen: null, noInternet: true },
+    ];
+    const macs = D2.blockedMacs(devs);
+    ok('only the blocked device is listed', macs.join() === 'aa:bb:cc:dd:ee:ff');
+    ok('and a device with no MAC cannot be blocked individually', !macs.some((m) => m === null || m === ''));
+
+    const rules = P.passthroughRules([], macs);
+    ok('the device gets its own reject rule',
+      rules.some((r) => r.includes('--mac-source') && r.includes('aa:bb:cc:dd:ee:ff') && r.includes('REJECT')));
+    ok('and local destinations still return first',
+      rules.some((r) => r.includes('--mac-source') && r.includes('100.64.0.0/10') && r.includes('RETURN')));
+    ok('a junk MAC never reaches argv', P.passthroughRules([], ['nonsense; reboot']).length === 1);
+    ok('interfaces and devices can be blocked together',
+      P.passthroughRules(['wlan0'], macs).some((r) => r.includes('wlan0')) &&
+      P.passthroughRules(['wlan0'], macs).some((r) => r.includes('--mac-source')));
+    ok('the summary counts both', /wlan0 and 1 device/.test(P.describePassthrough(['wlan0'], 1)));
+    ok('and says so when nothing is blocked', /passed through/.test(P.describePassthrough([], 0)));
+
+    // The flag has to survive the two things that rewrite the device list.
+    const rescanned = D2.rememberSeen(devs, [
+      { ip: '192.168.4.90', mac: 'AA:BB:CC:DD:EE:FF', iface: 'wlan0', vendor: null, hostname: null, openPorts: [], self: false },
+    ], '2026-08-25T10:00:00.000Z');
+    ok('a block survives a rescan and follows the address',
+      rescanned.find((d) => d.id === 'mac:aa:bb:cc:dd:ee:ff')!.noInternet === true);
+
+    const procNetDev = [
+      'Inter-|   Receive                                                |  Transmit',
+      ' face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets',
+      '    lo: 999999999 100 0 0 0 0 0 0 999999999 100 0 0 0 0 0 0',
+      '  eth0: 96000000 900 0 0 0 0 0 0 240000000 800 0 0 0 0 0 0',
+      ' wlan0: 412000000 2200 0 0 0 0 0 0 88000000 1900 0 0 0 0 0 0',
+      ' usb0: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0',
+    ].join('\n');
+    const counters = U.parseInterfaceCounters(procNetDev);
+    ok('loopback is left out — it would dwarf everything', !counters.some((c) => c.name === 'lo'));
+    ok('so is an interface that has moved nothing', !counters.some((c) => c.name === 'usb0'));
+    ok('the busiest interface comes first', counters[0].name === 'wlan0');
+    ok('receive and transmit are kept apart', counters[0].rx === 412000000 && counters[0].tx === 88000000);
+    ok('and the header lines are not mistaken for one', counters.length === 2);
+  }
+
   // ---- the setup page's tabs ----
   // Fourteen panels in one column were unfindable, so each panel declares the tab it
   // belongs to. Three ways that rots silently: a panel with no tab (invisible on every

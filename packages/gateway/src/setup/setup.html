@@ -726,6 +726,13 @@
         <p class="msg" id="data-credit-note" style="display:none">Prepaid billed per MB has no month: what runs out is the balance, whenever that happens. The counter therefore runs from the last top-up rather than from the 1st, so press <b>I topped it up</b> whenever you put money on the card. On most German tariffs that top-up is also what stops the SIM being deactivated for inactivity — the projection below tells you when the next one is due.</p>
         <div class="msg" id="data-msg"></div>
 
+        <div class="eyebrow2" style="margin-top:12px">Traffic per interface</div>
+        <div id="iface-counters"><div class="msg">…</div></div>
+        <details class="hint">
+          <summary>Where the volume comes from, before you switch anything off</summary>
+          <p>Since the last boot, per interface — the counter above is what the month costs, this is which side of the box produced it: the hotspot, the site LAN, or the uplink itself. It counts <b>all</b> traffic on the interface, including what never left the site, so treat it as a comparison between interfaces rather than a bill. The kernel resets these on reboot, which on the default weekly schedule means they cover a week at most.</p>
+        </details>
+
         <div class="eyebrow2" style="margin-top:12px">Alerts (ntfy)</div>
         <label class="chk"><input type="checkbox" id="alertsEnabled" /> Send alerts</label>
         <div class="grid2">
@@ -1548,6 +1555,7 @@
         if (!$('timezone').value && h.timezone) $('timezone').value = h.timezone;
         $('rtcEnabled').checked = !!h.rtcOverlay;
         renderInterfaces(d.interfaces || [], d.data);
+        renderCounters(d.counters || [], d.data);
         if (d.data) {
           $('dataSource').value = d.data.source;
           $('dataPlan').value = d.data.plan || 'monthly';
@@ -1806,6 +1814,20 @@
        * Ask one device whether it is there. On demand only — the list is otherwise as
        * fresh as the last scan, and this box is on a data budget; nothing here polls.
        */
+      /**
+       * One device off (or back on) the internet. Matched by MAC, so it follows the
+       * device across DHCP leases — and so it only works for devices on a network this
+       * gateway serves; the button is not offered for anything else.
+       */
+      async function deviceInternet(i, allow) {
+        const d = (scanned.devices || [])[i];
+        if (!d) return;
+        const r = await post('/api/devices/internet', { ip: d.ip, mac: d.mac, allow });
+        if (r && r.ok === false) { $('scan-msg').textContent = r.message || 'Failed.'; return; }
+        d.noInternet = !allow;
+        renderScan();
+        $('scan-msg').textContent = r.message || '';
+      }
       async function checkDevice(i) {
         const d = (scanned.devices || [])[i];
         if (!d) return;
@@ -1828,6 +1850,11 @@
           const buttons = [
             d.self ? '' : `<button class="btn tiny" onclick="run(this, () => checkDevice(${i}))" title="Ask this one device whether it answers, now">Check</button>`,
             direct ? `<a class="btn tiny" href="${esc(direct)}" target="_blank" rel="noopener">Open ↗</a>` : '',
+            // Only where there is a MAC to match on: a device behind a router is on a
+            // different segment and cannot be picked out individually.
+            d.self || !d.mac ? '' : d.noInternet
+              ? `<button class="btn tiny bad" onclick="run(this, () => deviceInternet(${i}, true))" title="Let this device reach the internet again">No internet</button>`
+              : `<button class="btn tiny" onclick="run(this, () => deviceInternet(${i}, false))" title="Keep this one device off the internet; it stays reachable from here and from the tailnet">Block internet</button>`,
             !publishable ? '' :
               via
                 ? `<a class="btn tiny primary" href="http://${esc(location.hostname)}:${via}/" target="_blank" rel="noopener">Open via gateway ↗</a>
@@ -1950,6 +1977,29 @@
         $('netAp').checked = cfg.ap !== false;
         $('netLan').checked = cfg.lan !== false;
         $('netLanIface').textContent = `(${cfg.lanIface || 'eth0'})`;
+      }
+
+      /**
+       * Traffic per interface since boot. The uplink counter above says what the month
+       * costs; this says where it came from. Since-boot is as long as it is meaningful —
+       * the kernel resets these on reboot, and this box reboots weekly by default.
+       */
+      function renderCounters(list, data) {
+        const el = $('iface-counters');
+        if (!el) return;
+        if (!list.length) { el.innerHTML = '<div class="msg">No interface counters.</div>'; return; }
+        const uplink = (data && data.iface) || '';
+        el.innerHTML = list.map((c) => {
+          const total = (c.rx || 0) + (c.tx || 0);
+          return `<div class="row"><span class="k">${esc(c.name)}${c.name === uplink ? ' · uplink' : ''}</span>` +
+            `<span class="v">${fmtBytes(total)} <span style="color:var(--muted)">(↓${fmtBytes(c.rx)} ↑${fmtBytes(c.tx)})</span></span></div>`;
+        }).join('');
+      }
+      function fmtBytes(n) {
+        const u = ['B', 'kB', 'MB', 'GB', 'TB'];
+        let v = Number(n) || 0, i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${u[i]}`;
       }
 
       function renderRoutes(st) {

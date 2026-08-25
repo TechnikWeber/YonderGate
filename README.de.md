@@ -350,6 +350,11 @@ abgedeckt.
 - [x] **Internet je Schnittstelle**: Hotspot und kabelgebundenes LAN getrennt, per
       Voreinstellung an. Aus heißt: kein Internet für diese Geräte, erreichbar über das
       Tailnet bleiben sie
+- [x] **Internet je Gerät**, über die MAC gematcht, folgt dem Gerät also über
+      DHCP-Wechsel hinweg — für die eine Kamera, die nach Hause telefoniert, ohne das
+      ganze Netz abzuschalten
+- [x] **Verkehr je Schnittstelle** neben dem Uplink-Zähler: welche Seite der Box das
+      Volumen erzeugt hat — die Frage, die man hat, bevor man etwas abschaltet
 - [ ] HTTPS-Geräte: Der Proxy spricht mit dem Ziel derzeit nur einfaches HTTP
 - [ ] mDNS-/Avahi-Namen in der Geräteliste, nicht nur Reverse-DNS
 

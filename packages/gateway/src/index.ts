@@ -7,6 +7,7 @@ import { WatchdogService } from './system/WatchdogService.js';
 import { UplinkService } from './system/UplinkService.js';
 import { describeWindow } from './system/uplink.js';
 import { applyCameras, detectH264Encoder, detectRpicamBinary } from './video/cameraManager.js';
+import { blockedMacs } from './system/discovery.js';
 import { startCaptivePortal } from './transport/captivePortal.js';
 import { activity, startHttpServer } from './transport/httpServer.js';
 
@@ -88,7 +89,7 @@ async function main() {
   // reboot. Re-applying at every start is what makes "off" mean off — including after
   // the power cut that an off-grid box has every few weeks.
   system
-    .setInternetPassthrough(config.internet)
+    .setInternetPassthrough(config.internet, blockedMacs(config.devices))
     .then((r) => {
       if (r.blocked.length || !r.ok) console.log(`[internet] ${r.message}`);
     })

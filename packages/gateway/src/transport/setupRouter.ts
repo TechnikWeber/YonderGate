@@ -10,7 +10,7 @@ import type { AlertService } from '../system/AlertService.js';
 import type { WatchdogService } from '../system/WatchdogService.js';
 import type { UplinkService } from '../system/UplinkService.js';
 import { isUplinkMode, describeWindow } from '../system/uplink.js';
-import { isInterfaceName } from '../system/passthrough.js';
+import { isInterfaceName, isMac } from '../system/passthrough.js';
 import { isProbeTarget, dayName } from '../system/watchdog.js';
 import { switchId, validateSwitch, SWITCH_DEFAULT_CYCLE_S, type PowerSwitch } from '../system/power.js';
 import { isNtfyUrl, maskNtfyUrl, unmaskNtfyUrl } from '../system/alerts.js';
@@ -54,7 +54,7 @@ import { isIpv4 } from '../system/hilink.js';
 import { isGitBranch, isGitSource, UPDATE_SOURCE_DEFAULT } from '../system/update.js';
 import { isCidr } from '../system/tailscale.js';
 import { nextListenPort, proxyId, validateProxy, type ProxyCfg } from './deviceProxy.js';
-import { deviceKey, rememberSeen, markSeen, type KnownDevice } from '../system/discovery.js';
+import { deviceKey, rememberSeen, markSeen, blockedMacs, type KnownDevice } from '../system/discovery.js';
 import { encodeBody, etagFor, etagMatches } from './metered.js';
 
 const SETUP_HTML = fileURLToPath(new URL('../setup/setup.html', import.meta.url));
@@ -471,6 +471,9 @@ export async function handleSetup(
       usageCredit: snap.credit,
       usageForecast: snap.forecast,
       interfaces: await ctx.system.interfaces(),
+      // Which side of the box generated the traffic — the question you have before
+      // switching an interface's internet off.
+      counters: await ctx.system.interfaceCounters(),
       data: ctx.config.data,
       ntpServers: ctx.config.ntpServers,
       history: ctx.config.history,
@@ -918,11 +921,53 @@ export async function handleSetup(
     };
     savePersisted(ctx.config.configPath, { internet });
     ctx.config.internet = internet;
-    const r = await ctx.system.setInternetPassthrough(internet);
+    const r = await ctx.system.setInternetPassthrough(internet, blockedMacs(ctx.config.devices));
     // Switching the AP's internet off makes it an internet-less network, which is what
     // the captive portal is for — so the portal has to be re-decided here too.
     if (r.ok) await ctx.system.syncCaptivePortal().catch(() => undefined);
     json(res, r.ok ? 200 : 500, r);
+    return true;
+  }
+
+  /**
+   * One device off the internet. Keyed by MAC so it follows the thing across DHCP
+   * leases; a device with no MAC (behind a router, so a different L2 segment) cannot
+   * be matched and is refused here rather than silently ignored.
+   */
+  if (url === '/api/devices/internet' && method === 'POST') {
+    const body = (await readBody(req)) as { ip?: unknown; mac?: unknown; allow?: unknown };
+    const ip = String(body.ip ?? '');
+    const mac = typeof body.mac === 'string' && body.mac ? body.mac.toLowerCase() : null;
+    if (!isIpv4(ip)) {
+      json(res, 400, { ok: false, message: 'A device needs an IPv4 address.' });
+      return true;
+    }
+    if (!mac || !isMac(mac)) {
+      json(res, 400, {
+        ok: false,
+        message: 'This device has no MAC address here, so it cannot be matched individually — ' +
+          'it is behind a router rather than on a network this gateway serves. Switch the whole interface instead.',
+      });
+      return true;
+    }
+    const id = deviceKey({ mac, ip });
+    const existing = ctx.config.devices.find((d) => d.id === id);
+    const noInternet = body.allow !== true;
+    const entry: KnownDevice = existing
+      ? { ...existing, noInternet }
+      : { id, label: '', mac, ip, port: 80, lastSeen: new Date().toISOString(), noInternet };
+    const devices = [...ctx.config.devices.filter((d) => d.id !== id), entry];
+    savePersisted(ctx.config.configPath, { devices });
+    ctx.config.devices = devices;
+    const r = await ctx.system.setInternetPassthrough(ctx.config.internet, blockedMacs(devices));
+    json(res, r.ok ? 200 : 500, {
+      ...r,
+      message: r.ok
+        ? noInternet
+          ? `${entry.label || ip} is now kept off the internet — still reachable from here and from the tailnet.`
+          : `${entry.label || ip} may reach the internet again.`
+        : r.message,
+    });
     return true;
   }
 

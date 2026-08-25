@@ -9,6 +9,7 @@ import type { Health, NetInterface } from './health.js';
 import type { WatchdogAction } from './watchdog.js';
 import type { PowerSwitch } from './power.js';
 import type { InternetConfig } from './passthrough.js';
+import type { InterfaceCounter } from './usage.js';
 
 /** Result of a hardware probe (see detectHardware). */
 export interface DetectResult {
@@ -393,6 +394,12 @@ export interface SystemManager {
    * caller turns counters into a monthly total — see system/usage.ts.
    */
   dataCounter(source: 'hilink' | 'interface', iface: string): Promise<number | null>;
+  /**
+   * Bytes per interface since boot. The uplink counter says what the month costs; this
+   * says which side of the box generated it — which is the question you have before
+   * switching an interface's internet off.
+   */
+  interfaceCounters(): Promise<InterfaceCounter[]>;
   /** Which of these devices answer right now (id → reachable). */
   probeDevices(devices: KnownDevice[]): Promise<Record<string, boolean>>;
   /** Everything reachable on the site's networks. `active` adds a ping sweep. */
@@ -405,7 +412,7 @@ export interface SystemManager {
    * Apply "may these devices reach the internet" for the AP and the wired LAN. Their
    * reachability from the tailnet is untouched either way — see system/passthrough.ts.
    */
-  setInternetPassthrough(cfg: InternetConfig): Promise<ActionResult & { blocked: string[] }>;
+  setInternetPassthrough(cfg: InternetConfig, macs?: string[]): Promise<ActionResult & { blocked: string[] }>;
   /** What an update would change — fetches, changes nothing. */
   updateCheck(src?: UpdateSource): Promise<UpdateCheck>;
   /** Apply the update (pull, install/rebuild if needed) and restart. */

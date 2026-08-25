@@ -93,6 +93,38 @@ export function parseProcNetDev(out: string, iface: string): number | null {
   return null;
 }
 
+/**
+ * Every interface's counters at once. The uplink total is what costs money; this is
+ * what says **where it came from** — the AP, the site LAN, or the box itself. `lo` is
+ * dropped (it is the box talking to itself and would dwarf everything), and so is any
+ * interface that has moved nothing at all, which on a Pi is most of them.
+ *
+ * These are since-boot counters, which is exactly as long as they are meaningful: the
+ * kernel resets them on reboot, and this box reboots weekly by default.
+ */
+export interface InterfaceCounter {
+  name: string;
+  rx: number;
+  tx: number;
+}
+
+export function parseInterfaceCounters(out: string): InterfaceCounter[] {
+  const counters: InterfaceCounter[] = [];
+  for (const line of (out ?? '').split('\n')) {
+    const [rawName, rest] = line.split(':');
+    if (!rest) continue;
+    const name = rawName.trim();
+    if (!name || name === 'lo' || /^(Inter|face)/.test(name)) continue;
+    const cols = rest.trim().split(/\s+/).map(Number);
+    const rx = cols[0];
+    const tx = cols[8];
+    if (!Number.isFinite(rx) || !Number.isFinite(tx)) continue;
+    if (rx + tx === 0) continue;
+    counters.push({ name, rx, tx });
+  }
+  return counters.sort((a, b) => b.rx + b.tx - (a.rx + a.tx));
+}
+
 /** HiLink `/api/monitoring/traffic-statistics` → bytes since the stick last reset. */
 export function parseHilinkTraffic(values: Record<string, string>): number | null {
   const up = Number(values.TotalUpload);

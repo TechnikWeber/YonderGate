@@ -65,6 +65,9 @@ npx tsc --noEmit -p packages/gateway/tsconfig.json
   failover; naming the destination does not, and it is what keeps devices reachable from
   the tailnet with their internet switched off. REJECT, not DROP: a device that is told
   "no" gives up at once, one that is ignored looks broken for a minute.
+- **A device is blocked by MAC, an interface by name.** The MAC follows the thing across
+  DHCP leases, which an address does not — but it only works while the device is on a
+  segment this box serves, so the button is not offered for anything without one.
 - **Firewall rules do not survive a reboot** — `index.ts` re-applies them at every start.
   Anything else that writes iptables must do the same.
 - **An AP with its internet switched off is an internet-less network**, so the captive

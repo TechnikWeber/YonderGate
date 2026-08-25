@@ -57,16 +57,29 @@ export function linkChainArgs(): string[] {
  * this idempotent: the same call applies a change, re-applies after a reboot, and
  * clears everything when the list is empty.
  */
-export function passthroughRules(blocked: string[]): string[][] {
+export function passthroughRules(blocked: string[], macs: string[] = []): string[][] {
   const rules: string[][] = [['-F', PASSTHROUGH_CHAIN]];
-  for (const iface of blocked) {
-    if (!isInterfaceName(iface)) continue;
+  const block = (match: string[]) => {
     for (const dest of LOCAL_DESTINATIONS) {
-      rules.push(['-A', PASSTHROUGH_CHAIN, '-i', iface, '-d', dest, '-j', 'RETURN']);
+      rules.push(['-A', PASSTHROUGH_CHAIN, ...match, '-d', dest, '-j', 'RETURN']);
     }
-    rules.push(['-A', PASSTHROUGH_CHAIN, '-i', iface, '-j', 'REJECT', '--reject-with', 'icmp-net-prohibited']);
+    rules.push(['-A', PASSTHROUGH_CHAIN, ...match, '-j', 'REJECT', '--reject-with', 'icmp-net-prohibited']);
+  };
+  for (const iface of blocked) {
+    if (isInterfaceName(iface)) block(['-i', iface]);
+  }
+  // Per device, by MAC: it follows the thing across DHCP leases, which an address does
+  // not. Only works while the device is on a segment this box serves — a MAC does not
+  // survive a router in between, and the UI says so rather than failing quietly.
+  for (const mac of macs) {
+    if (isMac(mac)) block(['-m', 'mac', '--mac-source', mac.toLowerCase()]);
   }
   return rules;
+}
+
+/** MACs go into argv, so they are checked rather than trusted. */
+export function isMac(v: string): boolean {
+  return /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(String(v ?? ''));
 }
 
 /** Interface names are argv here, so they are checked rather than trusted. */
@@ -101,4 +114,14 @@ export const INTERNET_DEFAULTS: InternetConfig = { ap: true, lan: true, lanIface
  */
 export function apSharesInternet(cfg: InternetConfig, hasUplink: boolean): boolean {
   return hasUplink && cfg.ap !== false;
+}
+
+/** One line for the operator, in both the real and the simulated path. */
+export function describePassthrough(blocked: string[], macCount: number): string {
+  const parts: string[] = [];
+  if (blocked.length) parts.push(blocked.join(' and '));
+  if (macCount) parts.push(`${macCount} device${macCount === 1 ? '' : 's'}`);
+  return parts.length
+    ? `No internet for ${parts.join(' and ')} — everything stays reachable from the tailnet and from here.`
+    : 'Internet passed through everywhere.';
 }

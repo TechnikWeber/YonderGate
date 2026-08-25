@@ -2,6 +2,35 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## v0.18.0
+**English**
+- **One device off the internet**, not just a whole interface. Each row in the site
+  network list has a **Block internet** button; the device keeps talking to everything
+  local and to your tailnet, and reaches nothing outside. Matched by **MAC**, so it
+  follows the device across DHCP leases — and so it only works while the device is on a
+  network this gateway serves. A device behind a router has no MAC here and the button is
+  not offered, with the reason said out loud rather than the block failing quietly.
+- **Traffic per interface**, next to the mobile-data counter. The uplink counter says what
+  the month costs; this says which side of the box produced it — the hotspot, the site
+  LAN, or the uplink itself. It counts everything on the interface, including what never
+  left the site, so it is a comparison rather than a bill; the kernel resets it on reboot,
+  which with the default weekly schedule means a week at most.
+
+**Deutsch**
+- **Ein einzelnes Gerät ohne Internet**, nicht nur eine ganze Schnittstelle. Jede Zeile in
+  der Geräteliste hat einen **Block internet**-Knopf; das Gerät spricht weiter mit allem
+  Lokalen und mit deinem Tailnet und erreicht nichts draußen. Gematcht über die **MAC**,
+  folgt also dem Gerät über DHCP-Wechsel hinweg — und funktioniert deshalb nur, solange
+  das Gerät in einem Netz hängt, das dieses Gateway selbst bedient. Ein Gerät hinter einem
+  Router hat hier keine MAC, der Knopf erscheint dort nicht, und der Grund steht im
+  Klartext, statt dass die Sperre stillschweigend wirkungslos bliebe.
+- **Verkehr je Schnittstelle**, neben dem Mobilfunkzähler. Der Uplink-Zähler sagt, was der
+  Monat kostet; das hier sagt, welche Seite der Box ihn erzeugt hat — Hotspot,
+  Standort-LAN oder der Uplink selbst. Gezählt wird alles auf der Schnittstelle, auch was
+  den Standort nie verlassen hat: ein Vergleich also, keine Rechnung. Der Kernel setzt die
+  Zähler beim Neustart zurück, bei der voreingestellten Wochenroutine also höchstens eine
+  Woche.
+
 ## v0.17.0
 **English**
 - **The hotspot's own subnet is now a setting**, and it matters more than it looks. A

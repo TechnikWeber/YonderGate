@@ -327,6 +327,10 @@ The living list of what is open. Ticked items are done and covered by tests.
       matches the network you connect from can never be reached
 - [x] **Internet per interface**: hotspot and wired LAN separately, on by default. Off
       means no internet for those devices while they stay reachable from the tailnet
+- [x] **Internet per device**, matched by MAC so it follows the thing across DHCP leases —
+      for the one camera that phones home, without switching off the whole network
+- [x] **Traffic per interface** next to the uplink counter: which side of the box produced
+      the volume, which is the question you have before switching anything off
 - [ ] HTTPS devices: the proxy currently talks plain HTTP to the target
 - [ ] mDNS/avahi names in the device list, not just reverse DNS
 

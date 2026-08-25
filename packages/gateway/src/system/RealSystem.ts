@@ -113,7 +113,10 @@ import {
   type Health,
   type NetInterface,
 } from './health.js';
-import { parseHilinkTraffic, parseProcNetDev } from './usage.js';
+import { parseHilinkTraffic, parseProcNetDev,
+  parseInterfaceCounters,
+  type InterfaceCounter,
+} from './usage.js';
 import {
   mergeDevices,
   mergeKnown,
@@ -127,6 +130,7 @@ import {
 } from './discovery.js';
 import {
   blockedInterfaces,
+  describePassthrough,
   ensureChainArgs,
   linkChainArgs,
   passthroughRules,
@@ -1225,6 +1229,11 @@ export class RealSystem implements SystemManager {
     };
   }
 
+  async interfaceCounters(): Promise<InterfaceCounter[]> {
+    const r = await sh('cat /proc/net/dev');
+    return r.ok ? parseInterfaceCounters(r.out) : [];
+  }
+
   async dataCounter(source: 'hilink' | 'interface', iface: string): Promise<number | null> {
     if (source === 'interface') {
       const r = await sh('cat /proc/net/dev');
@@ -1327,7 +1336,7 @@ export class RealSystem implements SystemManager {
    * FORWARD, then rebuild its contents from scratch. Rebuilding rather than patching
    * is what makes this safe to call at boot, after a config change, and twice in a row.
    */
-  async setInternetPassthrough(cfg: InternetConfig): Promise<ActionResult & { blocked: string[] }> {
+  async setInternetPassthrough(cfg: InternetConfig, macs: string[] = []): Promise<ActionResult & { blocked: string[] }> {
     this.internet = { ...cfg };
     const blocked = blockedInterfaces(cfg, WIFI_IFACE);
     const [create, test] = ensureChainArgs();
@@ -1344,7 +1353,7 @@ export class RealSystem implements SystemManager {
         };
       }
     }
-    for (const args of passthroughRules(blocked)) {
+    for (const args of passthroughRules(blocked, macs)) {
       const r = await shArgs('iptables', args);
       // A flush of a chain that has just been created is allowed to be boring.
       if (!r.ok && args[0] !== '-F') {
@@ -1354,9 +1363,7 @@ export class RealSystem implements SystemManager {
     return {
       ok: true,
       blocked,
-      message: blocked.length
-        ? `No internet for ${blocked.join(' and ')} — they stay reachable from the tailnet and from here.`
-        : 'Internet passed through on every interface.',
+      message: describePassthrough(blocked, macs.length),
     };
   }
 
