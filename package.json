@@ -21,6 +21,6 @@
     "concurrently": "^9.1.0",
     "typescript": "^5.9.3"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "AGPL-3.0-or-later",
   "author": "Philipp Weber"
 }

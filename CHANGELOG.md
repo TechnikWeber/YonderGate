@@ -2,6 +2,20 @@
 
 All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 
+## Unreleased
+**English**
+- **License is now AGPL-3.0-or-later.** YonderGate had inherited YonderRC's
+  CC BY-NC-ND text, vehicle warnings included. Modifying, sharing and commercial use are
+  now allowed; a modified version that is passed on or run for others over a network
+  must publish its source. Notes that are not part of the license moved to `NOTICE.md`.
+
+**Deutsch**
+- **Die Lizenz ist jetzt AGPL-3.0-or-later.** YonderGate hatte den CC-BY-NC-ND-Text von
+  YonderRC geerbt, samt Fahrzeugwarnungen. Verändern, Weitergeben und kommerzielle
+  Nutzung sind jetzt erlaubt; wer eine veränderte Fassung weitergibt oder für andere
+  über ein Netzwerk betreibt, muss ihren Quelltext veröffentlichen. Hinweise, die nicht
+  Teil der Lizenz sind, stehen jetzt in `NOTICE.md`.
+
 ## v0.18.1
 **English**
 - **Fixed: an unreadable sensor read as a healthy one.** `Number('')` is 0, not NaN — so

@@ -71,9 +71,6 @@ cherry-picked.
 
 ## Open decisions
 
-- **License.** Inherited CC BY-NC-ND + no-military from YonderRC. For a gateway
-  that others might contribute to, a software license (AGPL, Apache-2.0) fits
-  better. Decide before the repo goes public.
 - **Discovery mechanism.** `ip neigh` + ARP is passive and instant; an active
   sweep (ping/`nmap -sn`) finds more but takes seconds and touches every host.
   Probably both, with the passive one as default.

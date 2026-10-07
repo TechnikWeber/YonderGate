@@ -405,10 +405,14 @@ abgedeckt.
       Seite öffnet, dasselbe sieht; hell ist Standard
 
 **Betrieb**
-- [ ] Die Lizenz entscheiden, bevor das hier Mitwirkende bekommt (siehe docs/CONCEPT.md)
+- [x] Lizenz entschieden, bevor das hier Mitwirkende bekommt: AGPL-3.0-or-later
 - [x] Zweisprachige Doku wie in YonderRC — `README.de.md` und `docs/HARDWARE.de.md` sind
       da, und ein Test schlägt fehl, wenn die beiden READMEs strukturell auseinanderlaufen
 - [x] Ein Hardware-Leitfaden: welcher Pi, welcher LTE-Stick, Solar-/Ladereglerverkabelung
       und was das Ganze an Watt kostet — [docs/HARDWARE.de.md](docs/HARDWARE.de.md)
 - [ ] Verhalten bei Brownout: im Hardware-Leitfaden beschrieben, aber **nicht auf Hardware
       verifiziert**
+
+## Lizenz
+
+[AGPL-3.0-or-later](LICENSE). Fremdkomponenten und weitere Hinweise: [NOTICE.md](NOTICE.md).
