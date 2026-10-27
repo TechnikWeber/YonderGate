@@ -100,14 +100,9 @@ npx tsc --noEmit -p packages/gateway/tsconfig.json
 
 ## Style
 German UI copy is fine in chat with the owner; **code, comments and identifiers
-stay in English**. Docs are English-first with `.de.md` siblings.
+stay in English**.
 
-**Both language versions are edited in the same commit — always.** `README.md` /
-`README.de.md`, `docs/HARDWARE.md` / `.de.md`, `docs/DATA-BUDGET.md` / `.de.md`. A
-translation that lags is worse than none: it states as current something the project
-stopped doing, and the reader has no way to tell which of the two is the lie. The test
-suite fails if the two READMEs stop matching in structure (heading count, TODO item
-count), which catches the common case of adding a bullet to one of them.
+Docs are **English only** — no `.de.md` copies (browsers translate; a second language only drifts). A test fails if a German copy comes back.
 
 ## Conventions / gotchas — cameras
 - **go2rtc runs `exec:` without a shell** (`shell.QuoteSplit` + `exec.Command`). A `|` in

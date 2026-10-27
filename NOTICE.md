@@ -7,11 +7,11 @@ of the GNU Affero General Public License as published by the Free Software Found
 either version 3 of the License, or (at your option) any later version. The full text
 is in [LICENSE](LICENSE).
 
-## Kurzfassung (unverbindlich — es gilt der volle Lizenztext)
+## Summary (not binding — the full license text applies)
 
-Du darfst YonderGate benutzen, verändern und weitergeben, auch kommerziell. Wer eine
-veränderte Fassung weitergibt oder über ein Netzwerk für andere betreibt, muss deren
-Quelltext unter derselben Lizenz zugänglich machen.
+You may use, modify and share YonderGate, commercially too. Whoever shares a modified
+version, or runs one over a network for others, must make its source code available
+under the same license.
 
 ## Third-party components
 

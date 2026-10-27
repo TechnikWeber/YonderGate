@@ -1,5 +1,3 @@
-**English** · [Deutsch](README.de.md)
-
 # YonderGate
 
 An **off-grid site gateway** on a Raspberry Pi: it puts a remote place — a holiday
@@ -247,8 +245,7 @@ Two budgets decide whether a box like this is practical, and neither is about th
 **Watts.** A **Pi Zero 2 W** plus a HiLink LTE stick is **≈ 2.5–4 W, i.e. 60–95 Wh/day**.
 The board is only the third biggest lever: one always-on IP camera can cost more than the
 whole gateway, and a stick with a poor antenna transmits harder and burns watts doing it.
-Parts list, wiring and the brownout section: [docs/HARDWARE.md](docs/HARDWARE.md)
-([deutsch](docs/HARDWARE.de.md)).
+Parts list, wiring and the brownout section: [docs/HARDWARE.md](docs/HARDWARE.md).
 
 **Megabytes.** Measured against the running gateway: the setup page is 33 kB gzipped and
 0 bytes when unchanged, an open tab costs ~2 MB/hour (and stops when you hide it), the
@@ -259,8 +256,7 @@ live 1080p is ~15 MB, more than a month of everything else. The item nobody budg
 ### Which SIM
 
 The tariff decides more than the price does, and the criterion is not the one most people
-start with. The full reasoning is in [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md)
-([deutsch](docs/DATA-BUDGET.de.md)); the short version:
+start with. The full reasoning is in [docs/DATA-BUDGET.md](docs/DATA-BUDGET.md); the short version:
 
 - **Coverage first.** At a remote plot the network that actually reaches the box matters
   more than a euro a month — and better signal also costs fewer watts. Test with a phone,
@@ -381,8 +377,6 @@ The living list of what is open. Ticked items are done and covered by tests.
 
 **Operations**
 - [x] License decided before this gets contributors: AGPL-3.0-or-later
-- [x] Bilingual docs as in YonderRC — `README.de.md` and `docs/HARDWARE.de.md` are there,
-      and a test fails if the two READMEs drift apart in structure
 - [x] A hardware guide: which Pi, which LTE stick, solar/charge controller wiring, and
       what the whole thing costs in watts — [docs/HARDWARE.md](docs/HARDWARE.md)
 - [ ] Power behaviour on brownout: described in the hardware guide, but **not verified**

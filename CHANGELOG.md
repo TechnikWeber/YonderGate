@@ -1,39 +1,21 @@
 # Changelog
 
-All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
+All notable changes to YonderGate.
 
 ## Unreleased
-**English**
 - **License is now AGPL-3.0-or-later.** YonderGate had inherited YonderRC's
   CC BY-NC-ND text, vehicle warnings included. Modifying, sharing and commercial use are
   now allowed; a modified version that is passed on or run for others over a network
   must publish its source. Notes that are not part of the license moved to `NOTICE.md`.
 
-**Deutsch**
-- **Die Lizenz ist jetzt AGPL-3.0-or-later.** YonderGate hatte den CC-BY-NC-ND-Text von
-  YonderRC geerbt, samt Fahrzeugwarnungen. Verändern, Weitergeben und kommerzielle
-  Nutzung sind jetzt erlaubt; wer eine veränderte Fassung weitergibt oder für andere
-  über ein Netzwerk betreibt, muss ihren Quelltext veröffentlichen. Hinweise, die nicht
-  Teil der Lizenz sind, stehen jetzt in `NOTICE.md`.
-
 ## v0.18.1
-**English**
 - **Fixed: an unreadable sensor read as a healthy one.** `Number('')` is 0, not NaN — so
   an empty `/sys/class/thermal/…/temp` came back as a comfortable **0 °C**, an empty
   `/proc/loadavg` as an idle **0.00**, and an empty `/proc/uptime` as a box that booted
   this instant. All three now check for an empty read first and report *unknown*. Found
   by the tests written while porting these parsers to YonderRC.
 
-**Deutsch**
-- **Behoben: ein unlesbarer Sensor las sich wie ein gesunder.** `Number('')` ist 0, nicht
-  NaN — eine leere `/sys/class/thermal/…/temp` kam also als gemütliche **0 °C** zurück,
-  ein leerer `/proc/loadavg` als entspannte **0,00** und eine leere `/proc/uptime` als
-  gerade gebootete Box. Alle drei prüfen jetzt zuerst auf eine leere Antwort und melden
-  *unbekannt*. Gefunden von den Tests, die beim Portieren dieser Parser nach YonderRC
-  entstanden sind.
-
 ## v0.18.0
-**English**
 - **One device off the internet**, not just a whole interface. Each row in the site
   network list has a **Block internet** button; the device keeps talking to everything
   local and to your tailnet, and reaches nothing outside. Matched by **MAC**, so it
@@ -46,23 +28,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   left the site, so it is a comparison rather than a bill; the kernel resets it on reboot,
   which with the default weekly schedule means a week at most.
 
-**Deutsch**
-- **Ein einzelnes Gerät ohne Internet**, nicht nur eine ganze Schnittstelle. Jede Zeile in
-  der Geräteliste hat einen **Block internet**-Knopf; das Gerät spricht weiter mit allem
-  Lokalen und mit deinem Tailnet und erreicht nichts draußen. Gematcht über die **MAC**,
-  folgt also dem Gerät über DHCP-Wechsel hinweg — und funktioniert deshalb nur, solange
-  das Gerät in einem Netz hängt, das dieses Gateway selbst bedient. Ein Gerät hinter einem
-  Router hat hier keine MAC, der Knopf erscheint dort nicht, und der Grund steht im
-  Klartext, statt dass die Sperre stillschweigend wirkungslos bliebe.
-- **Verkehr je Schnittstelle**, neben dem Mobilfunkzähler. Der Uplink-Zähler sagt, was der
-  Monat kostet; das hier sagt, welche Seite der Box ihn erzeugt hat — Hotspot,
-  Standort-LAN oder der Uplink selbst. Gezählt wird alles auf der Schnittstelle, auch was
-  den Standort nie verlassen hat: ein Vergleich also, keine Rechnung. Der Kernel setzt die
-  Zähler beim Neustart zurück, bei der voreingestellten Wochenroutine also höchstens eine
-  Woche.
-
 ## v0.17.0
-**English**
 - **The hotspot's own subnet is now a setting**, and it matters more than it looks. A
   Tailscale subnet route carries the site's **real** addresses to your tailnet — a camera
   on 192.168.4.15 here is 192.168.4.15 from your laptop at home. That is what makes the
@@ -84,31 +50,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   network whatever the gateway's uplink is doing, so a phone joining it now lands on the
   setup page instead of silently failing at every connection.
 
-**Deutsch**
-- **Das eigene Subnetz des Hotspots ist jetzt einstellbar**, und das ist wichtiger, als es
-  aussieht. Eine Tailscale-Subnetzroute trägt die **echten** Adressen des Standorts ins
-  Tailnet — eine Kamera auf 192.168.4.15 ist von zu Hause aus 192.168.4.15. Genau das
-  macht die Route wertvoll, und genau das bricht zusammen, wenn das Netz, in dem man
-  sitzt, denselben Bereich benutzt: die Adresse ist dann schon etwas auf dem eigenen
-  Schreibtisch, und die Route kann nie gewinnen. Fünf Vorschläge stehen zur Wahl, jeder
-  mit seinem Kollisionsrisiko im Klartext — 192.168.4.0/24 (was jeder Pi-Hotspot nimmt),
-  192.168.1.0/24 und 192.168.178.0/24 (markiert als wahrscheinlich *das* Netz, aus dem du
-  dich verbindest), dazu **10.83.7.0/24** und **172.29.13.0/24**, die bewusst abwegig
-  sind. Jede private Adresse lässt sich auch von Hand eintragen. Die Routenliste warnt
-  jetzt dort, wo man das Advertisen tatsächlich entscheidet.
-- **Internet je Schnittstelle, per Voreinstellung an**: Hotspot und kabelgebundenes
-  Standort-LAN lassen sich einzeln abschalten. Aus heißt: kein Internet für diese Geräte —
-  erreichbar über das Tailnet und von dieser Seite bleiben sie, und genau deshalb schaltet
-  man es dort ab, statt die Route zu ziehen. Praktisch für eine Kamera, die nach Hause
-  telefoniert, oder eine Steckdose, die über die getaktete SIM Firmware ziehen will. Der
-  Filter greift am **Ziel**, überlebt also einen Wechsel zwischen LTE und Ethernet, und er
-  wird bei jedem Start neu gesetzt — eine Firewall-Regel überlebt keinen Neustart.
-- **Ein AP ohne Internet bekommt das Captive Portal zurück.** Er ist ein Netz ohne
-  Internet, egal was der Uplink der Box macht — ein Handy landet jetzt also auf der
-  Setup-Seite, statt stillschweigend an jeder Verbindung zu scheitern.
-
 ## v0.16.1
-**English**
 - **Fixed: renaming the site looked like it had failed.** `POST /api/config` wrote the new
   site name and video base URL to the file but never applied them, and `GET /api/config`
   answers from the running config — so the next page load showed the old values back in
@@ -122,25 +64,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   that one field is 5 % wrong in everything it ever records. It also says where the I²C
   address goes and why a second INA has to move off 0x40.
 
-**Deutsch**
-- **Behoben: Den Standort umzubenennen sah aus, als wäre es fehlgeschlagen.**
-  `POST /api/config` schrieb Standortname und Video-Basis-URL in die Datei, wandte sie aber
-  nie an, und `GET /api/config` antwortet aus der laufenden Konfiguration — der nächste
-  Seitenaufruf zeigte also wieder die alten Werte in den Feldern, was genau so aussieht wie
-  ein verlorener Speichervorgang. Beide werden jetzt sofort angewandt (der Alarmversand
-  nimmt den Standortnamen pro Nachricht, der Kamera-Schreiber die URL pro Schreibvorgang —
-  ein Neustart ist für keines von beiden nötig). Dieselbe Fehlerklasse wie YonderRC
-  v1.60.1; ein Test prüft jetzt, dass jedes Feld dieses Endpunkts angewandt und nicht bloß
-  gespeichert wird.
-- **Der Hardware-Leitfaden sagt, was das Shunt-Feld wirklich ist**: ein Kalibrierfaktor,
-  kein Datenblattwert. Den Widerstand von der eigenen Platine ablesen (`R002` = 0,002 Ω)
-  und danach gegen ein Referenzmessgerät korrigieren — bei einer Box, die monatelang
-  Amperestunden zählt, sind 5 % Fehler in diesem einen Feld 5 % Fehler in allem, was sie je
-  aufzeichnet. Dazu steht dort jetzt, wo die I²C-Adresse hingehört und warum ein zweiter
-  INA von 0x40 wegmuss.
-
 ## v0.16.0
-**English**
 - **The I²C chips are asked what they are, not guessed from their address** (ported from
   YonderRC v1.60.0). Every INA2xx leaves the factory on 0x40 and 0x48–0x4b is shared by
   ADS1x15 and TMP117 — so "0x40" was never an answer. `probesFor` + `identifyI2c` read the
@@ -167,39 +91,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 - Sensor copy that came from a model aircraft is gone: no more blackbox columns, no OSD,
   no `ESC` as an example label.
 
-**Deutsch**
-- **Die I²C-Chips werden gefragt, was sie sind, statt aus der Adresse geraten** (portiert
-  aus YonderRC v1.60.0). Jeder INA2xx kommt ab Werk auf 0x40, und 0x48–0x4b teilen sich
-  ADS1x15 und TMP117 — „0x40" war also nie eine Antwort. `probesFor` + `identifyI2c` lesen
-  die ID-Register, eine bestätigte Zeile trägt **✓ INA228 rev 1 — identified from its ID
-  register**, und **Use these addresses** füllt das Sensorformular mit dem, was tatsächlich
-  geantwortet hat. Pur und unit-getestet; die `i2ctransfer`-Zugriffe sind nur auf Hardware
-  überprüfbar.
-- **Einen Sensor zu wählen füllt Werte ein statt leerer Felder**: `ina228` bringt den 2-mΩ-
-  Shunt der verbreiteten 85-V-Breakouts und 20 A Messbereich mit, und die **I²C-Adresse**
-  ist jetzt ein Feld an jedem Spannungs- und Stromkanal — bisher gab es sie nur bei der
-  Temperatur.
-- **Die Setup-Seite hat acht Reiter** — Overview · Site network · Sensors · Camera ·
-  Network · Remote access · Health & alerts · **Design** — jeder eine URL
-  (`…/setup#sensors`). Die langen Erklärungen liegen hinter einer Zeile eingeklappt, und
-  die Leiste bricht um, statt zu scrollen: ein Mausrad scrollt keine horizontale Box.
-- **Hell und dunkel, am Gateway gewählt.** Hell ist Standard. Die Wahl liegt in
-  `config.theme`, nicht im Browser: diese Box wird einmal eingerichtet und danach von dem
-  Handy geöffnet, das gerade da ist — ein Schalter pro Browser hieße, sie sieht jedes Mal
-  anders aus.
-- **„Zuletzt gesehen" für jedes Gerät, das je geantwortet hat**, nicht nur für die
-  benannten, dazu ein **Check**-Knopf pro Gerät, der genau diese eine Adresse jetzt prüft.
-  Beides läuft nur, wenn jemand danach fragt — nichts pollt das Netz des Standorts im
-  Hintergrund. Auch unbenannte Geräte werden gemerkt, gedeckelt bei 64, damit ein Standort
-  mit Besuch die Konfiguration nicht endlos wachsen lässt.
-- Behoben: Die Tailscale-Routenzeilen stapelten Checkbox, CIDR und Interface auf drei
-  Zeilen. `.route` setzte `display:flex`, überschrieb aber nie das `flex-direction: column`,
-  das es von der `label`-Regel darüber erbte.
-- Sensor-Texte aus dem Modellbau sind weg: keine Blackbox-Spalten, kein OSD, kein `ESC`
-  als Beispiel-Label.
-
 ## v0.15.1
-**English**
 - **The READMEs have screenshots now** — they had none at all, which for a project whose
   whole surface is one page was an odd omission. Two, in both languages: the setup page
   with system status and the site-network panel, and the site-health readings.
@@ -208,18 +100,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   they can be retaken the same way after the next change rather than depending on someone
   having hardware to hand.
 
-**Deutsch**
-- **Die READMEs haben jetzt Screenshots** — sie hatten gar keine, was für ein Projekt,
-  dessen gesamte Oberfläche eine einzige Seite ist, eine merkwürdige Lücke war. Zwei
-  Stück, in beiden Sprachen: die Setup-Seite mit Systemstatus und dem Panel „Site
-  network", und die Zustandswerte des Standorts.
-- Beide READMEs beschreiben die **thermische Drosselung** neben der Unterspannung und das
-  **saubere Herunterfahren**; die TODO sagt es ebenfalls. Aufgenommen mit headless Chrome
-  gegen den Simulator — sie lassen sich nach der nächsten Änderung also genauso neu
-  erzeugen, statt davon abzuhängen, dass gerade jemand Hardware zur Hand hat.
-
 ## v0.15.0
-**English**
 - **Heat is now told apart from a sagging supply.** The firmware clamps the Pi's clock for
   two completely different reasons, and `parseThrottled` only ever read the two
   under-voltage bits. A box in a sealed enclosure in the sun — the normal case for this
@@ -235,42 +116,14 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   in a box on a pole becomes a drive out there with a card reader. The warning is sized for
   a remote site: it does not come back on its own, and someone has to be at the box.
 
-**Deutsch**
-- **Hitze wird jetzt von einer einbrechenden Versorgung unterschieden.** Die Firmware
-  drosselt den Takt des Pi aus zwei völlig verschiedenen Gründen, und `parseThrottled` las
-  bisher nur die beiden Unterspannungs-Bits. Eine Box im geschlossenen Gehäuse in der Sonne
-  — der Normalfall für dieses Projekt — hätte *supply: ok* gemeldet, während sie mit
-  600 MHz kroch: dasselbe langsame, zickige Verhalten, mit einer Abhilfe, die nichts mit
-  dem Akku zu tun hat. Bit 2 und 3 werden jetzt mitgelesen, als eigene Zeile **clock
-  speed** angezeigt und von einer eigenen Alarmregel überwacht (`health:thermal`, bei einer
-  neuen Box standardmäßig an).
-- `explainClamp()` sagt, welcher der beiden Fälle vorliegt, und zwar in Worten, die
-  irgendwohin zeigen: ein Einbruch auf den Akku unter Last, einen unterdimensionierten
-  Wandler oder eine lange dünne Leitung vom Panel; Hitze auf Schatten, Belüftung oder
-  Kühlkörper. Die Tests halten fest, dass die Hitze-Meldung die Versorgung **nie** erwähnt
-  — genau dafür trennt man die beiden.
-- **Shut down gateway** (Setup › System). Einem Pi mitten im Schreibvorgang den Strom zu
-  nehmen ist der Weg, auf dem eine SD-Karte in einer Box am Mast zu einer Anfahrt mit
-  Kartenleser wird. Die Warnung ist für einen entlegenen Standort formuliert: von allein
-  kommt sie nicht zurück, es muss jemand an die Box.
-
 ## v0.14.3
-**English**
 - **Removed `scaleCamera`.** It came across with the fork and scaled a camera's resolution
   and bitrate for a quality level requested by a ground station — which this project does
   not have and is not going to have. Nothing outside the tests called it, so it was code
   that described a feature the gateway does not offer. Its three tests and their fixture
   went with it.
 
-**Deutsch**
-- **`scaleCamera` entfernt.** Es kam mit dem Fork mit und skalierte Auflösung und Bitrate
-  einer Kamera auf eine von einer Bodenstation angeforderte Qualitätsstufe — die es hier
-  nicht gibt und nicht geben wird. Außerhalb der Tests rief es niemand auf, es war also
-  Code, der ein Feature beschrieb, das das Gateway nicht hat. Seine drei Tests und deren
-  Fixture sind mitgegangen.
-
 ## v0.14.2
-**English**
 - **The camera row stopped talking about the IMX519 under every other sensor** — same
   fix as YonderRC v1.54.1, and the same bug, because the row was ported from there. The
   tuning-file placeholder and the note underneath were hardcoded, so an OV5647 was offered
@@ -287,24 +140,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   auto-quality controller. `scaleCamera` is inherited from the fork and currently has no
   caller outside the tests.
 
-**Deutsch**
-- **Die Kamerazeile redet nicht mehr unter jedem anderen Sensor von der IMX519** — derselbe
-  Fix wie YonderRC v1.54.1 und derselbe Fehler, weil die Zeile von dort portiert wurde.
-  Platzhalter für die Tuning-Datei und der Hinweis darunter waren hartkodiert: einer OV5647
-  wurde der Dateipfad einer Arducam angeboten und von einem Autofokus-Algorithmus erzählt,
-  für den sie keinen Motor hat. Beides folgt jetzt dem gewählten CSI-Modul.
-- **Fokus-Bedienelemente nur dort, wo es eine Linse zu bewegen gibt.** Ein Modul, das genau
-  einen Sensor ohne Aktuator benennt, sagt das, statt ein Dropdown anzubieten, das nichts
-  tut; bei Auto-Detect und eigenem Overlay bleiben sie, weil dort eine IMX708 auftauchen
-  kann. Ein bereits gespeicherter Fokuswert bleibt sichtbar und änderbar.
-- Die Kamerazeilen werden neu gezeichnet, wenn die Modulauswahl wechselt.
-- YonderRCs zweiter Fix des Tages (v1.54.2, Auto-Videoqualität fror das Bild ein) hat hier
-  **kein Gegenstück**: das Gateway hat keine Bodenstation, kein WebRTC-Panel und keine
-  Auto-Qualitätsregelung. `scaleCamera` stammt aus dem Fork und hat außerhalb der Tests
-  derzeit keinen Aufrufer.
-
 ## v0.14.1
-**English**
 - **The update button no longer uninstalls the sensor driver.** `i2c-bus` is an
   optionalDependency, and the update runs `npm install --omit=optional`, which prunes it.
   `install.sh` puts it back from the recorded `hardwareDeps`; the in-app update never did,
@@ -319,24 +155,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 - Same fix as YonderRC v1.50.0, where it was found on real hardware after an update had
   quietly removed the PCA9685 driver.
 
-**Deutsch**
-- **Der Update-Knopf deinstalliert den Sensortreiber nicht mehr.** `i2c-bus` ist eine
-  optionalDependency, und das Update führt `npm install --omit=optional` aus — das
-  entfernt sie. `install.sh` stellt sie aus den gespeicherten `hardwareDeps` wieder her,
-  das Update im UI aber nie: *Update & restart* hat ein konfiguriertes Gateway also
-  stillschweigend auf simulierte Sensoren zurückfallen lassen, bis jemand von Hand
-  nachinstalliert hat. `updateSteps` hängt jetzt nach dem aufräumenden Install einen
-  Wiederherstellungsschritt an, über dieselbe Allowlist wie `hwDeps.ts`
-  (`restorableHwDeps`) — der Wert kommt aus einer Konfigurationsdatei und landet in einer
-  npm-Kommandozeile, wird also nie ungeprüft durchgereicht.
-- Die Allowlist des Gateways ist ausschließlich `i2c-bus`: es treibt weder Servos noch
-  SBUS, YonderRCs `pigpio` und `serialport` sind hier also Module, die diese Box nie
-  installieren sollte — die Tests halten das fest.
-- Derselbe Fix wie YonderRC v1.50.0, wo er an echter Hardware auffiel, nachdem ein Update
-  den PCA9685-Treiber klammheimlich entfernt hatte.
-
 ## v0.14.0
-**English**
 - **Camera handling is now the same on both platforms**, ported from YonderRC
   v1.52.1–v1.54.0 and verified there on a Pi 4B.
 - **Rotation and mirroring per camera**: 0° / 180° plus independent horizontal and
@@ -366,41 +185,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 - **Not verified on a gateway.** All of it was proven on the YonderRC vehicle — same Pi
   OS, same libcamera, same code — but no YonderGate box has run it.
 
-**Deutsch**
-- **Die Kamera-Behandlung ist jetzt auf beiden Plattformen gleich**, portiert aus YonderRC
-  v1.52.1–v1.54.0 und dort an einem Pi 4B verifiziert.
-- **Rotation und Spiegelung pro Kamera**: 0° / 180° plus unabhängige horizontale und
-  vertikale Spiegelung, für CSI und USB gleichermaßen. Eine unter einer Dachkante über
-  Kopf verschraubte Kamera ist bei einem Standort-Gateway der Normalfall. Es ist eine
-  Transformation, nicht drei Optionen — eine 180°-Drehung *ist* beide Spiegelungen, also
-  fallen alle drei Einstellungen in zwei Booleans zusammen, und „180° und zusätzlich
-  gespiegelt" hebt sich auf dieser Achse auf, statt von der Reihenfolge abzuhängen, in der
-  ein Kamera-Stack zwei Flags anwendet. CSI macht das im Sensor und kostet nichts; V4L2
-  bekommt einen ffmpeg-`-vf`-Filter ohne Leerzeichen, weil go2rtc eine `exec:`-Zeile an
-  Leerzeichen trennt. 90°/270° fehlen bewusst: der Sensor kann sie nicht, und sie
-  nachzubilden hieße, einen Transcode in die Pipeline zurückzuholen.
-- **Ein Modulwechsel räumt hinter dem vorherigen auf.** Eine Tuning-Datei ist eine
-  *Sensor*-Kalibrierung; die einer Arducam IMX519 auf einer Raspberry Pi OV5647 stehen zu
-  lassen gibt dem neuen Sensor das Farb- und Belichtungsmodell eines fremden —
-  stillschweigend, mit einem Bild, das plausibel aussieht. `reconcileCameras` läuft jetzt
-  bei jeder Modulauswahl: es trägt die Tuning-Datei des neuen Moduls ein, entfernt die des
-  vorherigen und löscht einen Fokusmodus, für den das neue Modul keinen Aktuator hat.
-  Angefasst wird nur, was der Katalog gesetzt hat — ein von Hand eingetragener Pfad gehört
-  dem Betreiber und bleibt —, USB-Kameras nie.
-- **Das go2rtc-Reload-Log lügt nicht mehr.** go2rtc startet sich auf `POST /api/restart`
-  selbst neu und legt oft die Verbindung, bevor es antwortet; das Gateway behauptete
-  daraufhin, die Konfiguration sei nicht angewandt worden. Jetzt wird erst gefragt, welche
-  Streams tatsächlich ausgeliefert werden.
-- **Keine Kamera wird als gültige Betriebsart benannt**, im Preview wie im Start-Banner,
-  statt zu klingen, als fehle etwas. Der Preview des Gateways ist ein manuelles Standbild
-  und hatte YonderRCs Reconnect-Problem daher nie — dort war nichts zu reparieren, nur zu
-  formulieren.
-- **Auf einem Gateway nicht verifiziert.** Bewiesen ist alles am YonderRC-Fahrzeug —
-  gleiches Pi OS, gleiches libcamera, gleicher Code —, aber keine YonderGate-Box hat es
-  laufen lassen.
-
 ## v0.13.0
-**English**
 - **The Pi camera path never worked on current Raspberry Pi OS** — ported from YonderRC
   v1.47.0–v1.49.1, where all of this was found and fixed on a real Pi 4B with an Arducam
   16 MP IMX519. YonderGate inherited the same three bugs at the fork.
@@ -442,54 +227,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 - **Not verified on a gateway.** All of it was proven on the YonderRC vehicle — same Pi
   OS, same libcamera, same code — but no YonderGate box has run it.
 
-**Deutsch**
-- **Der Pi-Kamera-Pfad hat auf aktuellem Raspberry Pi OS nie funktioniert** — portiert aus
-  YonderRC v1.47.0–v1.49.1, wo das alles an einem echten Pi 4B mit einer Arducam 16 MP
-  IMX519 gefunden und behoben wurde. YonderGate hat dieselben drei Fehler beim Fork geerbt.
-- **Falsches Binary.** Die erzeugte go2rtc-Quelle rief `libcamera-vid`; Bookworm hat die
-  Tools nach `rpicam-*` umbenannt und die alten Symlinks entfernt, go2rtc protokollierte
-  `executable file not found in $PATH`, und der Stream lieferte nie ein Bild.
-  `detectRpicamBinary()` löst den echten Namen jetzt beim Start auf, `rpicam-vid` zuerst,
-  `libcamera-vid` für Bullseye.
-- **Eine Shell-Pipe, die nie funktionieren konnte.** Die Quelle war `libcamera-vid … -o -
-  | ffmpeg … -f rtsp {output}`, aber go2rtc führt `exec:` **ohne Shell** aus
-  (`shell.QuoteSplit` + `exec.Command`) — das `|` und alles danach landete als literales
-  Argument beim Kamera-Binary, die Umbenennung allein hätte also nichts geändert. Ohne
-  `{output}` liest go2rtc den stdout des Prozesses und erkennt das Format selbst, und rohes
-  H.264 Annex-B ist genau das, was `rpicam-vid` schreibt — ffmpeg fliegt damit ganz aus dem
-  `rpicam`-Pfad: ein Prozess weniger, kein Transcode, weniger Latenz.
-- **Setup › Cameras › CSI camera module** — den Sensor auswählen, statt die config.txt über
-  SSH zu editieren. Automatisch erkannt werden nur die vier offiziellen Raspberry-Pi-
-  Kameras; Arducam IMX519 / 64MP Hawkeye / OV64A40 Owlsight / Pivariety brauchen je ein
-  eigenes `dtoverlay`. Die Auswahl schreibt `camera_auto_detect` und `dtoverlay=` in
-  `/boot/firmware/config.txt`, danach zeigt das Panel *Reboot required*, bis die Box damit
-  gebootet hat — mit einem **Reboot now**-Knopf daneben. Es wird nichts blind
-  überschrieben: ein Backup als `config.txt.yondergate-bak`, konkurrierende Zeilen
-  auskommentiert statt gelöscht, unser Block markiert und als Ganzes ersetzt, unter einem
-  eigenen `[all]` angehängt. Ein eigener Overlay-Name muss die Syntaxprüfung bestehen *und*
-  als `.dtbo` auf diesem Pi existieren.
-- **Fokussteuerung** — `CameraCfg` hat jetzt `focus` (`off`/`manual`/`auto`/`continuous`),
-  `lensPosition` in Dioptrien und `tuningFile`. Raspberry Pis mitgelieferte `imx519.json`
-  enthält keinen `rpi.af`-Algorithmus, libcamera lehnt daher jede Fokus-Steuerung ab und
-  eine Arducam 16 MP bleibt dauerhaft unscharf; `provisioning/tuning/imx519-af.json` ergänzt
-  ihn, mit einer **gemessenen** Abbildung (`[0.0, 597, 10.0, 1023]` — die Ruhelage des
-  Aktuators ist nicht Unendlich). `install.sh` legt sie nach `/var/lib/yondergate/tuning/`,
-  und die Modulauswahl trägt den Pfad in die `rpicam`-Kameras ein, die noch keinen haben.
-- **`Detect hardware` sagt jetzt die Wahrheit über Kameras.** Es rief dasselbe
-  hartkodierte `libcamera-hello` auf und listete mangels Treffer jedes `/dev/video*` — auf
-  einem Pi ganz ohne Kamera sind das `video10`…`video31`, die V4L2-Codec/ISP-Knoten. Jetzt
-  zuerst `rpicam-hello`, nur echte Capture-Knoten, und statt immer zu einem `dtoverlay` zu
-  raten wird die Boot-Konfiguration erklärt.
-- Die Reboot-Erkennung vergleicht die effektive Konfiguration mit der, mit der das System
-  tatsächlich gebootet hat, über die Kernel-Boot-ID — hin und zurück schalten bleibt
-  daher still. `SimSystem` führt eine eigene config.txt, das Panel ist also auf dem Laptop
-  vollständig bedienbar.
-- **Auf einem Gateway nicht verifiziert.** Bewiesen ist alles am YonderRC-Fahrzeug —
-  gleiches Pi OS, gleiches libcamera, gleicher Code —, aber keine YonderGate-Box hat es
-  laufen lassen.
-
 ## v0.12.12
-**English**
 - **`README.de.md`** — the German README, in full rather than a summary: every section,
   every TODO item, the tariff table and the two running budgets. Both files now carry the
   language switcher at the top, the same way YonderRC does, and the German one links the
@@ -506,26 +244,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 - The same guard and the same wording went into **YonderRC** (v1.46.3), whose two READMEs
   already matched.
 
-**Deutsch**
-- **`README.de.md`** — die deutsche README, vollständig statt als Zusammenfassung: jeder
-  Abschnitt, jeder TODO-Punkt, die Tariftabelle und die beiden Betriebsbudgets. Beide
-  Dateien tragen jetzt oben den Sprachumschalter, so wie YonderRC es macht, und die
-  deutsche verlinkt die deutschen Dokumente (`HARDWARE.de.md`, `DATA-BUDGET.de.md`), statt
-  den Leser zurück ins Englische zu schicken.
-- **Ein Test schlägt fehl, wenn die beiden auseinanderlaufen.** Dieselben Abschnitte,
-  dieselbe Zahl an TODO-Punkten, dieselben abgehakt, und jede verweist auf die andere.
-  Über die Qualität einer Übersetzung sagt das nichts, aber es fängt das, was wirklich
-  passiert: ein Punkt, der in einer ergänzt und in der anderen vergessen wird. Vor dem
-  Commit absichtlich kaputtgemacht und geprüft, dass er anschlägt.
-- **CLAUDE.md sagt die Regel ausdrücklich**: Beide Sprachfassungen werden im *selben
-  Commit* bearbeitet, immer. Eine hinterherhinkende Übersetzung ist schlechter als keine —
-  sie behauptet als aktuell, was das Projekt nicht mehr tut, und der Leser kann nicht
-  erkennen, welche der beiden lügt.
-- Derselbe Wächter und derselbe Wortlaut sind in **YonderRC** gelandet (v1.46.3), dessen
-  beide READMEs ohnehin schon zusammenpassten.
-
 ## v0.12.11
-**English**
 - **The 80 % warning now works for prepaid credit billed per megabyte, not just a monthly
   allowance.** Setup › Mobile data has both shapes: *a monthly allowance* as before, or
   *prepaid credit* — you enter what you last loaded onto the card and what a megabyte
@@ -553,37 +272,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   monthly data tariff at ~2.99 €, and the pay-per-use IoT SIM at ten times the price. With
   the trap named: most providers count a top-up, not usage.
 
-**Deutsch**
-- **Die 80-%-Warnung funktioniert jetzt auch für Prepaid-Guthaben mit MB-Abrechnung**,
-  nicht nur für ein Monatskontingent. Setup › Mobile data kennt beide Formen: *monatliches
-  Kontingent* wie bisher, oder *Prepaid-Guthaben* — du trägst ein, was du zuletzt
-  aufgeladen hast und was ein Megabyte kostet (3–5 ct in einem deutschen Prepaid-Tarif),
-  und dieselbe Warnung kommt bei 80 % des Guthabens statt bei 80 % eines Eimers.
-- **Eine Karte mit MB-Abrechnung hat keinen Monat, also hat der Zähler auch keinen.** Er
-  läuft ab der **letzten Aufladung**, nicht ab dem Ersten, mit einem Knopf *I topped it
-  up*, der ihn neu startet. Die Monatszahl läuft für alle, die sie mögen, daneben weiter.
-- **Er sagt, wie lange das Guthaben reicht** — „noch etwa 40 Tage bei 0,60 €/Monat" —
-  gerechnet aus dem, was seit der Aufladung tatsächlich ausgegeben wurde. Bei weniger als
-  einem Tag Historie verweigert er die Hochrechnung, statt eine Vermutung als Zahl zu
-  verkleiden. In den meisten deutschen Prepaid-Tarifen ist die Aufladung zugleich das, was
-  die SIM vor der Abschaltung bewahrt — diese Zeile ist also auch die Erinnerung an die
-  nächste.
-- **Dabei behoben: der Monatszähler verlor an jeder Monatsgrenze ein Poll-Intervall.** Die
-  Messung, die über Mitternacht des Ersten lief, wurde verworfen und als neue Basislinie
-  genommen. Bei Minutenauflösung unsichtbar — aber das Guthabenkonto hat keinen Monat und
-  hätte diesen Brocken jahrelang jeden Monat verloren. Die Messung wird jetzt übernommen;
-  der Test, der das alte Verhalten festschrieb, wurde korrigiert statt umgangen.
-- Eine bestehende `usage.json` von vor diesem Release lädt unverändert; beide neuen Felder
-  sind optional und starten bei null.
-- **Die README sagt jetzt, was der Betrieb kostet**, beide Budgets mit den gemessenen
-  Zahlen: Watt (≈2,5–4 W, und warum das Board nur der drittgrößte Hebel ist) und Megabyte,
-  dazu eine Tariftabelle für Privatkunden — Prepaid pro MB mit 25 ct–1 € im Monat gegen
-  unseren eigenen Standby gerechnet, ein Auto-Paket, das zugleich die Aufladung ist, ein
-  Monats-Datentarif ab ~2,99 €, und die Pay-per-use-IoT-SIM zum zehnfachen Preis. Mit der
-  benannten Falle: die meisten Anbieter zählen eine Aufladung, nicht die Nutzung.
-
 ## v0.12.10
-**English**
 - **Prepaid: pack or per megabyte?** The data-budget doc now answers it with our own
   measurements instead of hand-waving. Per MB in an ordinary German tariff is **3–5 ct**
   (congstar ~5 ct, CallYa ~3 ct) — four to seven times cheaper than the pay-per-use IoT
@@ -607,37 +296,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   when you cross ~100 MB**, then switch to the smallest auto-renewing pack — which from
   that point is both cheaper and the thing that stops the SIM being deactivated.
 
-**Deutsch**
-- **Prepaid: Paket oder pro Megabyte?** Die Datenbudget-Doku beantwortet das jetzt mit
-  unseren eigenen Messungen statt mit Gefühl. Pro MB sind es in einem normalen deutschen
-  Tarif **3–5 ct** (congstar ~5 ct, CallYa ~3 ct) — vier- bis siebenmal billiger als die
-  Pay-per-use-IoT-SIMs. Gegen den gemessenen Standby von 5–20 MB im Monat sind das **25 ct
-  bis 1 € im Monat**; der Watchdog im Fünf-Minuten-Takt ~15 ct, eine Stunde mit offener
-  Seite ~10 ct.
-- **Der Break-even liegt bei ~60–130 MB im Monat**, also genau dort, wo Kamerablicke
-  aufhören, selten zu sein. Zwei Dinge entscheiden über die Rechnung hinaus: Ein sich
-  **automatisch verlängerndes Paket ist zugleich die Aufladung**, hält die SIM also von
-  selbst am Leben, und es gibt kein Jahresritual zu vergessen; und **pro MB hat keine
-  Obergrenze außer dem Guthaben** — ein vergessener Kamerastream oder eine Retry-Schleife
-  wird durchgerechnet, was auf Prepaid den Schaden deckelt, die Box aber offline lässt, bis
-  es jemand merkt.
-- **Die günstigsten kleinen Datentarife, mit Zahlen** (Stand August 2026, und sie bewegen
-  sich): ~2,99 € für 3 GB monatlich kündbar im o2-Netz ist das Günstigste am Markt; ~2 €
-  bringen congstar Prepaid Daten im **Telekom-Netz**, teurer pro GB und besser da, wo
-  Empfang wirklich zählt. Kleine Pakete sind eine Falle — 3 GB kosten meist weniger als
-  1 GB.
-- **Und das, was nach der Antwort aussieht und keine ist:** GMX FreePhone bewirbt 3 GB für
-  **0 €** und gibt es **nur als eSIM**, was ein HiLink-Stick nicht kann. Der Preis gilt
-  außerdem nur, solange man deren Mail-App an zehn Tagen im Monat öffnet, ist ein Jahr
-  garantiert und hat eine Datenautomatik dran. Aufgeschrieben, damit es einmal verworfen
-  wird statt ewig wieder vorgeschlagen.
-- Die Empfehlung ist jetzt zweistufig: **pro MB anfangen, den eingebauten Zähler sagen
-  lassen, wann du über ~100 MB kommst**, dann auf das kleinste sich automatisch
-  verlängernde Paket wechseln — das ab da beides ist: billiger und das, was die SIM vor der
-  Abschaltung bewahrt.
-
 ## v0.12.9
-**English**
 - **The SMS wake is decided against, and the reason is written down** rather than left as
   a TODO somebody re-proposes in three months. It failed on the tariff, not the code: the
   wake channel is only as reliable as the SIM's ability to receive an SMS, and the products
@@ -660,34 +319,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   the box decides more than the price, and a stick that has to transmit hard also burns
   watts. Then a prepaid SIM on the Telekom network, with the top-up date in a calendar.
 
-**Deutsch**
-- **Der SMS-Weckruf ist abgesagt, und der Grund steht geschrieben** statt als TODO
-  liegenzubleiben, das in drei Monaten jemand erneut vorschlägt. Gescheitert ist er am
-  Tarif, nicht am Code: Der Weckkanal ist nur so verlässlich wie die Fähigkeit der SIM,
-  eine SMS zu empfangen — und die Produkte, die ein Privatkunde tatsächlich kaufen kann,
-  kommen nicht zuverlässig mit einer brauchbaren Nummer; reine M2M-Datentarife haben oft
-  gar keine MSISDN. Ein Weg hinein, der bis zu dem Tag funktioniert, an dem man ihn
-  braucht, ist schlechter als keiner.
-- **Der Tarifrat war falsch und ist korrigiert.** Empfohlen war ein „IoT-Lifetime-Kontingent
-  mit SMS" — 1NCE und das o2-Gegenstück *Easy IoT* haben genau die richtige Form für diese
-  Box und sind **beide Geschäftskundenprodukte**. Etwas zu empfehlen, das der Leser nicht
-  kaufen kann, ist schlechter als gar nichts zu empfehlen.
-- **Was ein Privatkunde wirklich hat**, jetzt mit Zahlen in der Doku: eine
-  Pay-per-use-IoT-SIM, die die Form behält, aber kleine Verbraucher zum schlechtesten Satz
-  abrechnet (~20 ct/MB, sobald der Aufschlag unter 5 MB greift), normales Prepaid, ausgewählt
-  nach seiner Inaktivitätsregel, oder ein kleiner Monats-Datentarif ganz ohne Regel.
-- **Die Inaktivitätsfristen stehen als Tabelle da, und die Falle ist benannt.** Sie reichen
-  von 90 Tagen (Vodafone CallYa — für eine bewusst stille Box unbrauchbar) bis 24 Monate
-  (Telekom). Und der Haken ist nicht der vermutete: **die meisten Anbieter zählen eine
-  Aufladung, nicht die Nutzung** — ein Gateway, das still 5 MB im Monat verbraucht, kann
-  also trotzdem wegen Inaktivität abgeschaltet werden.
-- Die Empfehlung lautet jetzt **erst Empfang**: An einem abgelegenen Standort entscheidet
-  das Netz, das die Box erreicht, mehr als der Preis, und ein Stick, der hart senden muss,
-  verbrennt auch Watt. Danach eine Prepaid-Karte im Telekom-Netz, Aufladedatum in den
-  Kalender.
-
 ## v0.12.8
-**English**
 - **The two button rows in the uplink panel were touching.** *Open now* and *Save mode* sat
   flush against each other with no air, which read as one control. Both rows now carry the
   same spacing the rest of the page uses.
@@ -700,21 +332,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   brings the tunnel up outside the window for half an hour, for when you need in today and
   the window is on Sunday.
 
-**Deutsch**
-- **Die beiden Button-Reihen im Uplink-Panel klebten aneinander.** *Open now* und *Save
-  mode* standen ohne Luft direkt untereinander und lasen sich wie ein Bedienelement. Beide
-  Reihen haben jetzt denselben Abstand wie der Rest der Seite.
-- **„Back to the schedule" sagte nicht, was es tut — und meistens tat es gar nichts.** Der
-  Knopf hat immer nur ein von Hand geöffnetes Fenster abgebrochen; ohne laufende
-  Übersteuerung war er ein Button, der auf einen Druck mit Schweigen antwortet. Er ist
-  jetzt versteckt, solange es nichts abzubrechen gibt, und trägt dann die Beschriftung
-  dessen, was er beendet: *„Cancel — close again instead of at 12:14"*.
-- Der Absatz über den Buttons sagt jetzt auch, wofür *Open now* überhaupt da ist: er holt
-  den Tunnel außerhalb des Fensters für eine halbe Stunde hoch — für den Fall, dass du
-  heute rein musst und das Fenster am Sonntag ist.
-
 ## v0.12.7
-**English**
 - **WireGuard can now be set up by hand, not only from a file.** Uploading the `.conf`
   is perfect when there is one — a FritzBox hands you a file. It is useless when there is
   not: a peer somebody set up for you, a provider that shows the values on a web page, a
@@ -743,41 +361,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
 - 626 tests (33 new): key and endpoint shapes, the round trip through a conf and back, a
   foreign file with lower-case keys and comments, and the redaction.
 
-**Deutsch**
-- **WireGuard lässt sich jetzt auch von Hand einrichten, nicht nur per Datei.** Die
-  `.conf` hochzuladen ist perfekt, wenn es eine gibt — eine FritzBox liefert eine Datei.
-  Es hilft nichts, wenn es keine gibt: ein Peer, den jemand für dich eingerichtet hat, ein
-  Anbieter, der die Werte auf einer Webseite anzeigt, ein Schlüssel, den du auf dem Pi
-  erzeugt hast. Dann hatte man sieben Angaben und kein Feld dafür. Setup › Remote access ›
-  WireGuard bietet jetzt beides, per Radiobutton.
-- **Gespeichert wird in beiden Fällen dasselbe.** Aus den Feldern wird die `.conf`, und die
-  bleibt die maßgebliche Fassung — `wg-quick` liest ohnehin eine Datei, und eine zweite
-  parallele Kopie in der Konfiguration wäre ein Drift-Bug, der auf den Tag wartet, an dem
-  beide sich widersprechen. Das Formular wird durch Zurücklesen der Datei gefüllt, mit dem
-  angenehmen Nebeneffekt: **eine hochgeladene `.conf` lässt sich danach feldweise
-  bearbeiten**.
-- **Was das Formular nicht abbilden kann, sagt es** statt es still zu verlieren: ein
-  zweiter `[Peer]` oder Direktiven wie `MTU` und `PostUp`. Das Panel benennt sie und rät,
-  bei der Datei zu bleiben, wenn man sie braucht.
-- **Die beiden Geheimnisse verlassen die Box nie.** `/api/remote` antwortet ohne
-  API-Secret, damit die Seite immer lädt, und der Onboarding-Hotspot dieser Box ist
-  standardmäßig offen — den privaten Schlüssel dort zurückzugeben hieße, jedem in
-  WLAN-Reichweite das VPN zu schenken. Das Formular zeigt sie als gespeichert an und lässt
-  die Felder leer; leer heißt behalten.
-- **Jede Ablehnung nennt die Abhilfe**, weil das auf einem Handy gelesen wird: ein
-  fehlender privater Schlüssel verweist auf `wg genkey`, ein falscher Endpoint zeigt die
-  Form host:port, ein verirrter Preshared Key auf `wg genpsk`. Eine nackte Adresse wie
-  `10.0.0.2` wird angenommen und als `/32` geschrieben — genau das tippen die Leute.
-- **Keepalive steht absichtlich auf 25.** Hinter Carrier-NAT funktioniert ein Tunnel ohne
-  das bis zur ersten Leerlaufminute und trägt danach still nichts mehr herein.
-- In **YonderRC** identisch gelöst (v1.46.2): dasselbe Modul, derselbe Endpunkt, dasselbe
-  Panel — die beiden Repositories unterscheiden sich nur im Wort für die Box.
-- 626 Tests (33 neue): Schlüssel- und Endpoint-Formen, der Rundlauf durch eine conf und
-  zurück, eine fremde Datei mit klein geschriebenen Schlüsseln und Kommentaren, und die
-  Schwärzung.
-
 ## v0.12.6
-**English**
 - **Two modes for the tunnel, on a radio button** (Setup › Remote access). **Always live**
   is what the box has always done. **Only in a window** keeps it down and holds the alerts,
   then opens everything at once: default **Sundays 14:00–14:15**, with day, start, length
@@ -809,43 +393,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   to strand the operator, the buffer surviving a simulated reboot, the digest grouping, and
   the service actually calling down/up/flush in that order.
 
-**Deutsch**
-- **Zwei Modi für den Tunnel, per Radiobutton** (Setup › Remote access). **Always live** ist
-  das, was die Box immer getan hat. **Only in a window** lässt ihn unten und hält die
-  Alarme, dann geht alles auf einmal raus: Standard **sonntags 14:00–14:15**, Tag, Beginn,
-  Länge und die Nachlaufzeit nach einem Neustart sind einstellbar.
-- **Die Alarme liegen auf Platte, nicht im RAM.** Ein Fenster kann eine Woche entfernt sein,
-  und die Box startet in der Zwischenzeit womöglich neu — ein Alarm, der nur im Speicher
-  lebte, wäre genau der, von dem man nie erfährt. Sie liegen in
-  `/var/lib/yondergate/alert-buffer.json`, überstehen einen Neustart, und ein
-  fehlgeschlagenes Zustellen behält sie für den nächsten Versuch, statt die einzige
-  Nachricht der Woche wegzuwerfen.
-- **Sie kommen als eine Nachricht an, nicht als vierzig.** Ein Sensor, der sechs Tage
-  geflattert hat, würde sich sonst in der Sekunde des Fensters ins Handy entleeren.
-  Gruppiert nach dem, was kaputt war, mit Anzahl und Zeitraum: *„Voltage low — 12× zwischen
-  Mo 03:14 und Sa 21:00"*. Eine dringende Sache macht die ganze Zusammenfassung dringend.
-- **Es darf nicht der Grund sein, dass niemand mehr an die Box kommt.** Das ist der Fehler,
-  den dieses Feature offensichtlich verursachen kann, also gibt es vier Auswege: der Tunnel
-  bleibt nach **jedem Neustart** zehn Minuten oben (du hast neu gestartet — genau dann willst
-  du rein), er wird nie abgebaut, während jemand die Seite offen hat, *Open now for 30 min*
-  übersteuert den Zeitplan, und ein fehlgeschlagenes Hochfahren wird beim nächsten Takt
-  erneut versucht statt verschluckt.
-- **Ein Captive-Portal-Probe zählt nicht als „jemand ist da".** Bisher tat das jeder Request
-  auf diesen Port; ein Handy im Hotspot, das nach Internet sucht, hätte den Tunnel rund um
-  die Uhr offen gehalten und den Modus still ausgehebelt — die schlimmste Art zu scheitern,
-  weil die Box konfiguriert aussieht und nur die Rechnung widerspricht. Anwesenheit ist
-  jetzt das Polling der Setup-Seite selbst, das ohnehin stoppt, wenn der Tab verdeckt ist.
-- **Es funktioniert mit dem VPN, das du gewählt hast** — das Fenster steuert
-  `remoteUp`/`remoteDown` statt Tailscale direkt, ZeroTier und WireGuard verhalten sich also
-  gleich. Der Watchdog überspringt außerdem seine `tailscale up`-Sprosse, solange das Fenster
-  zu ist, statt den Modus bei jeder fehlgeschlagenen Probe zu bekämpfen.
-- 593 Tests (46 neue): der Zeitplan inklusive eines Fensters über Mitternacht, jede
-  Weigerung, den Betreiber auszusperren, der Puffer über einen simulierten Neustart hinweg,
-  die Gruppierung der Zusammenfassung, und dass der Dienst tatsächlich down/up/flush in
-  dieser Reihenfolge aufruft.
-
 ## v0.12.5
-**English**
 - **A data budget, because the SIM is the other thing this box runs on.** The requirement
   is modest — a message when something is wrong, plus the odd look at a camera or the
   battery — and it deserves an honest answer:
@@ -876,43 +424,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   just as well on a bench supply. CLAUDE.md and docs/CONCEPT.md say so now, so the next
   pass at that page does not build a solar dashboard.
 
-**Deutsch**
-- **Ein Datenbudget, weil die SIM das andere ist, wovon diese Box lebt.** Die Anforderung
-  ist bescheiden — eine Nachricht, wenn etwas nicht stimmt, plus der gelegentliche Blick
-  auf Kamera oder Batterie — und verdient eine ehrliche Antwort:
-  [docs/DATA-BUDGET.de.md](docs/DATA-BUDGET.de.md) misst, wohin die Bytes gehen, und geht
-  durch, welche Art Tarif eine bewusst stille Box überlebt.
-- **Es beginnt mit dem, was sich nicht wegtunen lässt**: „sofort erreichbar" und
-  „verbraucht im Leerlauf nichts" stehen im Widerspruch, denn ein dauerhafter Tunnel ist
-  ein dauerhaftes Gespräch. Drei Bauformen stehen drin — Tailscale immer oben (das, was
-  ausgeliefert wird), **nur Alarme mit SMS-Weckruf** (Beinahe-Null im Standby; SMS kostet
-  überhaupt kein Volumen) und feste Zeitfenster als Fallback, damit der SMS-Pfad einen
-  nicht aussperren kann.
-- **Zwei gemessene Gewinne, beide hier drin.** Die Setup-Seite ging von **121,9 kB auf
-  33,1 kB** über die Leitung (gzip), und eine unveränderte Seite antwortet jetzt mit
-  **304 ganz ohne Body**. Bodies unter 512 Byte bleiben unangetastet, dort ist gzip nur
-  Rauschen, und der Validator hängt am Inhalt — ein `git pull`, der eine identische Seite
-  wiederherstellt, darf keine 120 kB kosten.
-- **Die Seite pollt nicht mehr, wenn niemand hinsieht.** System alle 3 s, Sensoren alle
-  5 s, Health alle 30 s: etwa **2 MB pro Stunde**, ein über Nacht vergessener Tab also
-  ~17 MB — auf einer IoT-SIM mit 500 MB für ihr ganzes Leben ein echter Biss. Tab in den
-  Hintergrund stoppt jeden Poll; zurück im Vordergrund wird sofort aktualisiert.
-- **Der Watchdog sagt jetzt, was er kostet**, direkt neben dem Feld: zwei Pings alle fünf
-  Minuten sind ~3 MB im Monat, mehr als die Alarme, für die es diese Box gibt — und die
-  Zeile empfiehlt 15–30 min, wenn die Zahl groß wird. Eine Entscheidung statt einer
-  Überraschung.
-- **`apt` wird als der Posten benannt, den niemand einplant** — tägliche Paketlisten auf
-  einer getakteten Leitung können alles überdecken, was das Gateway tut. Das ist eine echte
-  Abwägung gegen Sicherheitsupdates, also lässt der Installer es weiter in Ruhe und die
-  Doku gibt die zwei Befehle.
-- **Die Sensoren sind wieder allgemein.** Spannung, Strom und Temperatur sind Messwerte,
-  kein Solar-Feature: eine Inselbatterie ist eines von mehreren Dingen, auf die man sie
-  richtet, aber die Seite muss an einem Labornetzteil genauso gut lesbar sein. CLAUDE.md
-  und docs/CONCEPT.md sagen das jetzt, damit der nächste Durchgang kein Solar-Dashboard
-  baut.
-
 ## v0.12.4
-**English**
 - **The installer now gives a small board swap before the step that needs it.** A Zero 2 W
   runs the service comfortably — it measures ~54 MB — but `npm install` during an *update*
   is a different load, and a gateway that runs out of memory mid-update is one somebody has
@@ -933,30 +445,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   every board. Docs updated — `docs/HARDWARE.md` and its German sibling described this as a
   manual step and a gap; it is neither any more.
 
-**Deutsch**
-- **Der Installer gibt einem kleinen Board jetzt Swap, bevor der Schritt kommt, der ihn
-  braucht.** Ein Zero 2 W fährt den Dienst locker — er misst ~54 MB — aber `npm install`
-  bei einem *Update* ist eine andere Last, und ein Gateway, dem mitten im Update der
-  Speicher ausgeht, ist eines, zu dem jemand hinfahren muss. Auf jedem Board unter 1,5 GB
-  richtet `install.sh` **zram** ein: zstd, 60 % des RAM, Priorität 100.
-- **Bewusst im RAM, keine Swapdatei auf der Karte.** Diese Box hängt an Solar; der Strom
-  kann mitten im Schreibvorgang weg sein, und die SD-Karte ist das, was dabei stirbt. Die
-  dphys-swapfile von Pi OS bleibt, wie sie ist — zram meldet sich nur mit höherer
-  Priorität an, der Kernel greift also erst ins RAM und dann auf die Karte.
-- **Er weiß, wann er sich raushalten muss**: ein Pi 4 oder 5 wird mit einer Zeile
-  übersprungen, ein vorhandenes zram-Setup bleibt unangetastet, ein unlesbares
-  `/proc/meminfo` führt zum Überspringen statt zum Abbruch der Provisionierung, und ein
-  fehlgeschlagenes `apt-get` nennt Ursache und Abhilfe, statt die Installation zu killen —
-  ausgerechnet der Update-Pfad darf nicht fragil werden.
-- **Ein erneuter Lauf stapelt keine Konfiguration**: die Einstellungen stehen in
-  `/etc/default/zramswap` zwischen Markern, die der nächste Lauf ersetzt.
-- Tests sichern die zwei Eigenschaften, auf die es ankommt (jetzt 518): zram wird **vor**
-  dem `npm install` eingerichtet, das es schützt, und es hängt an einer Speicherprüfung
-  statt jedem Board übergestülpt zu werden. Doku nachgezogen — `docs/HARDWARE.md` und die
-  deutsche Fassung beschrieben das als Handarbeit und als Lücke; beides stimmt nicht mehr.
-
 ## v0.12.3
-**English**
 - **A hardware guide, because the first question about an off-grid box is "what do I buy
   and what does it cost me in watts?"** [docs/HARDWARE.md](docs/HARDWARE.md) answers both:
   a **Pi Zero 2 W** (the original Zero W is ARMv6 — no 64-bit OS, no Node, it will never
@@ -983,36 +472,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   guide also names a gap it does not fix: `install.sh` sets up no zram or swap, which a
   512 MB board wants before its first update.
 
-**Deutsch**
-- **Ein Hardware-Leitfaden, weil die erste Frage zu einer Inselbox lautet: „Was kaufe ich,
-  und was kostet es an Watt?"** [docs/HARDWARE.de.md](docs/HARDWARE.de.md) beantwortet
-  beides: ein **Pi Zero 2 W** (der ursprüngliche Zero W ist ARMv6 — kein 64-Bit-OS, kein
-  Node, das läuft dort nie), ein HiLink-Stick mit echter externer Antenne, **IP- statt
-  USB-Kameras** und ein INA228 in der Batterieleitung.
-- **Das Budget, gegen das ausgelegt wird: ~2,5–4 W, also 60–95 Wh/Tag.** Inklusive dem,
-  was die meisten falsch gewichten — das Board ist der *drittgrößte* Hebel. Eine
-  dauerhaft laufende IP-Kamera kann mehr kosten als das ganze Gateway, und ein Stick mit
-  schlechter Antenne sendet härter und verbrennt dabei Watt.
-- **Was der Zero 2 W tatsächlich kostet**, alle vier Punkte gegen dieses Repository
-  geprüft: 512 MB, wobei der kritische Moment `npm install` ist und nicht der Betrieb (der
-  Dienst misst ~54 MB RSS), ein 2,4-GHz-Funkchip, der AP und Uplink nicht gleichzeitig
-  kann, eine Micro-USB-Datenbuchse, kein Ethernet.
-- **Warum eine RTSP-Kamera nichts kostet und eine USB-Kamera schon** — der RTSP-Pfad ist
-  `-c copy` (`cameraManager.ts:107`), eine USB-Kamera wird transkodiert
-  (`cameraManager.ts:112`). Genau deshalb ist der Pi 5 ohne H.264-Encoder hier das falsche
-  Board.
-- **Brownout und die SD-Karte**, so wie Insel-Pis wirklich sterben: ein 5-V-Buck mit
-  Reserve, die Spitzen des LTE-Sticks weg von der Pi-Schiene, die Tiefentladeabschaltung
-  des Ladereglers als das, was abschaltet, und Bit 16 aus `vcgencmd get_throttled`, das
-  das Gateway ohnehin liest (`health.ts:82`) — Unterspannung *seit dem Boot* ist die, die
-  eine um 3 Uhr eingebrochene Versorgung überhaupt sichtbar macht. Ob eine Karte eine
-  Saison davon übersteht, kann dieses Repo nicht behaupten, und der Leitfaden sagt das.
-- Deutsche Fassung als `docs/HARDWARE.de.md`, der Installer-Hinweis verweist auf beide.
-  Der Leitfaden benennt auch eine Lücke, die er nicht schließt: `install.sh` richtet weder
-  zram noch Swap ein — was ein 512-MB-Board vor seinem ersten Update haben will.
-
 ## v0.12.2
-**English**
 - **You can now enter the secret, not just set one.** After generating one there was
   nowhere obvious to type it again — the page only asked via a browser `prompt()`, in the
   middle of whatever you had just pressed. Setup › Security now has an **Unlock this tab**
@@ -1027,25 +487,7 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   **not** needed to connect. Reading — the whole page, the sensors, the history — is always
   open. The secret gates **changes**, and the device proxy.
 
-**Deutsch**
-- **Man kann das Secret jetzt auch eingeben, nicht nur setzen.** Nach dem Erzeugen gab es
-  keinen offensichtlichen Ort, es erneut einzutippen — die Seite fragte nur per Browser-
-  `prompt()`, mitten in der Aktion, die man gerade angestoßen hatte. Setup › Security hat
-  jetzt ein Feld **Unlock this tab**, das genau dann erscheint, wenn es nützlich ist: Ein
-  Secret ist gesetzt und dieser Tab kennt es nicht. Eine abgewiesene Änderung zeigt auf
-  dieses Feld, statt einen Dialog aufzumachen.
-- Das Feld wird gegen das Gateway geprüft (`POST /api/auth/check`, hinter demselben Gate
-  wie jeder andere Schreibzugriff — ein falsches Secret wird also von der echten Regel
-  abgewiesen, nicht von einer zweiten Kopie davon). Man erfährt es sofort, nicht erst beim
-  nächsten Speichern.
-- Die Statuszeile sagt, in welchem der Zustände man ist: *kein Secret*, *gesetzt · dieser
-  Tab ist entsperrt* oder *gesetzt · dieser Tab kann noch nichts ändern*.
-- Und zur Klarheit, weil dieses Projekt keine Boden-App hat: Zum **Verbinden** braucht man
-  es nicht. Lesen — die ganze Seite, Sensoren, Verlauf — ist immer offen. Das Secret
-  schützt **Änderungen** und den Geräte-Proxy.
-
 ## v0.12.1
-**English**
 - **The API secret was in the setup page but nobody could find it.** It sits ten panels
   down, and nothing anywhere else mentioned whether the box had one. The **System status**
   block at the top now says so in one line — "API secret set", or a warning that links
@@ -1056,24 +498,10 @@ All notable changes to YonderGate. Entries are bilingual (English / Deutsch).
   protects you *without* it: a page from the internet is refused whatever you do. Its old
   text still described the RC project's ground app, which does not exist here.
 
-**Deutsch**
-- **Das API-Secret war zwar in der Setup-Seite, aber niemand hat es gefunden.** Es sitzt
-  zehn Blöcke weiter unten, und nirgends sonst stand, ob die Kiste überhaupt eins hat. Der
-  Block **System status** ganz oben sagt es jetzt in einer Zeile — „API secret set" oder
-  eine Warnung, die direkt zum Panel springt. Ein Schloss, das man nicht sieht, ist ein
-  Schloss, das niemand zumacht — und dieses Gerät steht ein Jahr unbeaufsichtigt an einem
-  Standort, mit Relais dahinter.
-- Das Security-Panel erklärt jetzt, wofür es wirklich gedacht ist (offener Hotspot,
-  Marina- oder Campingplatz-WLAN, geteiltes LAN — nicht für eine reine Tailscale-Kiste)
-  und, genauso wichtig, was auch **ohne** Secret schützt: Eine Seite aus dem Internet wird
-  in jedem Fall abgewiesen. Der alte Text beschrieb noch die Boden-App des RC-Projekts,
-  die es hier gar nicht gibt.
-
 ## v0.12.0
 The security fix from YonderRC's review, which applies here with sharper teeth: this box
 switches relays.
 
-**English**
 - **A page from the internet can no longer act on the gateway.** The API secret is off by
   default, so any site the operator happened to open — on a phone joined to the gateway's
   own hotspot, which is open by default — could POST to the setup API (reboot, WiFi,
@@ -1090,32 +518,12 @@ switches relays.
 - This also defeats DNS rebinding: the attacking page keeps its own origin even once its
   name resolves to 192.168.4.1.
 
-**Deutsch**
-- **Eine Seite aus dem Internet kann nicht mehr auf das Gateway wirken.** Das API-Secret
-  ist standardmäßig aus — jede Seite, die der Bediener zufällig öffnet, während sein
-  Handy am Hotspot des Gateways hängt (der standardmäßig offen ist), konnte an die
-  Setup-API POSTen (Neustart, WLAN, Werksreset) oder über den **Geräte-Proxy** eine
-  Anfrage an das durchreichen, was die Geräte dahinter akzeptieren. Ein Relais wird per
-  simpler URL geschaltet — genau das ist die scharfe Kante: Die Seite muss die Antwort
-  nie lesen, den Browser zum Abrufen zu bringen **ist** der Angriff, und ein `<img>`-Tag
-  macht das ganz ohne `Origin`-Header.
-- Das Gateway beurteilt eine Anfrage deshalb danach, **wodurch sie ausgelöst wurde**:
-  `Sec-Fetch-Site: cross-site` — von aktuellen Browsern bei jeder Anfrage mitgeschickt,
-  auch bei `<img>`, `<script>` und Formularen — wird direkt abgewiesen. Sonst entscheidet
-  der `Origin`: gar keiner (curl, Skripte, die Tests), `file://`, eine private,
-  Loopback-, `.local`- oder Tailscale-Adresse oder die eigene Adresse des Gateways werden
-  angenommen; das öffentliche Internet wird mit **HTTP 403** abgewiesen, sofern kein
-  API-Secret vorliegt. Lesende Zugriffe bleiben offen, die Setup-Seite geht also immer auf.
-- Das entschärft auch DNS-Rebinding: Die angreifende Seite behält ihren eigenen Origin,
-  auch wenn ihr Name plötzlich auf 192.168.4.1 zeigt.
-
 ## v0.11.0
 A full review pass over the code and the concept, prompted by one question: *do devices
 on the hotspot actually get internet when the LTE stick has it?* They do — the hotspot
 is a NATed shared connection — but checking that turned up the reason they often would
 not, and four more things worth fixing.
 
-**English**
 - **Fixed: the captive portal was decided once and never revisited.** In AP mode the Pi
   resolves every name to itself so a joining phone lands on the setup page. That choice
   was made when the hotspot started — which at a fresh site is the worst moment: the box
@@ -1147,41 +555,7 @@ not, and four more things worth fixing.
 - Documented what the hotspot does with an uplink, and that traffic from hotspot clients
   comes out of the SIM like any other.
 
-**Deutsch**
-- **Behoben: das Captive-Portal wurde einmal entschieden und nie überprüft.** Im AP-Modus
-  löst der Pi jeden Namen auf sich selbst auf, damit ein Handy beim Verbinden auf der
-  Setup-Seite landet. Diese Entscheidung fiel beim Start des Hotspots — am neuen Standort
-  der denkbar schlechteste Moment: Die Kiste bootet ohne LTE, das Portal geht hoch, der
-  Stick bucht sich eine Minute später ein, und ab da hängt jedes Gerät am Hotspot per NAT
-  an einem funktionierenden Uplink, während DNS weiter auf die Setup-Seite zeigt.
-  Internet, das kaputt aussieht — bis jemand hinfährt und den Hotspot neu startet. Wird
-  jetzt jede Minute neu entschieden.
-- **Behoben: das ntfy-Topic war für jeden im LAN oder am offenen Hotspot lesbar.** Der
-  Status-Endpunkt braucht kein Secret und lieferte die Topic-URL vollständig aus. Auf dem
-  öffentlichen ntfy-Server gibt es keine Konten, das Topic **ist** also das Passwort — die
-  Setup-Seite rät sogar dazu, etwas Unerratbares zu wählen. Es wird jetzt gekürzt
-  angezeigt (`https://ntfy.sh/yg…4f2`), wie der Token; überschreiben ändert es.
-- **Behoben: der Datenzähler schrieb jede Minute auf die SD-Karte.** Die Sensor-Aufzeichnung
-  ist genau deshalb optional, um die Karte zu schonen — und dann hat der Verbrauchszähler
-  trotzdem 525 600-mal im Jahr eine Datei neu geschrieben. Jetzt alle 15 Minuten und beim
-  sauberen Herunterfahren; die Summe im Speicher bleibt exakt.
-- **Behoben: ein mitten im Monat angesteckter Sensor wurde still nicht aufgezeichnet.** Eine
-  CSV hat eine Kopfzeile; ein Kanal ohne Spalte hatte keinen Platz und fiel bis zum
-  Monatswechsel weg — also genau dann, wenn jemand auf die Seite schaut, ob der eben
-  verdrahtete Sensor funktioniert. Der Monat läuft jetzt in einer Teildatei weiter, gelesen
-  wird beides als eine Reihe.
-- **Ein Gerätescan kann nicht mehr am Reverse-DNS hängen.** Ohne erreichbaren DNS-Server
-  wartete jede Abfrage die volle Wiederholungszeit ab; bei 128 Adressen wurde aus einem
-  Zehn-Sekunden-Scan eine Minute scheinbar eingefrorener Seite. Ein Name ist jetzt 1,5
-  Sekunden wert, nicht mehr.
-- **Die Update-Prüfung wird zehn Minuten zwischengespeichert** (der Button erzwingt weiter
-  eine frische). Sie macht ein `git fetch`, braucht kein Secret, und auf einer getakteten
-  SIM soll ein offen gelassener Browser-Tab nicht das Volumen verbrauchen.
-- Dokumentiert, was der Hotspot mit einem Uplink macht — und dass der Verkehr der
-  Hotspot-Geräte genauso aus der SIM kommt wie jeder andere.
-
 ## v0.10.0
-**English**
 - **Fixed: the watchdog could have rebooted the box forever.** The failure counter lived
   in memory, so a reboot reset it — medium gone (a dead SIM, an unplugged stick, a router
   that is off) → eight failed probes → reboot → counter back to zero → forty minutes
@@ -1201,46 +575,14 @@ not, and four more things worth fixing.
 - The panel now shows the limits rather than just the switch: failed probes, reboots
   today, and what the budget currently allows.
 
-**Deutsch**
-- **Behoben: der Watchdog hätte die Kiste endlos neu starten können.** Der Fehlerzähler
-  lag im Arbeitsspeicher, ein Neustart setzte ihn also zurück — Medium weg (totes SIM,
-  abgezogener Stick, ausgeschalteter Router) → acht fehlgeschlagene Prüfungen → Neustart
-  → Zähler bei null → vierzig Minuten später wieder, und wieder, ohne Ende. Nichts wird
-  repariert, die Karte verschleißt, und wer am Standort steht, sieht die Kiste alle
-  vierzig Minuten unter sich wegsterben. Vom Besitzer erfragt, bevor das je auf Hardware
-  lief.
-- **Das Neustart-Budget steht jetzt auf der Platte** — der eine Zustand, den ein Neustart
-  nicht löschen darf. **Höchstens zwei Neustarts pro Tag, sechs Stunden auseinander.** Die
-  billigeren Stufen laufen weiter: Tailscale und Netzwerk-Stack werden bei jeder
-  Eskalation weiterhin neu gestartet. Rationiert ist nur der große Hammer, und ist das
-  Budget aufgebraucht, sagt die Kiste das Nützliche — *„heute schon 2× neu gestartet, es
-  hat nicht geholfen — das Medium ist vermutlich weg, und ein weiterer Neustart zaubert
-  es nicht herbei"*.
-- **Kein Neustart, solange jemand die Seite offen hat.** Ein fehlender Uplink macht den
-  lokalen Zugang nicht kaputt: Hotspot, LAN und diese Seite funktionieren weiter. Ein
-  Neustart würde genau die Person hinauswerfen, die davorsteht und es reparieren will —
-  das gilt auch für den wöchentlichen Wartungsneustart.
-- Das Panel zeigt jetzt die Grenzen statt nur den Schalter: fehlgeschlagene Prüfungen,
-  Neustarts heute und was das Budget gerade erlaubt.
-
 ## v0.9.1
-**English**
 - **Fixed within minutes of shipping it: an impossible GPIO pin was accepted.** The
   router clamped the number into range before validating it, so pin 99 became pin 27 and
   the switch was saved — a relay quietly wired to a line nobody chose. Pin, channel and
   off-time are now checked, not corrected. "Helpfully" fixing a value the operator typed
   is how a switch ends up controlling the wrong thing.
 
-**Deutsch**
-- **Minuten nach der Veröffentlichung gefunden: ein unmöglicher GPIO-Pin wurde
-  angenommen.** Der Router hat die Zahl vor der Prüfung in den gültigen Bereich gebogen —
-  aus Pin 99 wurde Pin 27, und der Schalter war gespeichert: ein Relais, still auf eine
-  Leitung gelegt, die niemand gewählt hat. Pin, Kanal und Ausschaltdauer werden jetzt
-  geprüft, nicht korrigiert. Einen eingegebenen Wert „hilfsbereit" zurechtzurücken ist
-  genau der Weg, auf dem ein Schalter am Ende das Falsche schaltet.
-
 ## v0.9.0
-**English**
 - **Power switches.** A Shelly, a Tasmota plug, any pair of URLs, or a relay on the Pi's
   GPIO — on, off, or a proper power cycle from the page. This is the only thing in the
   box that can *act* on a fault instead of describing it: the camera that has stopped
@@ -1268,37 +610,7 @@ not, and four more things worth fixing.
   both, so a Wi-Fi uplink means the devices join that same Wi-Fi, or you add a second USB
   adapter for the hotspot.
 
-**Deutsch**
-- **Schaltbare Steckdosen und Relais.** Ein Shelly, eine Tasmota-Steckdose, ein beliebiges
-  URL-Paar oder ein Relais am GPIO des Pi — ein, aus oder ein richtiger Stromstoß-Zyklus
-  von der Seite aus. Das ist das Einzige in dieser Kiste, das auf eine Störung
-  **handeln** statt sie zu beschreiben: die Kamera, die nicht mehr antwortet und nach
-  einem Stromausfall wiederkäme, ist sonst eine Fahrt von 200 Kilometern.
-- **Und sie kann es allein.** Verknüpfe einen Schalter mit einem gespeicherten Gerät, und
-  das Gateway macht dieses Gerät stromlos, wenn es verstummt — **einmal**, dann eine
-  Stunde Ruhe. Ein Relais, das bei einer flackernden Verbindung die ganze Nacht klackert,
-  ist schlimmer als ein Gerät, das schlicht aus ist — es ist dann nämlich auch von Hand
-  nicht mehr zu retten.
-- Der Zyklus wird *geplant*, nicht abgewartet: Die Antwort muss den Browser erreichen,
-  bevor das, worüber der Browser spricht, womöglich stromlos wird. Und Relais, die auf
-  LOW schalten, sind ein Haken — das falsch herum zu haben, merkt man aus der Ferne.
-- **Hardware-Watchdog.** Alles andere setzt voraus, dass dieser Dienst noch läuft; hängt
-  der Kernel, kommt kein Userspace mehr dran, und die Kiste ist weg, bis jemand hinfährt.
-  Der Pi hat genau dafür einen Timer-Chip — systemd füttert ihn, hört das auf, setzt der
-  Chip die Platine zurück. Standardmäßig aus, denn eine Maschine, die sich selbst
-  zurücksetzt, will nicht jeder auf der Werkbank, und über die Seite einschaltbar
-  (`daemon-reexec`, nicht `daemon-reload` — Letzteres ließe die Einstellung angewendet
-  aussehen, ohne etwas zu tun).
-- `gpiod` installiert der Provisionierer mit, damit ein Relais ohne Nacharbeit
-  funktioniert.
-- **Der WLAN-Uplink ist dokumentiert.** Nicht jeder Standort ist ein LTE-Standort: Die
-  README nennt jetzt die drei Formen (LTE-Stick, WLAN-Client, Ethernet) und die eine
-  Regel, die wirklich weh tut — das eingebaute Funkmodul des Pi kann einem Netz
-  *beitreten* oder einen Hotspot *bereitstellen*, nie beides. Ein WLAN-Uplink heißt also:
-  die Geräte hängen im selben WLAN, oder ein zweiter USB-Adapter übernimmt den Hotspot.
-
 ## v0.8.0
-**English**
 - **Alert rules are made on the page now.** Pick a sensor reading (the list comes from
   the channels this site actually has), a saved device, or the box itself; set a limit
   and how long it has to hold. A sensor rule without a limit is refused rather than
@@ -1324,37 +636,7 @@ not, and four more things worth fixing.
 - Cameras moved above the sensors and both panels are collapsed — the page is read from
   the top, and those two are set once.
 
-**Deutsch**
-- **Alarmregeln entstehen jetzt auf der Seite.** Sensorwert wählen (die Liste kommt aus
-  den Kanälen, die dieser Standort wirklich hat), gespeichertes Gerät oder die Kiste
-  selbst; Grenze setzen und wie lange sie halten muss. Eine Sensorregel ohne Grenze wird
-  abgelehnt, statt still nichts zu überwachen.
-- **Einen Watchdog gibt es jetzt — die Frage war berechtigt.** Bisher schützte nur
-  `Restart=always`, und das fängt einen *abgestürzten* Prozess: also keine der Störungen,
-  die an einem entfernten Standort tatsächlich auftreten. Eine LTE-Sitzung, die steht und
-  nichts transportiert; ein Modem, das antwortet, aber nicht mehr routet; ein Tailscale,
-  das nach abgelaufenem Token ausgeloggt ist. Von innen sieht das alles gesund aus.
-  Deshalb prüft das Gateway, ob Verkehr noch nach draußen kommt, und eskaliert
-  **vom Billigsten zum Härtesten**: Tailscale neu hochfahren (2 Fehlversuche),
-  Netzwerk-Stack neu starten, was LTE neu wählt (4), Neustart (8, und nur wenn erlaubt).
-  Jede Stufe feuert **einmal** an ihrer Schwelle — „Netzwerk neu starten" alle fünf
-  Minuten zu wiederholen hilft nicht und verdeckt, ob der letzte Versuch etwas bewirkt hat.
-- Das Prüfziel ist eine **Adresse**, kein Hostname: ein kaputtes DNS würde sonst wie eine
-  tote Leitung aussehen und einen Neustart auslösen, der nichts repariert.
-- **Wöchentlicher Neustart, standardmäßig an (Sonntag 4 Uhr) — und ja, das ist eine gute
-  Idee.** Es ist eine Krücke, aber eine billige: Sie räumt geleckten Speicher, verklemmte
-  USB-Modems und still gestorbene Treiber weg, was sonst niemand bemerkt. Entscheidend
-  ist die Laufzeitprüfung — ohne sie startet eine Kiste, die innerhalb ihres eigenen
-  Fensters hochkommt, gleich wieder neu, und ein Standort, den du nicht erreichst, ist
-  jetzt in einer Schleife.
-- Jede Rettungsstufe wird **vorher** angekündigt, im Rahmen des Möglichen: Die fehlende
-  Verbindung ist ja der Grund, warum die Meldung vielleicht nicht ankommt — aufhalten
-  darf sie die Rettung deswegen nicht.
-- Kameras sind über die Sensoren gewandert, beide Blöcke eingeklappt — die Seite wird von
-  oben gelesen, und diese zwei richtet man einmal ein.
-
 ## v0.7.0
-**English**
 - **Fixed a layout bug with one cause and four symptoms.** `input { width: 100% }` — the
   rule that makes text fields fill their column — also applied to checkboxes, so each one
   stretched across the row and shoved its own label to the far edge. "Send alerts",
@@ -1381,37 +663,7 @@ not, and four more things worth fixing.
 - **The allowance now reads as a plan**: used, left, days to go and what that leaves per
   day. A percentage alone does not tell you whether to keep a camera streaming.
 
-**Deutsch**
-- **Ein Layout-Fehler mit einer Ursache und vier Symptomen behoben.** `input { width:
-  100% }` — die Regel, die Textfelder ihre Spalte füllen lässt — galt auch für
-  Checkboxen: jede zog sich über die ganze Zeile und schob ihre eigene Beschriftung an
-  den rechten Rand. „Send alerts", „Record history", „Allow data roaming" und der
-  Coulomb-Zähler sahen aus demselben Grund kaputt aus; die Routen-Zeilen fluchten jetzt
-  ebenfalls.
-- Überschriften hatten keinen Abstand zu den Bedienelementen darunter — deshalb klebte
-  *Site network* auf seinen Knöpfen.
-- **Das Sensor-Panel ist nach oben gewandert und eingeklappt**, denn es ist das, worauf
-  man schaut; der Rest wird einmal eingerichtet.
-- **Die Zeit lässt sich jetzt auf der Seite kontrollieren**: Uhrzeit und Zeitzone der
-  Kiste stehen da (zum Abgleich mit der eigenen Uhr), die **tatsächlich genutzten
-  Server** stehen im Feld statt eines leeren Kastens, der unkonfiguriert aussieht, und
-  die Zeitzone ist einstellbar. Zeitsynchronisation ist standardmäßig an — das ist
-  systemd-timesyncd mit den Servern der Distribution.
-- **Die DS3231 ist ein Haken.** Uhr auf die I²C-Pins stecken, Haken setzen, neu starten:
-  das Gateway schreibt `dtoverlay=i2c-rtc,ds3231` selbst in die `config.txt`. Die
-  Änderung ist in beide Richtungen idempotent und fasst sonst nichts an — diese Datei
-  entscheidet schließlich auch, ob der Pi überhaupt bootet. Was sie bringt: Der Standort
-  behält die Zeit über einen Stromausfall auf der eigenen Knopfzelle, der Kernel liest
-  sie beim Booten, und sobald das Netz wieder da ist, korrigiert NTP beide.
-- **Das Interface für den Datenzähler ist eine Liste, keine Rateübung.** Sie kommt aus
-  der Kiste selbst, mit den Adressen daneben — niemand muss wissen, dass sein WLAN
-  `wlp59s0` heißt.
-- **Das Volumen liest sich jetzt wie ein Plan**: verbraucht, offen, verbleibende Tage und
-  was das pro Tag bedeutet. Eine Prozentzahl allein beantwortet nicht, ob eine Kamera
-  weiterlaufen darf.
-
 ## v0.6.0
-**English**
 - **Recording is now off by default.** It is the only thing here that writes to the card
   continuously, and an installation that wants maximum endurance should not have to
   discover that it opted in by accident. One checkbox in Setup › Sensors turns it on;
@@ -1438,38 +690,7 @@ not, and four more things worth fixing.
   costs nothing. A counter that went backwards means "something restarted", not "we
   un-sent 4 GB" — and a warning goes out at 80 % of the cap.
 
-**Deutsch**
-- **Die Aufzeichnung ist jetzt standardmäßig aus.** Sie ist das Einzige hier, das
-  dauerhaft auf die Karte schreibt, und eine Installation, die maximale Lebensdauer will,
-  soll das nicht versehentlich eingeschaltet haben. Ein Haken in Setup › Sensors
-  aktiviert sie; Aufbewahrung und Schreibintervall sind Einstellungen statt Annahmen.
-- **Das Gateway meldet sich.** Alarme über **ntfy**: ein Sensor jenseits der Schwelle,
-  ein gespeichertes Gerät, das verstummt, sackende Versorgungsspannung, 80 % des
-  Datenvolumens. Jede Regel muss erst eine Weile halten und schweigt danach sechs Stunden
-  — die Lehre aus dem Schwesterprojekt, wo eine im Minutentakt flackernde Verbindung uns
-  gezeigt hat, was eine Stimme wert ist, die zu oft ruft. Entwarnung gibt es nur für eine
-  Meldung, die auch rausging.
-- **Ein Sensor, den niemand angeschlossen hat, ist kein Alarm.** Diese Kiste soll mit dem
-  laufen, was der Betreiber zufällig verkabelt hat — ein fehlender Messwert bedeutet
-  Schweigen, nie eine Grenzverletzung.
-- **Systemgesundheit**: Speicherplatz, CPU-Temperatur, Last, Laufzeit, **Unterspannung
-  jetzt und seit dem Booten** (der klassische Pi-plus-LTE-Stick-Fehler, der still
-  SD-Karten frisst), ob die **Uhr synchron** ist und ob eine Hardware-Uhr steckt. Jeder
-  Wert ist `null`, wenn er nicht lesbar ist — eine Kiste ohne `vcgencmd` ist eine normale
-  Kiste, und „unbekannt" darf nie als gesunde Null erscheinen.
-- **Die Zeit ist über die Seite einstellbar**: NTP-Server werden geprüft, als
-  systemd-timesyncd-Datei geschrieben und angewendet. Eine **DS3231-RTC** wird erkannt,
-  wenn sie steckt, und für Standorte dokumentiert, die lange offline sind — bewusst nicht
-  standardmäßig aktiv.
-- **Datenzähler mit Volumengrenze.** Wahlweise der Zähler des Sticks (was der Anbieter
-  sieht) oder die Interface-Zähler des Kernels (funktioniert bei jedem Uplink); das
-  Gateway führt seinen eigenen Monatswert aus den **Differenzen**, ein Neustart von Stick
-  oder Pi kostet also nichts. Ein rückwärts gelaufener Zähler heißt „etwas wurde neu
-  gestartet", nicht „wir haben 4 GB ungesendet" — und bei 80 % des Volumens geht eine
-  Meldung raus.
-
 ## v0.5.0
-**English**
 - **The sensors have a memory.** One averaged value per minute is recorded and kept for
   13 months, with hour / day / week / month / year views drawn in the page itself — no
   charting library, because a site with a flaky uplink cannot fetch one. The band behind
@@ -1491,32 +712,7 @@ not, and four more things worth fixing.
   points with **no channel names**, because names were only read from files that did not
   exist yet — the page had numbers and nothing to draw them under.
 
-**Deutsch**
-- **Die Sensorik hat ein Gedächtnis.** Ein gemittelter Wert pro Minute wird
-  aufgezeichnet und 13 Monate aufbewahrt, mit Ansichten für Stunde / Tag / Woche / Monat
-  / Jahr, gezeichnet in der Seite selbst — ohne Diagramm-Bibliothek, denn ein Standort
-  mit wackligem Uplink kann keine nachladen. Das Band hinter jeder Linie ist das
-  **Minimum und Maximum** innerhalb jedes gemittelten Schritts: Bei einer Batterie ist
-  der Einbruch unter Last genau das, was ein Mittelwert verschluckt.
-- **Die Größenrechnung hat das Design bestimmt.** Eine Minutenzeile mit einer Handvoll
-  Kanäle sind ~40 Byte, ein Jahr also etwa **21 MB — 0,13 % einer 16-GB-Karte**. Damit
-  entfällt der übliche Grund für Stufen immer gröberer Daten: volle Minutenauflösung
-  bleibt über den ganzen Zeitraum erhalten, längere Ansichten werden **beim Abruf**
-  gemittelt. Nichts geht durch einen Verdichtungslauf verloren, der schon gelaufen ist.
-- Gespeichert als schlichtes CSV, eine Datei pro Monat. Eine halb geschriebene Zeile nach
-  einem Stromausfall kostet eine Minute, nicht die Datei, und ein Jahr Messwerte lässt
-  sich per SSH mit `tail` lesen. Das Aufzeichnen legt das Gateway nie lahm: eine volle
-  Karte kostet Verlauf, nicht die Seite, die davon berichten würde.
-- Messwerte werden gepuffert und alle fünf Minuten geschrieben — ein paar hundert
-  SD-Karten-Schreibvorgänge am Tag statt Zehntausender. Der Preis steht klar dabei: ein
-  Stromausfall kostet bis zu fünf Minuten.
-- Beim Laufenlassen gefunden: In den ersten Minuten einer frischen Kiste lieferte die API
-  Messpunkte **ohne Kanalnamen**, weil die Namen nur aus Dateien gelesen wurden, die es
-  noch gar nicht gab — die Seite hatte Zahlen und nichts, worunter sie sie zeichnen
-  konnte.
-
 ## v0.4.0
-**English**
 - **A scan is no longer anonymous.** Devices can be given a name and the port their web
   UI actually listens on, and both survive the next scan. Saved devices are keyed by
   **MAC**, not address: DHCP moves addresses around, and a camera that comes back on a
@@ -1534,29 +730,7 @@ not, and four more things worth fixing.
   Linux clients) and publishing a single device (no routing changes, survives an address
   collision with your home network). Including when to pick which.
 
-**Deutsch**
-- **Ein Scan ist nicht mehr anonym.** Geräte lassen sich benennen, samt dem Port, auf dem
-  ihre Weboberfläche wirklich liegt — beides übersteht den nächsten Scan. Gespeichert wird
-  nach **MAC**, nicht nach Adresse: DHCP schiebt Adressen herum, und eine Kamera, die
-  unter einer anderen zurückkommt, ist immer noch die Kamera, die du benannt hast.
-- **Ein gespeichertes Gerät, das nicht mehr antwortet, bleibt in der Liste**, markiert als
-  *not answering*, mit dem Zeitpunkt der letzten Sichtung. Genau dafür speichert man es:
-  An einem Ort, zu dem du nicht hinlaufen kannst, ist „die Kamera, die ich benannt habe,
-  schweigt" die nützlichste Auskunft dieser Seite — sie aus der Liste zu werfen würde
-  ausgerechnet das verbergen.
-- Beim Veröffentlichen wird jetzt der **konfigurierte Port** benutzt, eine Oberfläche auf
-  8080 oder 8443 funktioniert also wie eine auf 80, und der Eintrag trägt den Namen, den
-  du vergeben hast.
-- **Die README erklärt das Konzept von Grund auf**: warum eine `192.168.x.x`-Adresse an
-  einem entfernten Ort unerreichbar ist, warum Portfreigaben hinter CGNAT nicht helfen,
-  was Tailscale daran ändert — und dann beide Wege hindurch, Schritt für Schritt:
-  Subnet-Routes (erreicht alles, braucht eine Freigabe in der Konsole,
-  `--accept-routes` auf Linux-Clients) und das Veröffentlichen eines einzelnen Geräts
-  (keine Routing-Änderung, übersteht eine Adresskollision mit dem Heimnetz). Inklusive der
-  Frage, wann man welchen nimmt.
-
 ## v0.3.0
-**English**
 - **The RC wording is gone.** This box sits on a yacht, an allotment or a remote plot —
   it does not steer anything, and calling it "the vehicle" in 130 places was inherited
   clutter that would have shaped how the thing gets built. Comments, UI copy and docs now
@@ -1574,42 +748,14 @@ not, and four more things worth fixing.
   box systemd points it at `/var/lib/yondergate/`. A file the service rewrites at every
   start must never live in the repository, or `git pull --ff-only` stops working.
 
-**Deutsch**
-- **Die RC-Sprache ist raus.** Diese Kiste steht auf einer Yacht, in einem Schrebergarten
-  oder auf einem abgelegenen Grundstück — sie steuert nichts, und sie an 130 Stellen „das
-  Fahrzeug" zu nennen war geerbter Ballast, der geprägt hätte, wie das Ding weitergebaut
-  wird. Kommentare, Oberfläche und Doku sagen jetzt Gateway, Standort und Betreiber.
-- **Man sieht die Kameras.** Das Kamera-Panel zeigt pro Kamera ein **Standbild** (der
-  Beweis, dass sie läuft) und einen **Open stream ↗**-Link auf den Player von go2rtc. Das
-  Gateway erzeugt die go2rtc-Konfiguration, liefert das Video aber bewusst nicht selbst —
-  die Seite sagt das, samt der Adresse, an die sie sich wendet, wenn kein Bild kommt.
-- **`npm run dev:video` simuliert die ganze Videostrecke lokal**: holt go2rtc einmalig,
-  startet es mit der gerade geschriebenen Konfiguration, und die Standardkamera ist ein
-  ffmpeg-Testbild — Vorschau, Player und WebRTC lassen sich damit ohne Kamera, ohne Pi und
-  ohne Standort ausprobieren.
-- **Die generierte go2rtc-Konfiguration ist aus dem Checkout ausgezogen**, bevor sie den
-  Fehler aus YonderRC wiederholen konnte. In der Entwicklung landet sie in `.runtime/`
-  (git-ignoriert), auf einer echten Kiste zeigt systemd auf `/var/lib/yondergate/`. Eine
-  Datei, die der Dienst bei jedem Start neu schreibt, darf nie im Repository liegen —
-  sonst funktioniert `git pull --ff-only` irgendwann nicht mehr.
-
 ## v0.2.1
-**English**
 - **Fixed while running it for the first time: the VPN was offered as a network to
   advertise.** A laptop's `tailscale0` carries a `/32`, and it turned up in the list of
   subnets the gateway could route — advertising the tailnet's own address back into the
   tailnet is a loop, not a route. `tailscale*`, `wg*` and `zt*` interfaces are skipped
   now, and a `/32` is never offered as a network.
 
-**Deutsch**
-- **Beim ersten echten Lauf gefunden: das VPN wurde als ankündbares Netz angeboten.**
-  Das `tailscale0` eines Laptops trägt ein `/32`, und es tauchte in der Liste der
-  Subnetze auf, die das Gateway routen könnte — die eigene Tailnet-Adresse zurück ins
-  Tailnet anzukündigen ist eine Schleife, keine Route. `tailscale*`, `wg*` und
-  `zt*`-Interfaces werden jetzt übersprungen, und ein `/32` wird nie als Netz angeboten.
-
 ## v0.2.0
-**English**
 - **The gateway can now see the site.** *Scan* reads the kernel's neighbour table —
   instant, and it already knows everything that has spoken recently — while *Scan +
   sweep* pings every address in the subnet for the quiet ones. The list shows address,
@@ -1635,51 +781,14 @@ not, and four more things worth fixing.
   and the port allocation. **None of it has run on a real site yet**: sweeps,
   `tailscale set` and `sysctl` are only provable on the Pi.
 
-**Deutsch**
-- **Das Gateway sieht jetzt, was am Standort ist.** *Scan* liest die Nachbartabelle des
-  Kernels — sofort da, und sie kennt bereits alles, was kürzlich gesprochen hat —
-  *Scan + sweep* pingt zusätzlich jede Adresse im Subnetz für die Stillen. Die Liste
-  zeigt Adresse, MAC, Hersteller, Reverse-DNS-Namen, welche der geprüften Ports
-  geantwortet haben und eine einzeilige Vermutung, was das Gerät ist. Eine Vermutung
-  wird auch als solche formuliert: ein RTSP-Port ist ein starker Hinweis auf eine
-  Kamera, kein Beweis.
-- **Zwei Wege zu diesen Geräten, und sie sind nicht gleichwertig.**
-  **Tailscale-Subnet-Routes** sind die eigentliche Antwort: `192.168.4.0/24`
-  ankündigen, und jedes Gerät ist von überall im Tailnet unter seiner echten Adresse
-  erreichbar, ganz ohne Einrichtung pro Gerät. Das Gateway schaltet dafür IP-Forwarding
-  ein (als sysctl-Datei, damit es einen Reboot übersteht) und nennt den Punkt, den alle
-  vergessen: **die Route muss einmal in der Tailnet-Konsole freigegeben werden** —
-  vorher existiert sie und transportiert nichts.
-  **Ein einzelnes Gerät veröffentlichen** ist der Rückfall, wenn Routing nicht in Frage
-  kommt: ein Knopf in der Geräteliste, und seine Weboberfläche antwortet unter
-  `http://<Gateway>:8100/`, abgesichert durch das API-Secret wie alles andere.
-- Absicherungen aus früherer Erfahrung: ein Sweep breiter als /22 wird mit Begründung
-  abgelehnt statt still gekürzt (ein /16 sind 65.000 Pings — das ist kein Scan, das ist
-  eine Belästigung); `FAILED`-Einträge der Nachbartabelle sind keine Geräte (der Kernel
-  erinnert sich dort daran, dass etwas *nicht* geantwortet hat); ein Veröffentlichungs-
-  Port wird nie zweimal vergeben, denn der zweite würde den ersten abschießen —
-  womöglich genau diese Seite.
-- 31 neue Tests decken Parser, Subnetz-Mathematik, Herstellererkennung,
-  Routen-Argumente und Portvergabe ab. **Auf einem echten Standort lief davon noch
-  nichts**: Sweeps, `tailscale set` und `sysctl` sind nur auf dem Pi beweisbar.
-
 ## v0.1.1
-**English**
 - The **WiFi country stays editable** after it has been set: the field used to appear
   only while the radio was broken, so correcting a wrong country needed SSH. It decides
   channels and transmit power — for a box that may be installed anywhere, that has to be
   a field on the page. No built-in default; the suggestion comes from the Pi's locale or
   timezone.
 
-**Deutsch**
-- Das **WLAN-Land bleibt änderbar**, nachdem es gesetzt wurde: Das Feld erschien bisher
-  nur, solange das Funkmodul kaputt war — ein falsches Land ließ sich also nur per SSH
-  korrigieren. Es bestimmt Kanäle und Sendeleistung; bei einer Kiste, die überall stehen
-  kann, gehört das auf die Seite. Kein eingebauter Standard, der Vorschlag kommt aus
-  Locale oder Zeitzone des Pi.
-
 ## v0.1.0
-**English**
 - Initial import, forked from YonderRC v1.45.2 for its setup UI and provisioning:
   AP onboarding with captive portal, WiFi country/rfkill repair, LTE incl. HiLink
   sticks and their proxied web UI, Tailscale/ZeroTier/WireGuard remote access, the
@@ -1689,14 +798,3 @@ not, and four more things worth fixing.
   serves exactly one thing — the setup/status page — and carries no control socket.
 - No build step any more: the gateway runs TypeScript directly, so an update is a
   pull and a restart.
-
-**Deutsch**
-- Erstimport, abgeleitet von YonderRC v1.45.2 wegen Setup-Oberfläche und
-  Provisionierung: AP-Onboarding mit Captive Portal, WLAN-Land/rfkill-Reparatur,
-  LTE inklusive HiLink-Sticks samt durchgereichter Weboberfläche,
-  Tailscale/ZeroTier/WireGuard, Update-Knopf, I²C-Sensorik und go2rtc-Kameras.
-- Alles RC-Spezifische entfernt: Steuerkanäle, PWM/SBUS-Treiber, Arming und
-  Failsafe, Boden-App, Stick-Bindings, OSD und GPS. Der Dienst liefert genau eine
-  Sache aus — die Setup-/Statusseite — und hat keinen Steuer-Socket mehr.
-- Kein Build-Schritt mehr: Das Gateway führt TypeScript direkt aus, ein Update ist
-  ein Pull plus Neustart.

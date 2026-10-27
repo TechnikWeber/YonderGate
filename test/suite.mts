@@ -1259,27 +1259,12 @@ async function main() {
     ok('and stamps it before the first paint', html.indexOf("dataset.theme = t === 'dark'") < html.indexOf('<body'));
   }
 
-  // ---- the two READMEs must not drift apart ----
-  // A translation that lags is worse than none: it states as current something the
-  // project stopped doing, and the reader cannot tell which of the two is the lie. This
-  // will not catch a bad translation, but it catches the case that actually happens —
-  // a section or a TODO item added to one of them and not the other.
+  // ---- English only ----
+  // The docs are English only; browsers translate. A German copy that comes back would
+  // drift from the English one, so the tests keep it out.
   {
-    const en = readFileSync('README.md', 'utf8');
-    const de = readFileSync('README.de.md', 'utf8');
-    const heads = (t: string) => (t.match(/^#{2,3} /gm) ?? []).length;
-    const items = (t: string) => (t.match(/^- \[[ x]\] /gm) ?? []).length;
-    const done = (t: string) => (t.match(/^- \[x\] /gm) ?? []).length;
-    ok('both READMEs exist', en.length > 0 && de.length > 0);
-    ok('each points at the other', en.includes('[Deutsch](README.de.md)') && de.includes('[English](README.md)'));
-    ok('the same sections in both', heads(en) === heads(de), `${heads(en)} vs ${heads(de)}`);
-    ok('the same TODO items in both', items(en) === items(de), `${items(en)} vs ${items(de)}`);
-    ok('and the same ones ticked', done(en) === done(de), `${done(en)} vs ${done(de)}`);
-    // The German one links the German docs, or it sends the reader back to English.
-    ok('the German README links the German docs',
-      de.includes('docs/HARDWARE.de.md') && de.includes('docs/DATA-BUDGET.de.md'));
-    ok('and CLAUDE.md says both are edited together',
-      readFileSync('CLAUDE.md', 'utf8').includes('Both language versions are edited in the same commit'));
+    const gone = ['README.de.md', 'docs/HARDWARE.de.md', 'docs/DATA-BUDGET.de.md'];
+    ok('no German copies of the docs', gone.every((f) => !existsSync(f)), gone.filter((f) => existsSync(f)).join(', '));
   }
 
   // ---- the 80 % warning for a card billed per megabyte ----
