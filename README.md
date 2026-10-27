@@ -1,5 +1,13 @@
 # YonderGate
 
+<p>
+  <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-yellow">
+  <a href="https://github.com/TechnikWeber/YonderGate/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/TechnikWeber/YonderGate?include_prereleases&label=release"></a>
+  <img alt="Platform: Raspberry Pi" src="https://img.shields.io/badge/platform-Raspberry%20Pi-blue">
+  <img alt="UI: English" src="https://img.shields.io/badge/UI-English-informational">
+  <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-green"></a>
+</p>
+
 An **off-grid site gateway** on a Raspberry Pi: it puts a remote place — a holiday
 plot on solar, a cabin, a boat mooring — on your Tailscale network, serves its own
 WiFi for the devices there, finds those devices, and lets you through to them.
