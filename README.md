@@ -3,6 +3,7 @@
 <p>
   <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-yellow">
   <a href="https://github.com/TechnikWeber/YonderGate/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/TechnikWeber/YonderGate?include_prereleases&label=release"></a>
+  <a href="https://github.com/TechnikWeber/YonderGate/actions/workflows/ci.yml"><img alt="tests" src="https://img.shields.io/github/actions/workflow/status/TechnikWeber/YonderGate/ci.yml?branch=main&label=tests"></a>
   <img alt="Platform: Raspberry Pi" src="https://img.shields.io/badge/platform-Raspberry%20Pi-blue">
   <img alt="UI: English" src="https://img.shields.io/badge/UI-English-informational">
   <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-green"></a>
