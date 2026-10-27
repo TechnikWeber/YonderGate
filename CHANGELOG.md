@@ -3,6 +3,9 @@
 All notable changes to YonderGate.
 
 ## Unreleased
+- **Telemetry with a sensor that never answers shows NO DATA** instead of an empty
+  panel. With the I2C driver present but no INA226 wired (or I2C switched off), every
+  read failed and no message was sent at all. Found by the new CI run on GitHub.
 - **License is now AGPL-3.0-or-later.** YonderGate had inherited YonderRC's
   CC BY-NC-ND text, vehicle warnings included. Modifying, sharing and commercial use are
   now allowed; a modified version that is passed on or run for others over a network
