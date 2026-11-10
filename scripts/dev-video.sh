@@ -8,7 +8,9 @@ BIN="./.runtime/go2rtc"
 CFG="./.runtime/go2rtc.yaml"   # written by the gateway from the camera list
 
 if ! command -v ffmpeg >/dev/null; then
-  echo "ffmpeg is required. On Fedora: sudo dnf install -y ffmpeg (see note below)."
+  echo "ffmpeg is required."
+  echo "  Debian/Ubuntu/Raspberry Pi OS: sudo apt install -y ffmpeg"
+  echo "  Fedora:                        sudo dnf install -y ffmpeg-free openh264"
   exit 1
 fi
 
@@ -19,6 +21,8 @@ ENCODERS=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)
 if ! echo "$ENCODERS" | grep -qE 'libx264|libopenh264|h264_v4l2m2m|h264_omx|h264_nvenc'; then
   echo
   echo "  ✗ Your ffmpeg has no usable H.264 encoder."
+  echo "    Debian/Ubuntu/Raspberry Pi OS: their ffmpeg package has libx264:"
+  echo "      sudo apt install -y ffmpeg"
   echo "    Easiest on Fedora — install openh264 (patent-free, works with ffmpeg-free):"
   echo "      sudo dnf install -y openh264 ffmpeg-free"
   echo "    Or the full ffmpeg with libx264 via RPM Fusion:"

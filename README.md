@@ -303,6 +303,15 @@ the captive portal open it for you.
 
 ## Development
 
+You need [Node.js](https://nodejs.org) 20 or newer (CI uses 22), Git, and for
+`npm run dev:video` also `ffmpeg` with an H.264 encoder.
+
+| System | Install once |
+| --- | --- |
+| Debian / Ubuntu | `sudo apt install git ffmpeg`, Node.js from [nodejs.org](https://nodejs.org/en/download) (the system package is often older than 20) |
+| Fedora | `sudo dnf install nodejs git ffmpeg-free openh264` |
+| macOS | `brew install node git ffmpeg` |
+
 ```bash
 npm install
 npm test          # pure logic: sensors, wifi, LTE, updater, proxy auth
