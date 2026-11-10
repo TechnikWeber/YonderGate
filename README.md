@@ -400,6 +400,17 @@ The living list of what is open. Ticked items are done and covered by tests.
 - [ ] Power behaviour on brownout: described in the hardware guide, but **not verified**
       on hardware
 
+## Security & legal
+
+YonderGate makes devices at a remote site reachable and can switch outputs there. It
+comes **"as is", without any warranty**; the author accepts **no liability**.
+
+- Set the **API secret**, keep access to your tailnet tight, and never forward the
+  setup page to the open internet. Keep the Pi's updates on.
+- Cameras: filming public spaces or other people's property is restricted in many
+  countries. LTE data costs are yours.
+- You use it **at your own risk.** See [`LICENSE`](LICENSE).
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE). Third-party components and further notes: [NOTICE.md](NOTICE.md).
