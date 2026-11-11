@@ -4,7 +4,6 @@
   <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-yellow">
   <a href="https://github.com/TechnikWeber/YonderGate/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/TechnikWeber/YonderGate?include_prereleases&label=download&color=2ea44f"></a>
   <a href="https://github.com/TechnikWeber/YonderGate/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/TechnikWeber/YonderGate/total?color=blue"></a>
-  <a href="https://github.com/TechnikWeber/YonderGate/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/TechnikWeber/YonderGate?style=flat&color=yellow"></a>
   <a href="https://github.com/TechnikWeber/YonderGate/actions/workflows/ci.yml"><img alt="tests" src="https://img.shields.io/github/actions/workflow/status/TechnikWeber/YonderGate/ci.yml?branch=main&label=tests"></a>
   <img alt="Platform: Raspberry Pi" src="https://img.shields.io/badge/platform-Raspberry%20Pi-blue">
   <img alt="UI: English" src="https://img.shields.io/badge/UI-English-informational">
