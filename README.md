@@ -29,6 +29,8 @@ Remote access · Health & alerts · Design**, each one a URL (`…/setup#sensors
 the default and dark is one click away under *Design*; the choice is stored on the
 gateway, so every phone that opens the page gets the same one.*
 
+**Contents:** [What works today](#what-works-today) · [Three ways to get the site online](#three-ways-to-get-the-site-online) · [How you reach your devices](#how-you-reach-your-devices) · [What it costs to run](#what-it-costs-to-run) · [Quick start (Raspberry Pi OS Lite, Bookworm)](#quick-start-raspberry-pi-os-lite-bookworm) · [Development](#development) · [TODO](#todo) · [Security & legal](#security--legal) · [License](#license)
+
 ## What works today
 
 - **Find what is on site**: *Scan* reads the kernel's neighbour table (instant),
