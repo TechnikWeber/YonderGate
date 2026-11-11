@@ -2,7 +2,9 @@
 
 All notable changes to YonderGate.
 
-## Unreleased
+## v0.19.0
+*A new license — AGPL-3.0-or-later — and NO DATA for a sensor that never answers.*
+
 - **Telemetry with a sensor that never answers shows NO DATA** instead of an empty
   panel. With the I2C driver present but no INA226 wired (or I2C switched off), every
   read failed and no message was sent at all. Found by the new CI run on GitHub.
